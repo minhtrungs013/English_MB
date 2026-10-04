@@ -1,56 +1,54 @@
-# Welcome to your Expo app 👋
+# Wordbook Mobile
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Expo (React Native) app for Wordbook. It talks to the **same NestJS API and MongoDB** as the
+web app (`D:\English`), so accounts, words, the library and settings are shared between web and phone.
 
-## Get started
+## Run on your phone (development)
 
-1. Install dependencies
-
-   ```bash
-   npm install
+1. Start the API (`D:\English_BE`): `npm run start:dev`.
+2. Put your PC's LAN address in `.env` (phone and PC must be on the same Wi-Fi):
    ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
+   EXPO_PUBLIC_API_URL=http://192.168.71.242:3000/api
    ```
+   `localhost` does not work from a phone — it means the phone itself.
+3. Allow port **3000** through Windows Firewall (inbound TCP) so the phone can reach the API.
+4. `npm install`, then `npm start` and scan the QR code with **Expo Go**.
 
-In the output, you'll find options to open the app in a
+> Expo runs on port **8082** here (see `package.json`), because McAfee Agent already uses 8081
+> on this PC.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Build an APK (EAS)
 
 ```bash
-npm run reset-project
+npx eas-cli@latest login            # your Expo account
+npx eas-cli@latest build -p android --profile preview
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+The `preview` profile in `eas.json` builds an installable `.apk` and sets `EXPO_PUBLIC_API_URL`.
+When the build finishes, EAS shows a link/QR code to download the APK onto the phone.
 
-### Other setup steps
+**Before building for real use**, deploy the API somewhere public with HTTPS and change
+`EXPO_PUBLIC_API_URL` in `eas.json` to that address. A LAN address like `http://192.168.x.x`
+only works while the phone is on the same network as this PC.
+Plain `http://` is allowed in the build (`usesCleartextTraffic` in `app.json`) for testing on a LAN;
+once the API has HTTPS you can remove that.
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+Android package name: `com.wordbook.app` (change it in `app.json` before publishing to Google Play;
+it can't be changed afterwards).
 
-## Learn more
+## Structure
 
-To learn more about developing your project with Expo, look at the following resources:
+- `src/app/` — screens (Expo Router). `(tabs)/` = Home, Library, Words, Practice; plus word detail,
+  add/edit form, library word, review (flashcards), quiz, settings, login.
+- `src/state/store.tsx` — app data and actions (same logic as the web app's state).
+- `src/lib/` — API client (`api.ts`, token in secure storage), shared types/helpers (`data.ts`, copied
+  from the web app), design tokens (`theme.ts`), icons, speech.
+- `src/components/` — UI pieces rebuilt from the web design.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Checks
 
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+```bash
+npx tsc --noEmit
+npx expo lint
+npx expo-doctor
+```
