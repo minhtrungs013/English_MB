@@ -45,6 +45,6 @@ it can't be changed afterwards).
 
 ```bash
 npx tsc --noEmit
-npx expo lint
+
 npx expo-doctor
 ```
