@@ -35,11 +35,12 @@ async function req<T>(method: string, path: string, body?: unknown): Promise<T> 
   if (sentToken) headers.Authorization = 'Bearer ' + sentToken;
   let res: Response;
   const ctl = new AbortController();
-  const timer = setTimeout(() => ctl.abort(), 15000);
+  // Generous timeout: a sleeping free-tier server (e.g. Render) can take ~1 minute to wake up.
+  const timer = setTimeout(() => ctl.abort(), 60000);
   try {
     res = await fetch(API_URL + path, { method, headers, body: body !== undefined ? JSON.stringify(body) : undefined, signal: ctl.signal });
   } catch {
-    throw new ApiError('Can’t reach the server at ' + API_URL + '. Check that the API is running and your phone is on the same network.', 0);
+    throw new ApiError('Can’t reach the server at ' + API_URL + '. Check your internet connection and try again.', 0);
   } finally {
     clearTimeout(timer);
   }
