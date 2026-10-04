@@ -89,15 +89,20 @@ export default function Library() {
         ? <ActivityIndicator color={t.primary} style={{ marginTop: 40 }} />
         : <EmptyState icon="search" tone="blue" title="No words found" text="Try a different keyword or topic." />}
       ListFooterComponent={more ? <ActivityIndicator color={t.primary} style={{ marginVertical: 16 }} /> : null}
-      renderItem={({ item: w }) => (
-        // The card content opens the word; the Save button sits beside it (not nested inside another button).
+      renderItem={({ item: w }) => {
+        const open = () => router.push({ pathname: '/library-word/[id]', params: { id: w.id } });
+        return (
+        // Tapping the card opens the word; the Save button sits beside the title, not inside another button.
         <View style={{ backgroundColor: t.surface, borderColor: t.border, borderWidth: 1, borderRadius: 16, overflow: 'hidden' }}>
-          <Pressable onPress={() => router.push({ pathname: '/library-word/[id]', params: { id: w.id } })} accessibilityRole="button" accessibilityLabel={w.word + ', ' + w.vi}
-            style={({ pressed }) => ({ padding: 16, paddingRight: 112, gap: 8, backgroundColor: pressed ? t.surface2 : 'transparent' })}>
-            <View>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingTop: 12, paddingRight: 12 }}>
+            <Pressable onPress={open} accessibilityRole="button" accessibilityLabel={w.word + ', ' + w.vi} style={{ flex: 1, paddingLeft: 16, paddingTop: 4 }}>
               <T size={18} weight="extrabold">{w.word}</T>
               <T size={12.5} tone="muted">{w.ipa}</T>
-            </View>
+            </Pressable>
+            <SaveFromLibrary w={w} />
+          </View>
+          <Pressable onPress={open} accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
+            style={({ pressed }) => ({ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 16, gap: 8, backgroundColor: pressed ? t.surface2 : 'transparent' })}>
             <View>
               <T weight="semibold">{w.vi}</T>
               <T size={13.5} tone="muted" numberOfLines={2}>{w.meaning}</T>
@@ -105,12 +110,12 @@ export default function Library() {
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
               <TopicBadge topic={w.topic} />
               <LevelBadge level={w.level} />
+              <T size={12.5} tone="muted" style={{ marginLeft: 'auto' }}>by {w.authorId ? (w.authorId === data.userId ? 'You' : w.authorName) : 'Wordbook'}</T>
             </View>
-            <T size={12.5} tone="muted">by {w.authorId ? (w.authorId === data.userId ? 'You' : w.authorName) : 'Wordbook'}</T>
           </Pressable>
-          <View style={{ position: 'absolute', top: 12, right: 12 }}><SaveFromLibrary w={w} /></View>
         </View>
-      )}
+        );
+      }}
     />
   );
 }

@@ -31,7 +31,7 @@ export function T({ children, size = 15, weight = 'regular', tone = 'text', styl
   const t = useTheme();
   const color = tone === 'white' ? '#fff' : (t as unknown as Record<string, string>)[tone];
   return (
-    <Text numberOfLines={numberOfLines} style={[{ fontFamily: FONT[weight], fontSize: size, color, lineHeight: Math.round(size * 1.45) }, center && { textAlign: 'center' }, style]}>
+    <Text numberOfLines={numberOfLines} style={[{ fontFamily: FONT[weight], fontSize: size, color, lineHeight: Math.round(size * 1.45), includeFontPadding: false }, center && { textAlign: 'center' }, style]}>
       {children}
     </Text>
   );
@@ -64,8 +64,10 @@ export function Button({ title, onPress, variant = 'primary', size = 'md', icon,
           opacity: off ? 0.55 : 1 },
         block && { alignSelf: 'stretch' }, style
       ]}>
-      {loading ? <ActivityIndicator size="small" color={c.fg} /> : icon ? <Icon name={icon} size={size === 'sm' ? 16 : 18} color={c.fg} /> : null}
+      {loading ? <ActivityIndicator size="small" color={c.fg} /> : icon && icon !== 'right' ? <Icon name={icon} size={size === 'sm' ? 16 : 18} color={c.fg} /> : null}
       <T weight="bold" size={size === 'sm' ? 13.5 : size === 'lg' ? 16 : 14.5} style={{ color: c.fg }}>{title}</T>
+      {/* A "next" arrow reads after the label. */}
+      {!loading && icon === 'right' ? <Icon name="right" size={size === 'sm' ? 16 : 18} color={c.fg} /> : null}
     </Pressable>
   );
 }
@@ -124,7 +126,7 @@ export function Divider() {
 /* ---------- badges & chips ---------- */
 export function Badge({ label, bg, fg }: { label: string; bg: string; fg: string }) {
   return (
-    <View style={{ height: 24, paddingHorizontal: 9, borderRadius: 7, backgroundColor: bg, justifyContent: 'center', alignSelf: 'flex-start' }}>
+    <View style={{ height: 24, paddingHorizontal: 9, borderRadius: 7, backgroundColor: bg, justifyContent: 'center', alignItems: 'center' }}>
       <T size={12.5} weight="bold" style={{ color: fg, lineHeight: 16 }}>{label}</T>
     </View>
   );
@@ -200,7 +202,7 @@ export function Input(props: TextInputProps & { invalid?: boolean; big?: boolean
           minHeight: big ? 56 : 46, paddingHorizontal: 14, paddingLeft: leftIcon ? 40 : 14, paddingVertical: multiline ? 11 : 0,
           borderWidth: 1, borderRadius: big ? 12 : 10, backgroundColor: t.surface, color: t.text,
           borderColor: invalid ? t.danger : focus ? t.primary : t.border,
-          fontFamily: big ? FONT.bold : FONT.regular, fontSize: big ? 20 : 15, textAlignVertical: multiline ? 'top' : 'center'
+          fontFamily: big ? FONT.bold : FONT.regular, fontSize: big ? 20 : 15, textAlignVertical: multiline ? 'top' : 'center', includeFontPadding: false
         }, multiline && { minHeight: 88 }, style]}
       />
     </View>

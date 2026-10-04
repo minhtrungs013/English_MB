@@ -116,7 +116,7 @@ export default function Review() {
     <View style={{ flex: 1, backgroundColor: t.bg }}>
       {bar}
       <ScrollView contentContainerStyle={{ flexGrow: 1, padding: 16, gap: 14, justifyContent: 'center' }}>
-        <Pressable onPress={() => !flipped && setFlipped(true)} accessibilityRole="button" accessibilityLabel={flipped ? word.word : 'Show answer'}>
+        <View>
           <Card style={{ minHeight: 360, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24, borderRadius: 22 }}>
             {!flipped ? (
               <>
@@ -128,7 +128,6 @@ export default function Review() {
                     <IconButton name="volume" label="Play pronunciation" size={38} color={t.primaryInk} onPress={() => speak(word.word)} />
                   </View>
                 )}
-                <T size={13} weight="semibold" tone="muted" style={{ marginTop: 12 }}>Tap the card to see the answer</T>
               </>
             ) : (
               <>
@@ -149,7 +148,7 @@ export default function Review() {
               </>
             )}
           </Card>
-        </Pressable>
+        </View>
         {!flipped ? (
           <Button title="Show Answer" size="lg" onPress={() => setFlipped(true)} />
         ) : (
