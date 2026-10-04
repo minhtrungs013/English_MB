@@ -143,14 +143,16 @@ export function PosBadge({ pos }: { pos: string }) {
   const t = useTheme();
   return <Badge label={pos} bg={t.surface2} fg={t.muted} />;
 }
-export const TOPIC_LABEL: Record<Topic, string> = { it: 'IT', interview: 'Interview', customer: 'Customer meetings', leader: 'Leader meetings', other: 'Other' };
+export const TOPIC_LABEL: Record<Topic, string> = { it: 'IT', interview: 'Interview', customer: 'Customer meetings', leader: 'Leader meetings', toeic: 'TOEIC', other: 'Other' };
 export function TopicBadge({ topic }: { topic: Topic }) {
   const t = useTheme();
   const m: Record<Topic, [string, string]> = {
     it: [t.infoSoft, t.info], interview: [t.primarySoft, t.primaryInk], customer: [t.successSoft, t.success],
-    leader: [t.orangeSoft, t.orange], other: [t.warningSoft, t.warning]
+    leader: [t.orangeSoft, t.orange], toeic: [t.dangerSoft, t.danger], other: [t.warningSoft, t.warning]
   };
-  return <Badge label={TOPIC_LABEL[topic]} bg={m[topic][0]} fg={m[topic][1]} />;
+  // Fall back gracefully if the server adds a topic this app version doesn't know yet.
+  const c = m[topic] ?? m.other;
+  return <Badge label={TOPIC_LABEL[topic] ?? topic} bg={c[0]} fg={c[1]} />;
 }
 
 export function Chip({ label, on, onPress, soft }: { label: string; on: boolean; onPress: () => void; soft?: boolean }) {

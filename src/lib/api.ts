@@ -63,7 +63,7 @@ export interface LookupResult {
 export interface User { id: string; name: string; email: string }
 export interface AuthResponse { accessToken: string; user: User }
 
-export type Topic = 'it' | 'interview' | 'customer' | 'leader' | 'other';
+export type Topic = 'it' | 'interview' | 'customer' | 'leader' | 'toeic' | 'other';
 export interface LibraryWord {
   id: string; word: string; ipa: string; pos: string; meaning: string; vi: string; ex: string;
   syn: string[]; ant: string[]; level: Word['level']; topic: Topic;

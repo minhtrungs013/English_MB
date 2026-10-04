@@ -9,7 +9,7 @@ import { LEVELS } from '../../lib/data';
 import { errMsg, useStore, useTheme } from '../../state/store';
 
 const PAGE = 30;
-const TOPICS: Topic[] = ['it', 'interview', 'customer', 'leader', 'other'];
+const TOPICS: Topic[] = ['it', 'interview', 'customer', 'leader', 'toeic', 'other'];
 
 export default function Library() {
   const { data, actions } = useStore();
@@ -58,7 +58,7 @@ export default function Library() {
     <View style={{ gap: 12, marginBottom: 12 }}>
       <View>
         <T size={26} weight="extrabold" style={{ letterSpacing: -0.5 }}>Vocabulary Library</T>
-        <T tone="muted" style={{ marginTop: 4 }}>Words for IT work, interviews and meetings — shared by everyone.</T>
+        <T tone="muted" style={{ marginTop: 4 }}>Words for IT work, interviews, meetings and TOEIC — shared by everyone.</T>
       </View>
       <Input value={q} onChangeText={setQ} placeholder="Search word, meaning or Vietnamese…" leftIcon="search" autoCapitalize="none" returnKeyType="search" accessibilityLabel="Search the library" />
       <ChipRow>
