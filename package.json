@@ -45,5 +45,10 @@
     "web": "expo start --web --port 8082",
     "lint": "expo lint"
   },
-  "private": true
+  "private": true,
+  "overrides": {
+    "@emnapi/core": "1.10.0",
+    "@emnapi/runtime": "1.10.0",
+    "@emnapi/wasi-threads": "1.2.1"
+  }
 }
