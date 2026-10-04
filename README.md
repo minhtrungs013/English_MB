@@ -3,19 +3,21 @@
 Expo (React Native) app for Wordbook. It talks to the **same NestJS API and MongoDB** as the
 web app (`D:\English`), so accounts, words, the library and settings are shared between web and phone.
 
+## Server
+
+The app uses the API deployed on Render: `https://english-be-ys8a.onrender.com/api`
+(set in `.env` for development and in `eas.json` for builds). The free Render plan sleeps after
+15 minutes without traffic, so the first request after that can take up to a minute.
+
 ## Run on your phone (development)
 
-1. Start the API (`D:\English_BE`): `npm run start:dev`.
-2. Put your PC's LAN address in `.env` (phone and PC must be on the same Wi-Fi):
-   ```
-   EXPO_PUBLIC_API_URL=http://192.168.71.242:3000/api
-   ```
-   `localhost` does not work from a phone — it means the phone itself.
-3. Allow port **3000** through Windows Firewall (inbound TCP) so the phone can reach the API.
-4. `npm install`, then `npm start` and scan the QR code with **Expo Go**.
+1. `npm install`, then `npm start` and scan the QR code with **Expo Go**.
+2. To use an API running on this PC instead, set `EXPO_PUBLIC_API_URL=http://<PC LAN IP>:3000/api` in `.env`
+   (phone and PC on the same Wi-Fi, port 3000 allowed through the firewall). Plain `http://` only works in
+   Expo Go / development builds, not in the release APK.
 
 > Expo runs on port **8082** here (see `package.json`), because McAfee Agent already uses 8081
-> on this PC.
+> on the office PC.
 
 ## Build an APK (EAS)
 
@@ -24,14 +26,8 @@ npx eas-cli@latest login            # your Expo account
 npx eas-cli@latest build -p android --profile preview
 ```
 
-The `preview` profile in `eas.json` builds an installable `.apk` and sets `EXPO_PUBLIC_API_URL`.
+The `preview` profile in `eas.json` builds an installable `.apk` pointed at the Render API.
 When the build finishes, EAS shows a link/QR code to download the APK onto the phone.
-
-**Before building for real use**, deploy the API somewhere public with HTTPS and change
-`EXPO_PUBLIC_API_URL` in `eas.json` to that address. A LAN address like `http://192.168.x.x`
-only works while the phone is on the same network as this PC.
-Plain `http://` is allowed in the build (`usesCleartextTraffic` in `app.json`) for testing on a LAN;
-once the API has HTTPS you can remove that.
 
 Android package name: `com.wordbook.app` (change it in `app.json` before publishing to Google Play;
 it can't be changed afterwards).
