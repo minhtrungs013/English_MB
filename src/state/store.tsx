@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import { useColorScheme } from 'react-native';
 import {
   api, ApiError, loadToken, setToken, setUnauthorizedHandler,
-  type AuthResponse, type LibraryWord, type Topic, type WordInput
+  type AuthResponse, type CourseDetail, type LibraryWord, type Topic, type WordInput
 } from '../lib/api';
 import { DAY, MIN, dayKey, isDue, type Category, type Data, type Rating, type Settings, type Word } from '../lib/data';
 import { setVoicePrefs, stopSpeaking } from '../lib/speech';
@@ -205,6 +205,23 @@ function useStoreState() {
     return ok;
   };
 
+  /* ---------- courses ---------- */
+  /** Saves an open course day into My Vocabulary. Returns the updated course, or undefined on failure (toast shown). */
+  const learnCourseDay = async (courseId: string, day: number): Promise<CourseDetail | undefined> => {
+    const res = await call(api.learnCourseDay(courseId, day));
+    if (!res) return undefined;
+    const ids = new Set(res.added.map((w) => w.id));
+    patch((d) => ({
+      words: [...res.added, ...d.words.filter((w) => !ids.has(w.id))],
+      tags: d.tags.includes(res.tag) ? d.tags : [...d.tags, res.tag]
+    }));
+    const n = res.added.length, k = res.skipped.length;
+    showToast(n || !k
+      ? 'Saved ' + n + (n === 1 ? ' word' : ' words') + (k ? ' · ' + k + ' already in your words' : '') + '.'
+      : 'All ' + k + (k === 1 ? ' word is' : ' words are') + ' already in your words.');
+    return res.course;
+  };
+
   /* ---------- settings (saved half a second after the last change) ---------- */
   const setSettings = (p: Partial<Settings>) => {
     patch((d) => ({ settings: { ...d.settings, ...p } }));
@@ -225,7 +242,7 @@ function useStoreState() {
       reload: load, login, register, logout, showToast, call,
       setAutofill: (q: Data['autofill']) => patch({ autofill: q }),
       saveWord, deleteWord, createTag, deleteTag, saveCategory, deleteCategory, rate, dueIds,
-      saveFromLibrary, shareWord, unshare, setSettings
+      saveFromLibrary, shareWord, unshare, learnCourseDay, setSettings
     }
   };
 }

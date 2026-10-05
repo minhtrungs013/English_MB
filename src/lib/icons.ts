@@ -38,6 +38,7 @@ export const IC = {
   cap: 'M22 10L12 5 2 10l10 5 10-5zM6 12v5c3 3 9 3 12 0v-5',
   coffee: 'M18 8h1a4 4 0 0 1 0 8h-1M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4zM6 1v3M10 1v3M14 1v3',
   plane: 'M22 2L11 13M22 2l-7 20-4-9-9-4z',
+  lock: 'M5 11h14v10H5zM8 11V7a4 4 0 0 1 8 0v4',
   menu: 'M3 12h18M3 6h18M3 18h18',
   download: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3',
   hash: 'M4 9h16M4 15h16M10 3L8 21M16 3l-2 18',

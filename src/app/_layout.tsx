@@ -55,6 +55,10 @@ function Root({ fontsReady }: { fontsReady: boolean }) {
           <Stack.Screen name="settings" />
           <Stack.Screen name="categories" />
           <Stack.Screen name="tags" />
+          <Stack.Screen name="courses" />
+          <Stack.Screen name="course/[id]/index" />
+          <Stack.Screen name="course/[id]/day/[day]" options={{ animation: 'slide_from_bottom' }} />
+          <Stack.Screen name="course-edit/[id]" />
         </Stack.Protected>
       </Stack>
     );

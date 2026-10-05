@@ -1,9 +1,10 @@
-import { router } from 'expo-router';
-import { useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { HomeSearch } from '../../components/home-search';
 import { Sheet, SheetItem } from '../../components/sheet';
 import { Button, Card, EmptyState, Icon, IconTile, LevelBadge, Screen, T } from '../../components/ui';
+import { api, type CourseSummary } from '../../lib/api';
 import { DAY, dayKey, fmtAgo, isDue } from '../../lib/data';
 import { useNow } from '../../hooks/use-now';
 import { useStore, useTheme } from '../../state/store';
@@ -16,6 +17,33 @@ function Stat({ icon, tone, value, label, foot }: { icon: Parameters<typeof Icon
       <T size={14} weight="semibold" tone="muted">{label}</T>
       {foot ? <T size={12.5} weight="semibold" tone="muted" style={{ marginTop: 4 }}>{foot}</T> : null}
     </Card>
+  );
+}
+
+/** Compact link to my first joined course (or to all courses). */
+function CoursesCard() {
+  const t = useTheme();
+  const [course, setCourse] = useState<CourseSummary | null | undefined>(undefined);
+  useFocusEffect(useCallback(() => {
+    let alive = true;
+    api.courses('joined').then((l) => { if (alive) setCourse(l[0] ?? null); }).catch(() => { if (alive) setCourse((c) => c ?? null); });
+    return () => { alive = false; };
+  }, []));
+  const e = course?.enrollment;
+  const learnedToday = !!e && e.learned.includes(e.currentDay);
+  const title = course && e ? 'Continue: ' + course.title : 'Explore courses';
+  const sub = course && e ? 'Day ' + e.currentDay + ' of ' + course.totalDays + (learnedToday ? ' · done for today' : ' · new words today') : 'Learn a few words every day for 30 days.';
+  return (
+    <Pressable onPress={() => (course ? router.push({ pathname: '/course/[id]', params: { id: course.id } }) : router.push('/courses'))}
+      accessibilityRole="button" accessibilityLabel={title + '. ' + sub}
+      style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, minHeight: 64, borderRadius: 16, borderWidth: 1, borderColor: t.border, backgroundColor: pressed ? t.surface2 : t.surface })}>
+      <IconTile name="cap" tone="indigo" />
+      <View style={{ flex: 1 }}>
+        <T weight="extrabold" numberOfLines={1}>{title}</T>
+        <T size={13} tone="muted" numberOfLines={1}>{sub}</T>
+      </View>
+      <Icon name="right" size={16} color={t.faint} />
+    </Pressable>
   );
 }
 
@@ -39,7 +67,7 @@ export default function Home() {
   const initial = (settings.name || '?').trim().charAt(0).toUpperCase();
   const [menu, setMenu] = useState(false);
   /** Close the account menu, then go (so the sheet doesn't stay open behind the next screen). */
-  const goTo = (path: '/categories' | '/tags' | '/settings') => { setMenu(false); router.push(path); };
+  const goTo = (path: '/courses' | '/categories' | '/tags' | '/settings') => { setMenu(false); router.push(path); };
 
   const startReview = () => {
     if (!actions.dueIds().length) { actions.showToast('No words are due right now.'); return; }
@@ -57,6 +85,7 @@ export default function Home() {
       }>
       <View style={{ gap: 12 }}>
         <HomeSearch />
+        <CoursesCard />
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <Stat icon="layers" tone="indigo" value={words.length} label="Total words" foot={'+' + week + ' this week'} />
           <Stat icon="clock" tone="amber" value={due} label="To review" />
@@ -120,6 +149,7 @@ export default function Home() {
         </View>
         <View style={{ height: 1, backgroundColor: t.border }} />
         <View>
+          <SheetItem icon="cap" label="Courses" onPress={() => goTo('/courses')} />
           <SheetItem icon="folder" label="Categories" onPress={() => goTo('/categories')} />
           <SheetItem icon="tag" label="Tags" onPress={() => goTo('/tags')} />
           <SheetItem icon="sliders" label="Settings" onPress={() => goTo('/settings')} />

@@ -76,6 +76,29 @@ export interface LibraryWord {
 export interface LibraryPage { items: LibraryWord[]; total: number; page: number; limit: number; topics: Record<Topic, number>; all: number }
 export interface LibraryQuery { q?: string; topic?: Topic; level?: string; source?: 'me' | 'community' | 'builtin'; page?: number; limit?: number }
 
+/* ---------- courses ---------- */
+export interface CourseWord {
+  word: string; ipa: string; pos: string; meaning: string; vi: string; ex: string;
+  syn: string[]; ant: string[]; level: Word['level'];
+  /** '' when the word isn't in the shared library. */
+  libraryId: string; source: 'library' | 'ai' | 'manual';
+}
+/** currentDay 1..30: day 1 is the day they joined, +1 each day (Vietnam time). */
+export type CourseEnrollment = { startDay: string; currentDay: number; learned: number[] } | null;
+export type CourseVisibility = 'private' | 'public';
+export interface CourseSummary {
+  id: string; title: string; description: string; ownerId: string; ownerName: string; isOwner: boolean;
+  visibility: CourseVisibility; wordsPerDay: number; totalDays: number; tag: string; readyDays: number; members: number;
+  /** Only sent to the owner. */
+  joinCode?: string;
+  enrollment: CourseEnrollment;
+}
+export interface CourseDay { day: number; count: number; /** null = locked for this learner. */ words: CourseWord[] | null }
+export interface CourseDetail extends CourseSummary { days: CourseDay[] }
+export interface CourseInput { title: string; description?: string; wordsPerDay?: number; visibility?: CourseVisibility }
+export interface AiWordResult { source: 'library' | 'ai' | 'online'; word: CourseWord; quota: Quota }
+export interface LearnResult { added: Word[]; skipped: string[]; tag: string; course: CourseDetail }
+
 export const api = {
   register: (name: string, email: string, password: string) => req<AuthResponse>('POST', '/auth/register', { name, email, password }),
   login: (email: string, password: string) => req<AuthResponse>('POST', '/auth/login', { email, password }),
@@ -109,5 +132,21 @@ export const api = {
   findInLibrary: (word: string) => req<{ word: LibraryWord | null }>('GET', '/library/find?word=' + encodeURIComponent(word)),
   saveFromLibrary: (id: string) => req<{ word: Word; tag: string }>('POST', '/library/' + id + '/save'),
   shareToLibrary: (wordId: string, topic: Topic) => req<LibraryWord>('POST', '/library/share', { wordId, topic }),
-  unshare: (id: string) => req<void>('DELETE', '/library/' + id)
+  unshare: (id: string) => req<void>('DELETE', '/library/' + id),
+
+  courses: (scope: 'joined' | 'mine' | 'public') => req<CourseSummary[]>('GET', '/courses?scope=' + scope),
+  createCourse: (c: CourseInput) => req<CourseDetail>('POST', '/courses', c),
+  course: (id: string) => req<CourseDetail>('GET', '/courses/' + id),
+  updateCourse: (id: string, c: Partial<CourseInput>) => req<CourseDetail>('PATCH', '/courses/' + id, c),
+  deleteCourse: (id: string) => req<void>('DELETE', '/courses/' + id),
+  /** Replaces the words of one day (owner only). */
+  setCourseDay: (id: string, day: number, words: CourseWord[]) => req<CourseDetail>('PUT', '/courses/' + id + '/days/' + day, { words }),
+  /** Word details for a course: the library's entry, or generated (daily limit). Not saved until the day is PUT. */
+  courseAiWord: (word: string) => req<AiWordResult>('POST', '/courses/ai-word', { word }),
+  shareCourseWord: (id: string, day: number, index: number, topic?: Topic) =>
+    req<CourseDetail>('POST', '/courses/' + id + '/days/' + day + '/words/' + index + '/library', topic ? { topic } : {}),
+  joinCourseByCode: (code: string) => req<CourseDetail>('POST', '/courses/join', { code }),
+  joinCourse: (id: string) => req<CourseDetail>('POST', '/courses/' + id + '/join'),
+  leaveCourse: (id: string) => req<void>('DELETE', '/courses/' + id + '/enrollment'),
+  learnCourseDay: (id: string, day: number) => req<LearnResult>('POST', '/courses/' + id + '/days/' + day + '/learn')
 };
