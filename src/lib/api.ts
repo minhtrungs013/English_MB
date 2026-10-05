@@ -6,7 +6,8 @@ export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000
 const TOKEN_KEY = 'wordbook_token';
 
 export class ApiError extends Error {
-  constructor(message: string, readonly status: number) { super(message); }
+  /** `body` is the server's JSON error, when there is one. */
+  constructor(message: string, readonly status: number, readonly body: Record<string, unknown> | null = null) { super(message); }
 }
 
 /* ---------- session token (kept in the device's secure storage) ---------- */
@@ -50,13 +51,15 @@ async function req<T>(method: string, path: string, body?: unknown): Promise<T> 
     const m = json?.message;
     const msg = Array.isArray(m) ? m.join(' ') : m || 'Request failed (' + res.status + ')';
     if (res.status === 401 && sentToken && sentToken === token && !path.startsWith('/auth/change-password')) onUnauthorized?.(msg);
-    throw new ApiError(msg, res.status);
+    throw new ApiError(msg, res.status, json);
   }
   return json as T;
 }
 
 export type WordInput = Omit<Word, 'id' | 'status' | 'dueAt' | 'addedAt' | 'hist'>;
+export interface Quota { used: number; limit: number }
 export interface LookupResult {
+  quota?: Quota;
   source: 'collection' | 'builtin' | 'online';
   ipa?: string; pos?: string; meaning?: string; vi?: string; ex?: string; syn?: string[]; ant?: string[]; level?: Word['level'];
 }

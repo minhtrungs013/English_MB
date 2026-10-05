@@ -46,6 +46,7 @@ export default function WordForm() {
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   const [looking, setLooking] = useState(false);
+  const autofillLeft = Math.max(0, data.autofill.limit - data.autofill.used);
   const libMatch = useLibraryMatch(word, !editing);
   const mineMatch = !editing && word.trim() ? data.words.find((w) => w.word.toLowerCase() === word.trim().toLowerCase()) : undefined;
   const [usingLib, setUsingLib] = useState(false);
@@ -64,6 +65,7 @@ export default function WordForm() {
     setLooking(true);
     try {
       const d = await api.lookup(w);
+      if (d.quota) actions.setAutofill(d.quota);
       if (d.ipa) setIpa(d.ipa);
       if (d.pos) setPos(d.pos);
       if (d.meaning) setMeaning(d.meaning);
@@ -74,6 +76,10 @@ export default function WordForm() {
       if (d.level) setLevel(d.level);
       actions.showToast('Details filled in — review them before saving.');
     } catch (e) {
+      const quota = e instanceof ApiError ? (e.body?.quota as { used: number; limit: number } | undefined) : undefined;
+      if (quota) actions.setAutofill(quota);
+      // Daily limit reached: mark today's auto-fills as used up.
+      if (e instanceof ApiError && e.status === 429) actions.setAutofill({ ...data.autofill, used: data.autofill.limit });
       actions.showToast(e instanceof ApiError && e.status === 404 ? 'No details found for “' + w + '”. Fill them in yourself.' : errMsg(e), 'bad');
     } finally {
       setLooking(false);
@@ -128,11 +134,15 @@ export default function WordForm() {
               <Button title="Save from library" icon="plus" loading={usingLib} onPress={useLibraryWord} />
             </View>
           ) : (
-            <Button title={looking ? 'Looking up…' : 'Auto-fill details'} icon="sparkle" loading={looking} onPress={autofill} />
+            <Button title={looking ? 'Looking up…' : autofillLeft <= 0 ? 'No auto-fills left today' : 'Auto-fill details'} icon="sparkle" loading={looking} disabled={autofillLeft <= 0} onPress={autofill} />
           )}
           <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
             <Icon name="sparkle" size={14} color={t.primary} />
-            <T size={12.5} tone="muted" style={{ flex: 1 }}>Optional — every field below can be filled in or edited by hand.</T>
+            <T size={12.5} tone="muted" style={{ flex: 1 }}>
+              {autofillLeft > 0
+                ? 'Optional — ' + autofillLeft + ' of ' + data.autofill.limit + ' auto-fills left today. Every field below can be filled in or edited by hand.'
+                : 'You’ve used today’s ' + data.autofill.limit + ' auto-fills — fill in the details by hand, or try again tomorrow.'}
+            </T>
           </View>
         </Card>
 

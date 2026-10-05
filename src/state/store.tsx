@@ -12,7 +12,7 @@ export interface Toast { msg: string; kind: 'ok' | 'bad' }
 type Status = 'booting' | 'auth' | 'loading' | 'ready' | 'error';
 
 const EMPTY: Data = {
-  words: [], cats: [], tags: [], shared: [], userId: '',
+  words: [], cats: [], tags: [], shared: [], userId: '', autofill: { used: 0, limit: 3 },
   settings: { name: '', email: '', goal: '20', dir: 'en-vi', autoplay: true, showEx: true, theme: 'light', accent: 'indigo', voice: '', rate: 0.9, pitch: 1 },
   progress: { streak: 0, lastStreakDay: '', reviewedDay: '', reviewedToday: 0 }
 };
@@ -50,7 +50,7 @@ function useStoreState() {
     setLoadError('');
     try {
       const d = await api.bootstrap();
-      setData({ ...EMPTY, ...d, settings: { ...EMPTY.settings, ...d.settings } });
+      setData({ ...EMPTY, ...d, autofill: d.autofill ?? EMPTY.autofill, settings: { ...EMPTY.settings, ...d.settings } });
       setStatus('ready');
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) return; // already logged out
@@ -223,6 +223,7 @@ function useStoreState() {
     data, status, loadError, toast,
     actions: {
       reload: load, login, register, logout, showToast, call,
+      setAutofill: (q: Data['autofill']) => patch({ autofill: q }),
       saveWord, deleteWord, createTag, deleteTag, saveCategory, deleteCategory, rate, dueIds,
       saveFromLibrary, shareWord, unshare, setSettings
     }
