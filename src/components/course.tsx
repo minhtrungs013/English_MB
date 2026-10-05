@@ -8,6 +8,20 @@ import { Badge, Icon, IconButton, LevelBadge, T } from './ui';
 
 export const WORDS_PER_DAY = [3, 4, 5, 6, 7, 8, 9, 10];
 
+/** "45s", "3m 05s", "1h 02m" from milliseconds. */
+export function fmtDuration(ms: number): string {
+  const s = Math.max(0, Math.round(ms / 1000));
+  if (s < 60) return s + 's';
+  const m = Math.floor(s / 60);
+  if (m < 60) return m + 'm ' + String(s % 60).padStart(2, '0') + 's';
+  return Math.floor(m / 60) + 'h ' + String(m % 60).padStart(2, '0') + 'm';
+}
+
+/** Badge colors for a homework score (0–100). */
+export function scoreColors(score: number, t: { successSoft: string; success: string; warningSoft: string; warning: string; dangerSoft: string; danger: string }): [string, string] {
+  return score >= 80 ? [t.successSoft, t.success] : score >= 50 ? [t.warningSoft, t.warning] : [t.dangerSoft, t.danger];
+}
+
 /** Thin progress bar (0–100). */
 export function Progress({ pct, color, height = 6 }: { pct: number; color?: string; height?: number }) {
   const t = useTheme();

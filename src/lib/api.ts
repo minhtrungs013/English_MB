@@ -93,11 +93,52 @@ export interface CourseSummary {
   joinCode?: string;
   enrollment: CourseEnrollment;
 }
-export interface CourseDay { day: number; count: number; /** null = locked for this learner. */ words: CourseWord[] | null }
+export interface CourseDay {
+  day: number; count: number; /** null = locked for this learner. */ words: CourseWord[] | null;
+  /** My final homework score for this day (only when enrolled and handed in). */
+  myScore?: number | null;
+}
 export interface CourseDetail extends CourseSummary { days: CourseDay[] }
 export interface CourseInput { title: string; description?: string; wordsPerDay?: number; visibility?: CourseVisibility }
 export interface AiWordResult { source: 'library' | 'ai' | 'online'; word: CourseWord; quota: Quota }
 export interface LearnResult { added: Word[]; skipped: string[]; tag: string; course: CourseDetail }
+
+/* ---------- homework & leaderboard ---------- */
+export type HomeworkType = 'meaning' | 'word' | 'type' | 'blank';
+export interface HomeworkQuestion {
+  type: HomeworkType;
+  /** A word from an earlier day. */
+  review: boolean;
+  prompt: string; hint: string;
+  /** Empty for typed answers ('type' / 'blank'). */
+  choices: string[];
+}
+export interface HomeworkReviewItem extends HomeworkQuestion { yourAnswer: string; answer: string; correct: boolean }
+export interface HomeworkResult {
+  /** Final score after the late penalty (0–100). */
+  score: number;
+  /** Score before the penalty (0–100). */
+  raw: number;
+  correct: number; total: number; lateDays: number;
+  /** % of the score kept: 100 on time, then 80, 60, 50. */
+  penalty: number;
+  durationMs: number; submittedAt: number | string;
+  review: HomeworkReviewItem[];
+}
+export interface Homework {
+  day: number; total: number; lateDays: number; penalty: number;
+  questions: HomeworkQuestion[];
+  submission: HomeworkResult | null;
+}
+export type BoardRow<T> = { rank: number; name: string; me: boolean } & T;
+export interface Board<T> { rows: BoardRow<T>[]; me: BoardRow<T> | null; count: number }
+export type DayBoardRow = { score: number; correct: number; total: number; lateDays: number; durationMs: number };
+export type OverallBoardRow = { score: number; days: number };
+export type StreakBoardRow = { streak: number; score: number };
+export interface Leaderboard {
+  day: number; maxDay: number; members: number;
+  dayBoard: Board<DayBoardRow>; overall: Board<OverallBoardRow>; streak: Board<StreakBoardRow>;
+}
 
 export const api = {
   register: (name: string, email: string, password: string) => req<AuthResponse>('POST', '/auth/register', { name, email, password }),
@@ -148,5 +189,11 @@ export const api = {
   joinCourseByCode: (code: string) => req<CourseDetail>('POST', '/courses/join', { code }),
   joinCourse: (id: string) => req<CourseDetail>('POST', '/courses/' + id + '/join'),
   leaveCourse: (id: string) => req<void>('DELETE', '/courses/' + id + '/enrollment'),
-  learnCourseDay: (id: string, day: number) => req<LearnResult>('POST', '/courses/' + id + '/days/' + day + '/learn')
+  learnCourseDay: (id: string, day: number) => req<LearnResult>('POST', '/courses/' + id + '/days/' + day + '/learn'),
+  /** Opening the homework starts its timer (time breaks ties), so only call this when the learner starts. */
+  getHomework: (id: string, day: number) => req<Homework>('GET', '/courses/' + id + '/days/' + day + '/homework'),
+  /** One answer per question, in order ('' when left blank). Can be handed in once. */
+  submitHomework: (id: string, day: number, answers: string[]) =>
+    req<HomeworkResult>('POST', '/courses/' + id + '/days/' + day + '/homework', { answers }),
+  getLeaderboard: (id: string, day?: number) => req<Leaderboard>('GET', '/courses/' + id + '/leaderboard' + (day ? '?day=' + day : ''))
 };

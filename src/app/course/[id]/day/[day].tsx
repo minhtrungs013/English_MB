@@ -1,9 +1,9 @@
-import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CourseWordCard } from '../../../../components/course';
-import { BackBar, Badge, Button, EmptyState, T } from '../../../../components/ui';
+import { CourseWordCard, scoreColors } from '../../../../components/course';
+import { BackBar, Badge, Button, Card, EmptyState, IconTile, T } from '../../../../components/ui';
 import { api, type CourseDetail } from '../../../../lib/api';
 import { errMsg, useStore, useTheme } from '../../../../state/store';
 
@@ -17,9 +17,12 @@ export default function CourseDayScreen() {
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    api.course(id).then(setC).catch((e) => setErr(errMsg(e)));
-  }, [id]);
+  // Reload on focus so a homework score shows up when coming back from the homework screen.
+  useFocusEffect(useCallback(() => {
+    let live = true;
+    api.course(id).then((res) => { if (live) { setC(res); setErr(''); } }).catch((e) => { if (live) setErr(errMsg(e)); });
+    return () => { live = false; };
+  }, [id]));
 
   const d = c?.days.find((x) => x.day === day);
   if (!c || !d) {
@@ -56,6 +59,37 @@ export default function CourseDayScreen() {
         : <Button title="Mark day as learned" icon="check" size="lg" loading={busy} onPress={learn} block />;
   }
 
+  // Homework: for learners, once the day is open and has words.
+  const openHomework = () => router.push({ pathname: '/course/[id]/homework/[day]', params: { id: c.id, day: String(day) } });
+  const score = d.myScore ?? null;
+  const late = e ? e.currentDay - day : 0;
+  let homework = null;
+  if (canLearn) {
+    const [sBg, sFg] = score !== null ? scoreColors(score, t) : [t.primarySoft, t.primaryInk];
+    homework = (
+      <Card style={{ gap: 12, marginTop: 4 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          {score !== null ? (
+            <View accessible accessibilityLabel={'Homework score ' + score} style={{ width: 52, height: 52, borderRadius: 14, backgroundColor: sBg, alignItems: 'center', justifyContent: 'center' }}>
+              <T size={20} weight="extrabold" style={{ color: sFg }}>{score}</T>
+            </View>
+          ) : <IconTile name="listcheck" tone="indigo" size={52} />}
+          <View style={{ flex: 1 }}>
+            <T size={16.5} weight="extrabold">Homework</T>
+            <T size={13} tone="muted">
+              {score !== null ? 'Handed in · score ' + score + ' / 100'
+                : late > 0 ? late + (late === 1 ? ' day' : ' days') + ' late · score will be reduced'
+                : 'Test yourself on these words. Hand in today for full marks.'}
+            </T>
+          </View>
+        </View>
+        {score !== null
+          ? <Button title="See answers" icon="right" variant="secondary" onPress={openHomework} block />
+          : <Button title="Start homework" icon="right" onPress={openHomework} block />}
+      </Card>
+    );
+  }
+
   return (
     <View style={{ flex: 1, backgroundColor: t.bg }}>
       <BackBar title={c.title} />
@@ -75,6 +109,7 @@ export default function CourseDayScreen() {
             {mine.has(w.word.toLowerCase()) ? <View style={{ flexDirection: 'row', marginTop: 4 }}><Badge label="✓ In my words" bg={t.successSoft} fg={t.success} /></View> : null}
           </CourseWordCard>
         ))}
+        {homework}
       </ScrollView>
       {footer ? (
         <View style={{ padding: 12, paddingBottom: insets.bottom + 12, backgroundColor: t.surface, borderTopWidth: 1, borderTopColor: t.border }}>{footer}</View>

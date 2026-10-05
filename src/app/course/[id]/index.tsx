@@ -1,7 +1,7 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, View } from 'react-native';
-import { Progress } from '../../../components/course';
+import { Progress, scoreColors } from '../../../components/course';
 import { BackBar, Badge, Button, Card, EmptyState, Icon, IconButton, SectionTitle, T } from '../../../components/ui';
 import { api, type CourseDay, type CourseDetail } from '../../../lib/api';
 import { errMsg, useStore, useTheme } from '../../../state/store';
@@ -78,6 +78,8 @@ export default function CourseScreen() {
       : s === 'open' ? d.count + ' words'
       : s === 'locked' ? d.count + ' words · opens on day ' + d.day
       : 'Coming soon';
+    const score = d.myScore ?? null;
+    const [sBg, sFg] = score !== null ? scoreColors(score, t) : ['', ''];
     const icon = s === 'learned' ? 'check' : s === 'locked' ? 'lock' : s === 'empty' ? 'clock' : 'book';
     const tint = s === 'learned' ? [t.successSoft, t.success] : s === 'today' ? [t.primary, '#fff'] : s === 'open' ? [t.primarySoft, t.primaryInk] : [t.surface2, t.faint];
     const body = (
@@ -89,17 +91,19 @@ export default function CourseScreen() {
           <T weight="extrabold" style={s === 'locked' || s === 'empty' ? { color: t.muted } : undefined}>Day {d.day}</T>
           <T size={13} tone={s === 'today' ? 'primaryInk' : 'muted'} weight={s === 'today' ? 'bold' : 'regular'}>{sub}</T>
         </View>
+        {score !== null ? <Badge label={String(score)} bg={sBg} fg={sFg} /> : null}
         {tappable ? <Icon name="right" size={16} color={t.faint} /> : null}
       </>
     );
+    const a11y = 'Day ' + d.day + ', ' + sub + (score !== null ? ', homework score ' + score : '');
     const rowStyle = { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 12, minHeight: 60, paddingHorizontal: 14, borderTopWidth: i ? 1 : 0, borderTopColor: t.border };
     return tappable ? (
-      <Pressable key={d.day} onPress={() => openDay(d)} accessibilityRole="button" accessibilityLabel={'Day ' + d.day + ', ' + sub}
+      <Pressable key={d.day} onPress={() => openDay(d)} accessibilityRole="button" accessibilityLabel={a11y}
         style={({ pressed }) => [rowStyle, { backgroundColor: pressed ? t.surface2 : s === 'today' ? t.primarySoft : 'transparent' }]}>
         {body}
       </Pressable>
     ) : (
-      <View key={d.day} style={rowStyle} accessible accessibilityLabel={'Day ' + d.day + ', ' + sub}>{body}</View>
+      <View key={d.day} style={rowStyle} accessible accessibilityLabel={a11y}>{body}</View>
     );
   };
 
@@ -131,6 +135,10 @@ export default function CourseScreen() {
             <Button title={c.isOwner ? 'Take this course yourself' : 'Join course'} icon="plus" loading={busy} onPress={join} variant={c.isOwner ? 'secondary' : 'primary'} block />
           ) : null}
         </Card>
+
+        {e || c.isOwner ? (
+          <Button title="Leaderboard" icon="trophy" variant="secondary" onPress={() => router.push({ pathname: '/course/[id]/leaderboard', params: { id: c.id } })} block />
+        ) : null}
 
         {c.isOwner && c.joinCode ? (
           <Card style={{ gap: 6 }}>
