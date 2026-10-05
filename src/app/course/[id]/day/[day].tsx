@@ -50,13 +50,19 @@ export default function CourseDayScreen() {
     if (res) setC(res);
   };
 
+  // Learning happens on the learn screen (meet the words, then practice); saving straight away stays available.
+  const openLearn = () => router.push({ pathname: '/course/[id]/learn/[day]', params: { id: c.id, day: String(day) } });
   let footer = null;
-  if (canLearn) {
-    footer = newCount > 0
-      ? <Button title={'Save ' + newCount + (newCount === 1 ? ' word' : ' words') + ' to My Vocabulary'} icon="plus" size="lg" loading={busy} onPress={learn} block />
-      : learned
-        ? <Button title="All saved · Back to course" icon="check" variant="secondary" size="lg" onPress={() => router.back()} block />
-        : <Button title="Mark day as learned" icon="check" size="lg" loading={busy} onPress={learn} block />;
+  if (canLearn && !learned) {
+    footer = (
+      <View style={{ gap: 6 }}>
+        <Button title="Start learning" icon="right" size="lg" onPress={openLearn} block />
+        <Button title={newCount > 0 ? 'Skip practice — save ' + newCount + (newCount === 1 ? ' word' : ' words') : 'Skip practice — mark day as learned'}
+          variant="ghost" loading={busy} onPress={learn} block />
+      </View>
+    );
+  } else if (words.length && d.words !== null) {
+    footer = <Button title="Practice these words" icon="right" variant={learned ? 'secondary' : 'primary'} size="lg" onPress={openLearn} block />;
   }
 
   // Homework: for learners, once the day is open and has words.

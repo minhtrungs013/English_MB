@@ -92,6 +92,7 @@ export default function CourseScreen() {
 
   const params = (day: number) => ({ id: c.id, day: String(day) });
   const openDay = (day: number) => router.push({ pathname: '/course/[id]/day/[day]', params: params(day) });
+  const openLearn = (day: number) => router.push({ pathname: '/course/[id]/learn/[day]', params: params(day) });
   const openWarmup = (day: number) => router.push({ pathname: '/course/[id]/warmup/[day]', params: params(day) });
   const openHomework = (day: number) => router.push({ pathname: '/course/[id]/homework/[day]', params: params(day) });
   const openBoard = () => router.push({ pathname: '/course/[id]/leaderboard', params: { id: c.id } });
@@ -205,7 +206,7 @@ export default function CourseScreen() {
           <StepCard key="learn" n={n} total={total} icon="book" title="Learn today’s words" state={s.state}
             sub={s.state === 'done' ? words + (words === 1 ? ' word' : ' words') + ' saved to My Vocabulary' : words + ' new ' + (words === 1 ? 'word' : 'words') + ' today'}
             lockedText="Unlocks after you review old lessons">
-            <Button title="Start learning" icon="right" onPress={() => openDay(p.day)} block />
+            <Button title="Start learning" icon="right" onPress={() => openLearn(p.day)} block />
           </StepCard>
         );
       }
