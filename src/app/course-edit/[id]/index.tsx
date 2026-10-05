@@ -1,11 +1,11 @@
-import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
-import { CourseWordCard, WORDS_PER_DAY } from '../../components/course';
-import { Sheet } from '../../components/sheet';
-import { BackBar, Button, Card, Chip, ChipRow, EmptyState, Field, Icon, IconButton, Input, LevelBadge, SectionTitle, T, TOPIC_LABEL } from '../../components/ui';
-import { api, ApiError, type AiWordResult, type CourseDetail, type CourseVisibility, type CourseWord, type LibraryWord, type Quota, type Topic } from '../../lib/api';
-import { errMsg, useStore, useTheme } from '../../state/store';
+import { CourseWordCard, WORDS_PER_DAY } from '../../../components/course';
+import { Sheet } from '../../../components/sheet';
+import { BackBar, Badge, Button, Card, Chip, ChipRow, EmptyState, Field, Icon, IconButton, IconTile, Input, LevelBadge, SectionTitle, T, TOPIC_LABEL } from '../../../components/ui';
+import { api, ApiError, type AiWordResult, type CourseDetail, type CourseVisibility, type CourseWord, type LibraryWord, type Quota, type Topic } from '../../../lib/api';
+import { errMsg, useStore, useTheme } from '../../../state/store';
 
 const TOPICS: Topic[] = ['it', 'interview', 'customer', 'leader', 'toeic', 'other'];
 
@@ -95,14 +95,21 @@ export default function CourseEdit() {
   const [sharingBusy, setSharingBusy] = useState(false);
   const lib = useLibrarySearch(q);
 
-  useEffect(() => {
+  const first = useRef(true);
+  // Reload on focus so the question counts update when coming back from a day's questions.
+  useFocusEffect(useCallback(() => {
+    let live = true;
     api.course(id).then((res) => {
+      if (!live) return;
       setC(res);
+      if (!first.current) return;
+      first.current = false;
       // Start on the first day that still has room.
       const open = res.days.find((d) => d.count < res.wordsPerDay);
       if (open) setSel(open.day);
-    }).catch((e) => setErr(errMsg(e)));
-  }, [id]);
+    }).catch((e) => { if (live) setErr(errMsg(e)); });
+    return () => { live = false; };
+  }, [id]));
 
   if (!c) {
     return (
@@ -128,6 +135,8 @@ export default function CourseEdit() {
   const term = q.trim().toLowerCase();
   const matches = (lib?.items ?? []).filter((w) => !inDay.has(w.word.toLowerCase()));
   const exact = (lib?.items ?? []).some((w) => w.word.toLowerCase() === term);
+  const bank = day.bank ?? { pending: 0, approved: 0 };
+  const openQuestions = () => router.push({ pathname: '/course-edit/[id]/questions/[day]', params: { id: c.id, day: String(day.day) } });
   const aiLeft = quota ? Math.max(0, quota.limit - quota.used) : null;
 
   /** Saves the selected day's words; returns true when the server accepted them. */
@@ -208,7 +217,7 @@ export default function CourseEdit() {
         <SectionTitle style={{ marginTop: 4 }}>Days</SectionTitle>
         <ChipRow>
           {c.days.map((d) => (
-            <Chip key={d.day} label={d.day + ' · ' + d.count + '/' + c.wordsPerDay} on={d.day === sel} soft={d.count >= c.wordsPerDay}
+            <Chip key={d.day} label={d.day + ' · ' + d.count + '/' + c.wordsPerDay + (d.bank?.pending ? ' · ' + d.bank.pending + ' to review' : '')} on={d.day === sel} soft={d.count >= c.wordsPerDay}
               onPress={() => { setSel(d.day); setAi(null); }} />
           ))}
         </ChipRow>
@@ -219,6 +228,17 @@ export default function CourseEdit() {
             <T size={13.5} weight="bold" tone={full ? 'success' : 'muted'}>{words.length}/{c.wordsPerDay} words</T>
           </View>
           {words.length === 0 ? <T tone="muted">No words yet. Add some below.</T> : null}
+          <Pressable onPress={openQuestions} accessibilityRole="button"
+            accessibilityLabel={'Tense questions and recap for day ' + day.day + ', ' + bank.approved + ' approved, ' + bank.pending + ' waiting for review'}
+            style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: t.border, backgroundColor: pressed ? t.surface2 : t.surface })}>
+            <IconTile name="listcheck" tone="indigo" />
+            <View style={{ flex: 1, gap: 2 }}>
+              <T weight="extrabold">Tense questions & recap</T>
+              <T size={13} tone="muted">{bank.approved} approved{bank.pending ? ' · ' + bank.pending + ' to review' : ''}</T>
+            </View>
+            {bank.pending ? <Badge label={String(bank.pending)} bg={t.warningSoft} fg={t.warning} /> : null}
+            <Icon name="right" size={16} color={t.faint} />
+          </Pressable>
         </Card>
 
         {words.map((w, i) => (

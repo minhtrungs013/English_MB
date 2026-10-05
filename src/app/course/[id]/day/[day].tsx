@@ -104,6 +104,19 @@ export default function CourseDayScreen() {
             : words.length + (words.length === 1 ? ' word' : ' words') + (newCount < words.length ? ' · ' + (words.length - newCount) + ' already in your words' : '') + '. Tap the speaker to hear each one.'}
         </T>
         {!e && words.length ? <T size={13.5} tone="muted">Preview — join the course to save these words.</T> : null}
+        {canLearn && day >= 2 ? (
+          <Card style={{ gap: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <IconTile name="zap" tone="amber" size={52} />
+              <View style={{ flex: 1 }}>
+                <T size={16.5} weight="extrabold">Warm-up</T>
+                <T size={13} tone="muted">A short recap of earlier days and a few practice questions. Optional, not graded.</T>
+              </View>
+            </View>
+            <Button title="Start warm-up" icon="right" variant="secondary" block
+              onPress={() => router.push({ pathname: '/course/[id]/warmup/[day]', params: { id: c.id, day: String(day) } })} />
+          </Card>
+        ) : null}
         {words.map((w) => (
           <CourseWordCard key={w.word} w={w}>
             {mine.has(w.word.toLowerCase()) ? <View style={{ flexDirection: 'row', marginTop: 4 }}><Badge label="✓ In my words" bg={t.successSoft} fg={t.success} /></View> : null}

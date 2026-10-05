@@ -97,23 +97,58 @@ export interface CourseDay {
   day: number; count: number; /** null = locked for this learner. */ words: CourseWord[] | null;
   /** My final homework score for this day (only when enrolled and handed in). */
   myScore?: number | null;
+  /** Question bank counts for this day (owner only). */
+  bank?: { pending: number; approved: number };
 }
 export interface CourseDetail extends CourseSummary { days: CourseDay[] }
 export interface CourseInput { title: string; description?: string; wordsPerDay?: number; visibility?: CourseVisibility }
 export interface AiWordResult { source: 'library' | 'ai' | 'online'; word: CourseWord; quota: Quota }
 export interface LearnResult { added: Word[]; skipped: string[]; tag: string; course: CourseDetail }
 
+/* ---------- tense question bank (owner) ---------- */
+export const TENSES = ['present-simple', 'present-continuous', 'present-perfect', 'past-simple', 'past-continuous', 'future-simple', 'going-to'] as const;
+export type Tense = (typeof TENSES)[number];
+/** Same labels as the server's `tenseLabel` (for pickers, before an item comes back from the server). */
+export const TENSE_LABEL: Record<Tense, string> = {
+  'present-simple': 'Present simple',
+  'present-continuous': 'Present continuous',
+  'present-perfect': 'Present perfect',
+  'past-simple': 'Past simple',
+  'past-continuous': 'Past continuous',
+  'future-simple': 'Future simple (will)',
+  'going-to': 'Future (be going to)'
+};
+/**
+ * 'tense': typed — a sentence with one "___" and the base verb in brackets.
+ * 'tenseChoice': the same with 4 choices. 'recap': a short story of earlier words (explain = Vietnamese translation).
+ */
+export type BankKind = 'tense' | 'tenseChoice' | 'recap';
+export type BankStatus = 'pending' | 'approved' | 'rejected';
+export interface BankItem {
+  id: string; day: number; kind: BankKind; word: string;
+  /** '' for recaps. */
+  tense: Tense | ''; tenseLabel: string;
+  prompt: string; choices: string[]; answer: string; accept: string[]; explain: string;
+  source: 'ai' | 'template' | 'manual'; status: BankStatus;
+}
+export interface BankItemInput { kind: BankKind; word?: string; tense?: Tense | ''; prompt: string; choices?: string[]; answer?: string; accept?: string[]; explain?: string }
+export interface GenerateResult { source: 'ai' | 'template'; added: number; quota: Quota; items: BankItem[] }
+
 /* ---------- homework & leaderboard ---------- */
-export type HomeworkType = 'meaning' | 'word' | 'type' | 'blank';
+export type HomeworkType = 'meaning' | 'word' | 'type' | 'blank' | 'tense' | 'tenseChoice';
 export interface HomeworkQuestion {
   type: HomeworkType;
   /** A word from an earlier day. */
   review: boolean;
   prompt: string; hint: string;
-  /** Empty for typed answers ('type' / 'blank'). */
+  /** Empty for typed answers ('type' / 'blank' / 'tense'). */
   choices: string[];
 }
-export interface HomeworkReviewItem extends HomeworkQuestion { yourAnswer: string; answer: string; correct: boolean }
+export interface HomeworkReviewItem extends HomeworkQuestion {
+  yourAnswer: string; answer: string; correct: boolean;
+  /** Tense questions only. */
+  tense?: string; tenseLabel?: string; explain?: string;
+}
 export interface HomeworkResult {
   /** Final score after the late penalty (0–100). */
   score: number;
@@ -130,6 +165,20 @@ export interface Homework {
   questions: HomeworkQuestion[];
   submission: HomeworkResult | null;
 }
+/* ---------- warm-up (learner, not graded) ---------- */
+export interface WarmupQuestion {
+  type: HomeworkType; word: string; prompt: string; hint: string; choices: string[];
+  answer: string; accept: string[]; tense: string; tenseLabel: string; explain: string;
+}
+export interface Warmup {
+  day: number;
+  /** The day's approved recap story; `vi` is its Vietnamese translation. */
+  recap: { text: string; vi: string } | null;
+  /** Words from earlier days; `missed` = how many times the learner got it wrong. */
+  words: { word: string; ipa: string; vi: string; meaning: string; missed: number }[];
+  questions: WarmupQuestion[];
+}
+
 export type BoardRow<T> = { rank: number; name: string; me: boolean } & T;
 export interface Board<T> { rows: BoardRow<T>[]; me: BoardRow<T> | null; count: number }
 export type DayBoardRow = { score: number; correct: number; total: number; lateDays: number; durationMs: number };
@@ -195,5 +244,20 @@ export const api = {
   /** One answer per question, in order ('' when left blank). Can be handed in once. */
   submitHomework: (id: string, day: number, answers: string[]) =>
     req<HomeworkResult>('POST', '/courses/' + id + '/days/' + day + '/homework', { answers }),
+  /** Practice before the homework. Not graded: answers are included and checked on the device. */
+  getWarmup: (id: string, day: number) => req<Warmup>('GET', '/courses/' + id + '/days/' + day + '/warmup'),
+
+  /* question bank (owner) */
+  courseQuestions: (id: string, day: number) => req<BankItem[]>('GET', '/courses/' + id + '/questions?day=' + day),
+  /** Can take 10–40 s. New items wait for approval. */
+  generateQuestions: (id: string, day: number, opts: { tenses?: Tense[]; perWord?: number }) =>
+    req<GenerateResult>('POST', '/courses/' + id + '/days/' + day + '/questions/generate', opts),
+  /** Written by the owner, so approved straight away. A recap replaces the day's recap. */
+  createQuestion: (id: string, day: number, q: BankItemInput) => req<BankItem>('POST', '/courses/' + id + '/days/' + day + '/questions', q),
+  updateQuestion: (id: string, qid: string, q: Partial<BankItemInput> & { status?: BankStatus }) =>
+    req<BankItem>('PATCH', '/courses/' + id + '/questions/' + qid, q),
+  setQuestionsStatus: (id: string, ids: string[], status: BankStatus) => req<unknown>('POST', '/courses/' + id + '/questions/status', { ids, status }),
+  deleteQuestion: (id: string, qid: string) => req<void>('DELETE', '/courses/' + id + '/questions/' + qid),
+
   getLeaderboard: (id: string, day?: number) => req<Leaderboard>('GET', '/courses/' + id + '/leaderboard' + (day ? '?day=' + day : ''))
 };

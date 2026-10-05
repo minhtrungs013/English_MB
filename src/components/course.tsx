@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import type { ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
-import type { CourseSummary, CourseWord } from '../lib/api';
+import type { CourseSummary, CourseWord, HomeworkType } from '../lib/api';
 import { speak } from '../lib/speech';
 import { useTheme } from '../state/store';
 import { Badge, Icon, IconButton, LevelBadge, T } from './ui';
@@ -98,3 +98,45 @@ export function CourseWordCard({ w, right, children }: { w: CourseWord; right?: 
     </View>
   );
 }
+
+/** How the server compares typed answers: lowercase, straight quotes, single spaces, no punctuation at the ends. */
+export function normAnswer(s: string): string {
+  return s.toLowerCase().replace(/[‘’‛′]/g, "'").replace(/[“”‟″]/g, '"')
+    .replace(/\s+/g, ' ').trim().replace(/^[\s.,!?;:'"()[\]{}…-]+|[\s.,!?;:'"()[\]{}…-]+$/g, '');
+}
+/** True when `input` matches the answer or one of the accepted alternatives. */
+export function isCorrect(input: string, answer: string, accept: string[] = []): boolean {
+  const a = normAnswer(input);
+  return !!a && [answer, ...accept].some((x) => normAnswer(x) === a);
+}
+
+/** Tense name and the (Vietnamese) explanation of a tense question. Renders nothing for other questions. */
+export function TenseNote({ label, explain }: { label?: string; explain?: string }) {
+  const t = useTheme();
+  if (!label && !explain) return null;
+  return (
+    <View style={{ gap: 6, borderRadius: 10, padding: 10, backgroundColor: t.infoSoft }}>
+      {label ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Icon name="clock" size={14} color={t.info} />
+          <T size={13} weight="extrabold" tone="info">{label}</T>
+        </View>
+      ) : null}
+      {explain ? <T size={13.5}>{explain}</T> : null}
+    </View>
+  );
+}
+
+/** The instruction shown above a homework / warm-up question. */
+export const ASK: Record<HomeworkType, string> = {
+  meaning: 'What does this word mean?',
+  word: 'Which word has this meaning?',
+  type: 'Type the word that means',
+  blank: 'Fill in the missing word',
+  tense: 'Put the verb in brackets in the right tense',
+  tenseChoice: 'Choose the right verb form'
+};
+/** Answered by typing (the others have choices). */
+export const isTyped = (q: { type: HomeworkType; choices: string[] }) => q.type === 'type' || q.type === 'blank' || q.type === 'tense' || !q.choices.length;
+/** The prompt is a whole sentence (shown smaller than a single word). */
+export const isSentence = (q: { type: HomeworkType }) => q.type === 'blank' || q.type === 'tense' || q.type === 'tenseChoice';

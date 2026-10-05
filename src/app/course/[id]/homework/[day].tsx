@@ -2,7 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, BackHandler, KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { fmtDuration, Progress, scoreColors } from '../../../../components/course';
+import { ASK, fmtDuration, isSentence, isTyped, Progress, scoreColors, TenseNote } from '../../../../components/course';
 import { BackBar, Badge, Button, Card, EmptyState, Icon, IconButton, IconTile, Input, SectionTitle, T } from '../../../../components/ui';
 import { api, ApiError, type CourseDetail, type Homework, type HomeworkQuestion, type HomeworkResult } from '../../../../lib/api';
 import { speak } from '../../../../lib/speech';
@@ -10,14 +10,7 @@ import { errMsg, useStore, useTheme } from '../../../../state/store';
 
 type Phase = 'intro' | 'loading' | 'quiz' | 'sending' | 'result';
 
-const ASK: Record<HomeworkQuestion['type'], string> = {
-  meaning: 'What does this word mean?',
-  word: 'Which word has this meaning?',
-  type: 'Type the word that means',
-  blank: 'Fill in the missing word'
-};
-const TYPE_LABEL: Record<HomeworkQuestion['type'], string> = { meaning: 'Meaning', word: 'Word', type: 'Spelling', blank: 'Sentence' };
-const typed = (q: HomeworkQuestion) => q.type === 'type' || q.type === 'blank' || !q.choices.length;
+const TYPE_LABEL: Record<HomeworkQuestion['type'], string> = { meaning: 'Meaning', word: 'Word', type: 'Spelling', blank: 'Sentence', tense: 'Tense', tenseChoice: 'Tense' };
 
 export default function HomeworkScreen() {
   const { id, day: dayParam } = useLocalSearchParams<{ id: string; day: string }>();
@@ -144,7 +137,7 @@ export default function HomeworkScreen() {
             const fg = r.correct ? t.success : t.danger;
             return (
               <View key={k} accessible
-                accessibilityLabel={'Question ' + (k + 1) + ', ' + (r.correct ? 'correct' : 'wrong') + '. ' + r.prompt + '. Your answer: ' + (r.yourAnswer || 'empty') + (r.correct ? '' : '. Correct answer: ' + r.answer)}
+                accessibilityLabel={'Question ' + (k + 1) + ', ' + (r.correct ? 'correct' : 'wrong') + '. ' + r.prompt + '. Your answer: ' + (r.yourAnswer || 'empty') + (r.correct ? '' : '. Correct answer: ' + r.answer) + (r.tenseLabel ? '. ' + r.tenseLabel : '') + (r.explain ? '. ' + r.explain : '')}
                 style={{ backgroundColor: t.surface, borderColor: r.correct ? t.border : t.danger, borderWidth: 1, borderRadius: 16, padding: 14, gap: 6 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                   <Icon name={r.correct ? 'checkc' : 'alert'} size={18} color={fg} />
@@ -161,6 +154,7 @@ export default function HomeworkScreen() {
                     <T size={13.5} weight="semibold" style={{ color: t.success }}>Correct: {r.answer}</T>
                   </View>
                 ) : null}
+                <TenseNote label={r.tenseLabel} explain={r.explain} />
               </View>
             );
           })}
@@ -200,12 +194,12 @@ export default function HomeworkScreen() {
             </View>
             <T size={14} weight="bold" tone="muted">{ASK[q.type] ?? ''}</T>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <T size={q.type === 'blank' ? 19 : 24} weight="extrabold" style={{ flex: 1, letterSpacing: q.type === 'blank' ? 0 : -0.4 }}>{q.prompt}</T>
+              <T size={isSentence(q) ? 19 : 24} weight="extrabold" style={{ flex: 1, letterSpacing: isSentence(q) ? 0 : -0.4 }}>{q.prompt}</T>
               {q.type === 'meaning' ? <IconButton name="volume" label={'Play ' + q.prompt} color={t.primaryInk} onPress={() => speak(q.prompt)} /> : null}
             </View>
             {q.hint ? <T size={13.5} tone="muted">{q.type === 'meaning' ? q.hint : 'Hint: ' + q.hint}</T> : null}
 
-            {typed(q) ? (
+            {isTyped(q) ? (
               <Input key={i} value={a} onChangeText={setA} placeholder="Type your answer…" autoFocus autoCapitalize="none" autoCorrect={false}
                 spellCheck={false} returnKeyType={last ? 'done' : 'next'} submitBehavior={last ? 'blurAndSubmit' : 'submit'}
                 onSubmitEditing={() => (last ? handIn() : next())} editable={!sending} accessibilityLabel={'Answer to question ' + (i + 1)} />
