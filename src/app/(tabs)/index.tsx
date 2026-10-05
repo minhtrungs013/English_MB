@@ -1,7 +1,7 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, View } from 'react-native';
-import { coursePlan, planNextLabel, type CoursePlan } from '../../components/course';
+import { coursePlan, fmtDateKey, planNextLabel, type CoursePlan } from '../../components/course';
 import { HomeSearch } from '../../components/home-search';
 import { Sheet, SheetItem } from '../../components/sheet';
 import { Button, Card, EmptyState, Icon, IconTile, LevelBadge, Screen, T } from '../../components/ui';
@@ -31,9 +31,11 @@ function CoursesCard() {
     api.courses('joined')
       .then(async (l) => {
         if (!alive) return;
-        setCourse(l[0] ?? null);
+        // Prefer a course that has started over one still waiting for its start date.
+        const first = l.find((x) => (x.enrollment?.currentDay ?? 0) >= 1) ?? l[0];
+        setCourse(first ?? null);
         // The list has no per-day data; the course itself says what today's next step is.
-        const d = l[0] ? await api.course(l[0].id) : null;
+        const d = first ? await api.course(first.id) : null;
         const p = d ? coursePlan(d) : null;
         if (alive) setPlan(d && p ? { id: d.id, p } : null);
       })
@@ -41,9 +43,13 @@ function CoursesCard() {
     return () => { alive = false; };
   }, []));
   const e = course?.enrollment;
-  const title = course && e ? 'Continue: ' + course.title : 'Explore courses';
+  // Day 0: joined, but the course's start date hasn't come yet.
+  const upcoming = !!e && e.currentDay < 1;
+  const title = course && e ? (upcoming ? 'Coming up: ' : 'Continue: ') + course.title : 'Explore courses';
   const sub = course && e
-    ? 'Day ' + e.currentDay + ' of ' + course.totalDays + (plan && plan.id === course.id ? ' · ' + planNextLabel(plan.p) : '')
+    ? upcoming
+      ? 'Starts ' + fmtDateKey(e.startDay)
+      : 'Day ' + e.currentDay + ' of ' + course.totalDays + (plan && plan.id === course.id ? ' · ' + planNextLabel(plan.p) : '')
     : 'Learn a few words every day for 30 days.';
   return (
     <Pressable onPress={() => (course ? router.push({ pathname: '/course/[id]', params: { id: course.id } }) : router.push('/courses'))}

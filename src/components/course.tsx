@@ -33,17 +33,13 @@ export function Progress({ pct, color, height = 6 }: { pct: number; color?: stri
   );
 }
 
-/** "Day 4 of 30 · 3 learned" for a learner, or '' when not joined. */
-export function courseProgressLabel(c: CourseSummary): string {
-  const e = c.enrollment;
-  return e ? 'Day ' + e.currentDay + ' of ' + c.totalDays + ' · ' + e.learned.length + ' learned' : '';
-}
-
-/* ---------- today's plan (learner) ---------- */
+/* ---------- course dates ('YYYY-MM-DD', Vietnam time like the server) ---------- */
 
 const DAY_MS = 86400000;
 /** Course days follow Vietnam time (UTC+7 all year, no daylight saving), like the server. */
 const VN_OFFSET_MS = 7 * 3600000;
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 /** Whole days since 1970-01-01 for today in Vietnam. */
 function vnToday(now: number): number { return Math.floor((now + VN_OFFSET_MS) / DAY_MS); }
 /** Whole days since 1970-01-01 for a 'YYYY-MM-DD' key. */
@@ -51,6 +47,53 @@ function keyDays(key: string): number {
   const [y, m, d] = key.split('-').map(Number);
   return Math.floor(Date.UTC(y, (m || 1) - 1, d || 1) / DAY_MS);
 }
+/** 'YYYY-MM-DD' for whole days since 1970-01-01. */
+function daysKey(days: number): string { return new Date(days * DAY_MS).toISOString().slice(0, 10); }
+/** Today's course date key in Vietnam. */
+export function courseTodayKey(now = Date.now()): string { return daysKey(vnToday(now)); }
+/** The key `n` days after `key` (negative = before). */
+export function addDaysKey(key: string, n: number): string { return daysKey(keyDays(key) + n); }
+/** Days from `a` to `b` (positive when `b` is later). */
+export function daysBetweenKeys(a: string, b: string): number { return keyDays(b) - keyDays(a); }
+/** True for a real calendar date written as 'YYYY-MM-DD'. */
+export function isDateKey(key: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(key) && daysKey(keyDays(key)) === key;
+}
+/** Days in a month (`m` is 1–12). */
+export function daysInMonth(y: number, m: number): number { return new Date(Date.UTC(y, m, 0)).getUTCDate(); }
+/** "10 Oct" (with the year when it isn't this year), or "Fri, 10 Oct 2026" with `long`. */
+export function fmtDateKey(key: string, long = false, now = Date.now()): string {
+  const [y, m, d] = key.split('-').map(Number);
+  const base = d + ' ' + MONTHS[(m || 1) - 1];
+  if (long) return WEEKDAYS[new Date(Date.UTC(y, (m || 1) - 1, d || 1)).getUTCDay()] + ', ' + base + ' ' + y;
+  return y === Number(courseTodayKey(now).slice(0, 4)) ? base : base + ' ' + y;
+}
+/** "Starts 10 Oct" / "Starts today" / "Started 3 Oct" for a course with a start date, else ''. */
+export function courseStartLabel(c: Pick<CourseSummary, 'startDate'>, now = Date.now()): string {
+  if (!c.startDate) return '';
+  const diff = daysBetweenKeys(courseTodayKey(now), c.startDate);
+  const when = fmtDateKey(c.startDate, false, now);
+  return diff > 0 ? 'Starts ' + when : diff === 0 ? 'Starts today' : 'Started ' + when;
+}
+/** The date a learner's course day opens (day 1 = their start day). */
+export function dayOpensOn(startDay: string, day: number): string { return addDaysKey(startDay, day - 1); }
+
+/** "Day 4 of 30 · 3 learned" for a learner ("Starts 10 Oct" before the course starts), or '' when not joined. */
+export function courseProgressLabel(c: CourseSummary): string {
+  const e = c.enrollment;
+  if (!e) return '';
+  if (e.currentDay < 1) return 'Starts ' + fmtDateKey(e.startDay);
+  return 'Day ' + e.currentDay + ' of ' + c.totalDays + ' · ' + e.learned.length + ' learned';
+}
+
+/** What a learner sees after joining: "Day 1 is open!", "Day 6 is open!" or "The course starts on Fri, 10 Oct 2026." */
+export function joinedMessage(c: CourseSummary): string {
+  const e = c.enrollment;
+  if (!e) return '';
+  return e.currentDay < 1 ? 'The course starts on ' + fmtDateKey(e.startDay, true) + '.' : 'Day ' + e.currentDay + ' is open!';
+}
+
+/* ---------- today's plan (learner) ---------- */
 /** Days since `day` opened for this learner (0 = it opened today). */
 export function lateDaysFor(startDay: string, day: number, now = Date.now()): number {
   return Math.max(0, vnToday(now) - (keyDays(startDay) + day - 1));
@@ -75,8 +118,10 @@ export interface CoursePlan {
   steps: { id: PlanStepId; state: PlanStepState }[];
   /** Today's homework score, once handed in. */
   score: number | null;
-  /** The step to do now, or 'done' when today's steps are all finished (or 'empty'). */
-  next: PlanStepId | 'done' | 'empty';
+  /** The step to do now, or 'done' when today's steps are all finished (or 'empty'; 'upcoming' before the course starts). */
+  next: PlanStepId | 'done' | 'empty' | 'upcoming';
+  /** Before the course starts (day 0): the 'YYYY-MM-DD' day 1 opens. Otherwise ''. */
+  startsOn: string;
 }
 
 /** The learner's guided plan for today, or null when not taking the course. */
@@ -84,6 +129,10 @@ export function coursePlan(c: CourseDetail, now = Date.now()): CoursePlan | null
   const e = c.enrollment;
   if (!e) return null;
   const day = e.currentDay;
+  // Day 0: the course has a start date that hasn't come yet, so nothing is open.
+  if (day < 1) {
+    return { day: 0, totalDays: c.totalDays, today: undefined, empty: true, catchUp: [], hasReview: false, steps: [], score: null, next: 'upcoming', startsOn: e.startDay };
+  }
   const today = c.days.find((d) => d.day === day);
   const empty = !today || !today.count || !today.words?.length;
   const catchUp = c.days
@@ -101,11 +150,12 @@ export function coursePlan(c: CourseDetail, now = Date.now()): CoursePlan | null
   // Strictly in order: the first unfinished step is the one to do; later ones wait for it.
   const firstOpen = order.find((s) => !done[s]);
   const steps = order.map((id) => ({ id, state: (done[id] ? 'done' : id === firstOpen ? 'active' : 'locked') as PlanStepState }));
-  return { day, totalDays: c.totalDays, today, empty, catchUp, hasReview, steps, score, next: empty ? 'empty' : firstOpen ?? 'done' };
+  return { day, totalDays: c.totalDays, today, empty, catchUp, hasReview, steps, score, next: empty ? 'empty' : firstOpen ?? 'done', startsOn: '' };
 }
 
 /** Short "what to do next" for the Home card. */
 export function planNextLabel(p: CoursePlan): string {
+  if (p.next === 'upcoming') return 'Starts ' + fmtDateKey(p.startsOn);
   if (p.next === 'review') return 'Next: review old lessons';
   if (p.next === 'learn') return 'Next: learn today’s words';
   if (p.next === 'homework') return 'Next: today’s homework';
@@ -120,9 +170,11 @@ export function CourseCard({ c }: { c: CourseSummary }) {
   const e = c.enrollment;
   const owner = c.isOwner ? 'You' : c.ownerName;
   const label = courseProgressLabel(c);
+  const start = courseStartLabel(c);
+  const upcoming = !!c.startDate && start.startsWith('Starts');
   return (
     <Pressable onPress={() => router.push({ pathname: '/course/[id]', params: { id: c.id } })} accessibilityRole="button"
-      accessibilityLabel={c.title + ', by ' + owner + ', ' + c.readyDays + ' of ' + c.totalDays + ' days ready' + (label ? ', ' + label : '')}
+      accessibilityLabel={c.title + ', by ' + owner + ', ' + c.readyDays + ' of ' + c.totalDays + ' days ready' + (start ? ', ' + start : '') + (label && label !== start ? ', ' + label : '')}
       style={({ pressed }) => ({ backgroundColor: pressed ? t.surface2 : t.surface, borderColor: t.border, borderWidth: 1, borderRadius: 16, padding: 16, gap: 10 })}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         <View style={{ width: 44, height: 44, borderRadius: 13, backgroundColor: t.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
@@ -138,6 +190,7 @@ export function CourseCard({ c }: { c: CourseSummary }) {
         <Badge label={c.readyDays + '/' + c.totalDays + ' days ready'} bg={t.surface2} fg={t.muted} />
         <Badge label={c.members + (c.members === 1 ? ' member' : ' members')} bg={t.surface2} fg={t.muted} />
         <Badge label={c.wordsPerDay + ' words/day'} bg={t.surface2} fg={t.muted} />
+        {start ? <Badge label={start} bg={upcoming ? t.infoSoft : t.surface2} fg={upcoming ? t.info : t.muted} /> : null}
         {c.visibility === 'private' ? <Badge label="Private" bg={t.warningSoft} fg={t.warning} /> : null}
       </View>
       {e ? (

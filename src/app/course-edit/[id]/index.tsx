@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
 import { CourseWordCard, WORDS_PER_DAY } from '../../../components/course';
 import { Sheet } from '../../../components/sheet';
+import { StartDateField, startDateError } from '../../../components/start-date';
 import { BackBar, Badge, Button, Card, Chip, ChipRow, EmptyState, Field, Icon, IconButton, IconTile, Input, LevelBadge, SectionTitle, T, TOPIC_LABEL } from '../../../components/ui';
 import { api, ApiError, type AiWordResult, type CourseDetail, type CourseVisibility, type CourseWord, type LibraryWord, type Quota, type Topic } from '../../../lib/api';
 import { errMsg, useStore, useTheme } from '../../../state/store';
@@ -30,26 +31,35 @@ function useLibrarySearch(q: string): { term: string; items: LibraryWord[] } | n
   return term && res?.term === term ? res : null;
 }
 
-/** Title, description, words per day and visibility (saved with PATCH). */
+/** Title, description, words per day, visibility and start date (saved with PATCH). */
 function SettingsCard({ c, onSaved }: { c: CourseDetail; onSaved: (c: CourseDetail) => void }) {
   const { actions } = useStore();
   const [title, setTitle] = useState(c.title);
   const [description, setDescription] = useState(c.description);
   const [wordsPerDay, setWordsPerDay] = useState(c.wordsPerDay);
   const [visibility, setVisibility] = useState<CourseVisibility>(c.visibility);
+  const [startDate, setStartDate] = useState(c.startDate ?? '');
   const [err, setErr] = useState('');
+  const [startErr, setStartErr] = useState('');
   const [busy, setBusy] = useState(false);
-  const dirty = title.trim() !== c.title || description.trim() !== c.description || wordsPerDay !== c.wordsPerDay || visibility !== c.visibility;
+  const startChanged = startDate !== (c.startDate ?? '');
+  const dirty = title.trim() !== c.title || description.trim() !== c.description || wordsPerDay !== c.wordsPerDay || visibility !== c.visibility || startChanged;
   const most = Math.max(0, ...c.days.map((d) => d.count));
   const save = async () => {
     if (!title.trim()) { setErr('Please enter a course title.'); return; }
+    const se = startDateError(startDate);
+    if (se) { setStartErr(se); return; }
     setBusy(true);
     try {
-      const res = await api.updateCourse(c.id, { title: title.trim(), description: description.trim(), wordsPerDay, visibility });
+      // Only send the start date when it changed: changing it moves every learner's days.
+      const res = await api.updateCourse(c.id, { title: title.trim(), description: description.trim(), wordsPerDay, visibility, ...(startChanged ? { startDate } : {}) });
       onSaved(res);
+      setStartDate(res.startDate ?? '');
       actions.showToast('Course details saved.');
     } catch (e) {
-      actions.showToast(errMsg(e), 'bad');
+      const m = errMsg(e);
+      if (/start date/i.test(m)) setStartErr(m);
+      actions.showToast(m, 'bad');
     } finally {
       setBusy(false);
     }
@@ -73,6 +83,8 @@ function SettingsCard({ c, onSaved }: { c: CourseDetail; onSaved: (c: CourseDeta
           <Chip soft label="Public" on={visibility === 'public'} onPress={() => setVisibility('public')} />
         </View>
       </Field>
+      <StartDateField value={startDate} onChange={(v) => { setStartDate(v); setStartErr(''); }} totalDays={c.totalDays} error={startErr}
+        note={startChanged && c.members > 0 ? 'This changes the days of all ' + c.members + (c.members === 1 ? ' learner' : ' learners') + ' when you save.' : undefined} />
       <Button title={dirty ? 'Save details' : 'Saved'} icon="check" loading={busy} disabled={!dirty} onPress={save} />
     </Card>
   );

@@ -1,8 +1,9 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, View } from 'react-native';
-import { CourseCard, WORDS_PER_DAY } from '../components/course';
+import { CourseCard, joinedMessage, WORDS_PER_DAY } from '../components/course';
 import { Sheet } from '../components/sheet';
+import { StartDateField, startDateError } from '../components/start-date';
 import { BackBar, Button, Card, Chip, EmptyState, Field, IconButton, Input, SectionTitle, T } from '../components/ui';
 import { api, type CourseSummary, type CourseVisibility } from '../lib/api';
 import { errMsg, useStore, useTheme } from '../state/store';
@@ -16,25 +17,31 @@ function CreateSheet({ visible, onClose }: { visible: boolean; onClose: () => vo
   const [description, setDescription] = useState('');
   const [wordsPerDay, setWordsPerDay] = useState(5);
   const [visibility, setVisibility] = useState<CourseVisibility>('private');
+  const [startDate, setStartDate] = useState('');
   const [err, setErr] = useState('');
+  const [startErr, setStartErr] = useState('');
   const [busy, setBusy] = useState(false);
   const create = async () => {
     if (!title.trim()) { setErr('Please enter a course title.'); return; }
+    const se = startDateError(startDate);
+    if (se) { setStartErr(se); return; }
     setBusy(true);
     try {
-      const c = await api.createCourse({ title: title.trim(), description: description.trim(), wordsPerDay, visibility });
+      const c = await api.createCourse({ title: title.trim(), description: description.trim(), wordsPerDay, visibility, startDate });
       actions.showToast('Course “' + c.title + '” created. Add words to its days.');
-      setTitle(''); setDescription(''); setWordsPerDay(5); setVisibility('private');
+      setTitle(''); setDescription(''); setWordsPerDay(5); setVisibility('private'); setStartDate('');
       onClose();
       router.push({ pathname: '/course-edit/[id]', params: { id: c.id } });
     } catch (e) {
-      setErr(errMsg(e));
+      // Date problems (400 "Start date …") belong under the Start setting; the rest under the title.
+      const m = errMsg(e);
+      if (/start date/i.test(m)) setStartErr(m); else setErr(m);
     } finally {
       setBusy(false);
     }
   };
   return (
-    <Sheet visible={visible} onClose={onClose} title="Create Course">
+    <Sheet visible={visible} onClose={onClose} title="Create Course" scroll>
       <Field label="Title" error={err}>
         <Input value={title} onChangeText={(v) => { setTitle(v); setErr(''); }} placeholder="30 days of IT English" autoFocus invalid={!!err} maxLength={80} />
       </Field>
@@ -52,6 +59,7 @@ function CreateSheet({ visible, onClose }: { visible: boolean; onClose: () => vo
           <Chip soft label="Public" on={visibility === 'public'} onPress={() => setVisibility('public')} />
         </View>
       </Field>
+      <StartDateField value={startDate} onChange={(v) => { setStartDate(v); setStartErr(''); }} error={startErr} />
       <View style={{ flexDirection: 'row', gap: 10 }}>
         <Button title="Cancel" variant="secondary" onPress={onClose} style={{ flex: 1 }} />
         <Button title="Create" loading={busy} onPress={create} style={{ flex: 1 }} />
@@ -90,7 +98,7 @@ export default function Courses() {
     setJoining(false);
     if (c) {
       setCode('');
-      actions.showToast('Joined “' + c.title + '”. Day 1 is open!');
+      actions.showToast('Joined “' + c.title + '”. ' + joinedMessage(c));
       router.push({ pathname: '/course/[id]', params: { id: c.id } });
     }
   };

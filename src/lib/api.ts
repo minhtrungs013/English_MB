@@ -84,7 +84,9 @@ export interface CourseWord {
   libraryId: string; source: 'library' | 'ai' | 'manual';
 }
 /**
- * currentDay 1..30: day 1 is the day they joined ('YYYY-MM-DD' startDay), +1 each day (Vietnam time).
+ * currentDay 1..30: day 1 is the learner's 'YYYY-MM-DD' startDay, +1 each day (Vietnam time).
+ * startDay is the course's startDate when it has one, else the day they joined.
+ * currentDay is 0 before the course's start date: nothing is open yet (day words are null).
  * warmedUp: days whose warm-up (review of earlier days) was finished or skipped.
  */
 export type CourseEnrollment = { startDay: string; currentDay: number; learned: number[]; warmedUp: number[] } | null;
@@ -92,6 +94,8 @@ export type CourseVisibility = 'private' | 'public';
 export interface CourseSummary {
   id: string; title: string; description: string; ownerId: string; ownerName: string; isOwner: boolean;
   visibility: CourseVisibility; wordsPerDay: number; totalDays: number; tag: string; readyDays: number; members: number;
+  /** '' = self-paced (each learner's day 1 is the day they join); 'YYYY-MM-DD' = day 1 for everyone (Vietnam time). */
+  startDate: string;
   /** Only sent to the owner. */
   joinCode?: string;
   enrollment: CourseEnrollment;
@@ -104,7 +108,8 @@ export interface CourseDay {
   bank?: { pending: number; approved: number };
 }
 export interface CourseDetail extends CourseSummary { days: CourseDay[] }
-export interface CourseInput { title: string; description?: string; wordsPerDay?: number; visibility?: CourseVisibility }
+/** `startDate`: 'YYYY-MM-DD', or '' for self-paced ('' on PATCH clears it). */
+export interface CourseInput { title: string; description?: string; wordsPerDay?: number; visibility?: CourseVisibility; startDate?: string }
 export interface AiWordResult { source: 'library' | 'ai' | 'online'; word: CourseWord; quota: Quota }
 export interface SaveWordsResult { added: Word[]; skipped: string[]; tag: string }
 export interface LearnResult extends SaveWordsResult { course: CourseDetail }

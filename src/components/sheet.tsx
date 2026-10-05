@@ -1,14 +1,15 @@
 import type { ReactNode } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../state/store';
 import type { IconName } from '../lib/icons';
 import { Icon, IconButton, T } from './ui';
 
-/** Bottom sheet (the mobile counterpart of the web app's menus and dialogs). */
-export function Sheet({ visible, onClose, title, children }: { visible: boolean; onClose: () => void; title?: string; children: ReactNode }) {
+/** Bottom sheet (the mobile counterpart of the web app's menus and dialogs). `scroll` lets tall content scroll under the title. */
+export function Sheet({ visible, onClose, title, children, scroll }: { visible: boolean; onClose: () => void; title?: string; children: ReactNode; scroll?: boolean }) {
   const t = useTheme();
   const insets = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
       <View style={{ flex: 1, justifyContent: 'flex-end' }}>
@@ -23,7 +24,9 @@ export function Sheet({ visible, onClose, title, children }: { visible: boolean;
                 <IconButton name="x" label="Close" onPress={onClose} />
               </View>
             ) : null}
-            {children}
+            {scroll ? (
+              <ScrollView style={{ maxHeight: height * 0.72 }} contentContainerStyle={{ gap: 14 }} keyboardShouldPersistTaps="handled">{children}</ScrollView>
+            ) : children}
           </View>
         </KeyboardAvoidingView>
       </View>

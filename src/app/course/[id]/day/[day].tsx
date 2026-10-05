@@ -2,7 +2,7 @@ import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CourseWordCard, SaveCourseWord, scoreColors } from '../../../../components/course';
+import { CourseWordCard, dayOpensOn, fmtDateKey, SaveCourseWord, scoreColors } from '../../../../components/course';
 import { BackBar, Badge, Button, Card, EmptyState, IconTile, T } from '../../../../components/ui';
 import { api, type CourseDetail } from '../../../../lib/api';
 import { errMsg, useStore, useTheme } from '../../../../state/store';
@@ -105,7 +105,7 @@ export default function CourseDayScreen() {
           {learned ? <Badge label="Learned" bg={t.successSoft} fg={t.success} /> : e && day === e.currentDay ? <Badge label="Today" bg={t.primarySoft} fg={t.primaryInk} /> : null}
         </View>
         <T tone="muted">
-          {d.words === null ? 'This day opens later. Come back on day ' + day + '.'
+          {d.words === null ? (e ? 'This day opens on ' + fmtDateKey(dayOpensOn(e.startDay, day), true) + '. Come back then.' : 'This day opens later. Come back on day ' + day + '.')
             : !words.length ? 'No words yet — coming soon.'
             : words.length + (words.length === 1 ? ' word' : ' words') + (newCount < words.length ? ' · ' + (words.length - newCount) + ' in My Vocabulary' : '') + '. Tap the speaker to hear each one' + (canLearn ? ', and save the ones you want to keep.' : '.')}
         </T>

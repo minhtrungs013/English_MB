@@ -1,7 +1,9 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, View } from 'react-native';
-import { coursePlan, Progress, scoreColors, type CoursePlan, type PlanStepId, type PlanStepState } from '../../../components/course';
+import {
+  courseStartLabel, coursePlan, dayOpensOn, fmtDateKey, joinedMessage, Progress, scoreColors, type CoursePlan, type PlanStepId, type PlanStepState
+} from '../../../components/course';
 import { BackBar, Badge, Button, Card, EmptyState, Icon, IconButton, IconTile, SectionTitle, T } from '../../../components/ui';
 import { api, type CourseDay, type CourseDetail } from '../../../lib/api';
 import type { IconName } from '../../../lib/icons';
@@ -75,7 +77,7 @@ export default function CourseScreen() {
     setBusy(true);
     const res = await actions.call(api.joinCourse(c.id));
     setBusy(false);
-    if (res) { setC(res); actions.showToast('Joined “' + res.title + '”. Day 1 is open!'); }
+    if (res) { setC(res); actions.showToast('Joined “' + res.title + '”. ' + joinedMessage(res)); }
   };
   const leave = () => Alert.alert('Leave “' + c.title + '”?', 'Your progress in this course will be lost. Words you already saved stay in My Vocabulary.', [
     { text: 'Cancel', style: 'cancel' },
@@ -121,7 +123,7 @@ export default function CourseScreen() {
     const sub = s === 'learned' ? 'Learned · ' + d.count + ' words'
       : s === 'today' ? 'Today · ' + d.count + ' words'
       : s === 'open' ? d.count + ' words'
-      : s === 'locked' ? d.count + ' words · opens on day ' + d.day
+      : s === 'locked' ? d.count + ' words · opens ' + (e ? 'on ' + fmtDateKey(dayOpensOn(e.startDay, d.day)) : 'on day ' + d.day)
       : 'Coming soon';
     const score = d.myScore ?? null;
     const [sBg, sFg] = score !== null ? scoreColors(score, t) : ['', ''];
@@ -177,6 +179,18 @@ export default function CourseScreen() {
 
   const todayPlan = (p: CoursePlan) => {
     const words = p.today?.count ?? 0;
+    if (p.next === 'upcoming') {
+      const when = fmtDateKey(p.startsOn, true);
+      return (
+        <Card style={{ gap: 10, alignItems: 'center', padding: 22 }}>
+          <View accessible accessibilityLabel={'This course starts on ' + when + '. Come back then.'} style={{ alignItems: 'center', gap: 10 }}>
+            <IconTile name="clock" tone="blue" size={52} />
+            <T size={16.5} weight="extrabold" center>This course starts on {when}</T>
+            <T tone="muted" center>Come back then. After that, a new day opens every day.</T>
+          </View>
+        </Card>
+      );
+    }
     if (p.empty) {
       return (
         <Card style={{ gap: 10, alignItems: 'center', padding: 22 }}>
@@ -240,6 +254,8 @@ export default function CourseScreen() {
     return <>{cards}{doneCard}</>;
   };
 
+  const startLabel = courseStartLabel(c);
+  const upcoming = startLabel.startsWith('Starts');
   const header = (
     <Card style={{ gap: 10 }}>
       <T size={24} weight="extrabold" style={{ letterSpacing: -0.4 }}>{c.title}</T>
@@ -250,11 +266,14 @@ export default function CourseScreen() {
         <Badge label={c.wordsPerDay + ' words/day'} bg={t.surface2} fg={t.muted} />
         <Badge label={c.members + (c.members === 1 ? ' member' : ' members')} bg={t.surface2} fg={t.muted} />
         <Badge label={c.visibility === 'public' ? 'Public' : 'Private'} bg={c.visibility === 'public' ? t.successSoft : t.warningSoft} fg={c.visibility === 'public' ? t.success : t.warning} />
+        {startLabel ? <Badge label={startLabel} bg={upcoming ? t.infoSoft : t.surface2} fg={upcoming ? t.info : t.muted} /> : null}
       </View>
       {e ? (
         <View style={{ gap: 6, marginTop: 4 }}>
-          <Progress pct={(e.learned.length / c.totalDays) * 100} />
-          <T size={13.5} weight="semibold" tone="muted">Day {e.currentDay} of {c.totalDays} · {e.learned.length} learned</T>
+          <Progress pct={c.totalDays ? (e.learned.length / c.totalDays) * 100 : 0} />
+          <T size={13.5} weight="semibold" tone="muted">
+            {e.currentDay < 1 ? 'Starts ' + fmtDateKey(e.startDay) + ' · day 1 of ' + c.totalDays : 'Day ' + e.currentDay + ' of ' + c.totalDays + ' · ' + e.learned.length + ' learned'}
+          </T>
         </View>
       ) : null}
       {!e ? (
@@ -280,18 +299,28 @@ export default function CourseScreen() {
 
         {plan ? (
           <>
-            <SectionTitle style={{ marginTop: 4 }}>Today · day {plan.day}</SectionTitle>
+            <SectionTitle style={{ marginTop: 4 }}>{plan.next === 'upcoming' ? 'Not started yet' : 'Today · day ' + plan.day}</SectionTitle>
             {catchUpNotice(plan)}
             {todayPlan(plan)}
-            {plan.next !== 'done' ? <Button title="Leaderboard" icon="trophy" variant="secondary" onPress={openBoard} block /> : null}
+            {plan.next !== 'done' && plan.next !== 'upcoming' ? <Button title="Leaderboard" icon="trophy" variant="secondary" onPress={openBoard} block /> : null}
             {joinCode}
-            <Pressable onPress={() => setAllDays(!allDays)} accessibilityRole="button" accessibilityLabel={'All days, ' + c.totalDays + ' days'}
-              accessibilityState={{ expanded: allDays }}
-              style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48, marginTop: 4, paddingHorizontal: 4, borderRadius: 10, backgroundColor: pressed ? t.surface2 : 'transparent' })}>
-              <SectionTitle style={{ flex: 1 }}>All days</SectionTitle>
-              <View style={{ transform: [{ rotate: allDays ? '180deg' : '0deg' }] }}><Icon name="down" size={18} color={t.muted} /></View>
-            </Pressable>
-            {allDays ? dayList : null}
+            {plan.next === 'upcoming' ? (
+              // Before the start every day is locked; show them so learners can see what's coming.
+              <>
+                <SectionTitle style={{ marginTop: 4 }}>{c.totalDays} days</SectionTitle>
+                {dayList}
+              </>
+            ) : (
+              <>
+                <Pressable onPress={() => setAllDays(!allDays)} accessibilityRole="button" accessibilityLabel={'All days, ' + c.totalDays + ' days'}
+                  accessibilityState={{ expanded: allDays }}
+                  style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48, marginTop: 4, paddingHorizontal: 4, borderRadius: 10, backgroundColor: pressed ? t.surface2 : 'transparent' })}>
+                  <SectionTitle style={{ flex: 1 }}>All days</SectionTitle>
+                  <View style={{ transform: [{ rotate: allDays ? '180deg' : '0deg' }] }}><Icon name="down" size={18} color={t.muted} /></View>
+                </Pressable>
+                {allDays ? dayList : null}
+              </>
+            )}
           </>
         ) : (
           <>
