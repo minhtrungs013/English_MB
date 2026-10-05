@@ -1,5 +1,5 @@
-import { router } from 'expo-router';
-import { useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { FlatList, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Chip, ChipRow, EmptyState, IconButton, Input, LevelBadge, StatusBadge, T } from '../../components/ui';
@@ -16,16 +16,25 @@ export default function Words() {
   const [level, setLevel] = useState('all');
   const [status, setStatus] = useState('all');
   const [tag, setTag] = useState('all');
+  const [cat, setCat] = useState('all');
+
+  // Opened from Home search, Categories or Tags: start with that filter.
+  const params = useLocalSearchParams<{ q?: string; cat?: string; tag?: string }>();
+  useEffect(() => {
+    if (params.q === undefined && params.cat === undefined && params.tag === undefined) return;
+    setQ(params.q ?? ''); setCat(params.cat ?? 'all'); setTag(params.tag ?? 'all'); setLevel('all'); setStatus('all');
+  }, [params.q, params.cat, params.tag]);
 
   const qq = q.trim().toLowerCase();
   const rows = data.words.filter((w) => {
     if (level !== 'all' && w.level !== level) return false;
     if (status !== 'all' && w.status !== status) return false;
     if (tag !== 'all' && !w.tags.includes(tag)) return false;
+    if (cat !== 'all' && w.cat !== cat) return false;
     if (qq && ![w.word, w.meaning, w.vi, w.ex, w.tags.join(' ')].join(' ').toLowerCase().includes(qq)) return false;
     return true;
   }).sort((a, b) => b.addedAt - a.addedAt);
-  const filtered = !!qq || level !== 'all' || status !== 'all' || tag !== 'all';
+  const filtered = !!qq || level !== 'all' || status !== 'all' || tag !== 'all' || cat !== 'all';
 
   const header = (
     <View style={{ gap: 12, marginBottom: 12 }}>
@@ -41,6 +50,9 @@ export default function Words() {
           <Input value={q} onChangeText={setQ} placeholder="Search my words…" leftIcon="search" autoCapitalize="none" accessibilityLabel="Search my words" />
           <ChipRow>{STATUS.map(([v, l]) => <Chip key={v} label={l} on={status === v} onPress={() => setStatus(v)} />)}</ChipRow>
           <ChipRow>{['all', ...LEVELS].map((l) => <Chip key={l} soft label={l === 'all' ? 'All levels' : l} on={level === l} onPress={() => setLevel(l)} />)}</ChipRow>
+          {data.cats.length > 0 && (
+            <ChipRow>{[{ id: 'all', name: 'All categories' }, ...data.cats].map((c) => <Chip key={c.id} soft label={c.name} on={cat === c.id} onPress={() => setCat(c.id)} />)}</ChipRow>
+          )}
           {data.tags.length > 0 && (
             <ChipRow>{['all', ...data.tags].map((g) => <Chip key={g} soft label={g === 'all' ? 'All tags' : '#' + g} on={tag === g} onPress={() => setTag(g)} />)}</ChipRow>
           )}
@@ -68,7 +80,7 @@ export default function Words() {
         </EmptyState>
       ) : (
         <EmptyState icon="search" tone="blue" title="No words match" text="Try a different keyword or clear the filters.">
-          {filtered ? <Button title="Clear filters" variant="secondary" onPress={() => { setQ(''); setLevel('all'); setStatus('all'); setTag('all'); }} /> : null}
+          {filtered ? <Button title="Clear filters" variant="secondary" onPress={() => { setQ(''); setLevel('all'); setStatus('all'); setTag('all'); setCat('all'); }} /> : null}
         </EmptyState>
       )}
       renderItem={({ item: w }) => (
@@ -76,7 +88,7 @@ export default function Words() {
           style={({ pressed }) => ({ backgroundColor: pressed ? t.surface2 : t.surface, borderColor: t.border, borderWidth: 1, borderRadius: 16, padding: 16, gap: 8 })}>
           <View>
             <T size={18} weight="extrabold">{w.word}</T>
-            <T size={12.5} tone="muted">{w.ipa}</T>
+            <T ipa size={12.5} tone="muted">{w.ipa}</T>
           </View>
           <View>
             <T weight="semibold">{w.vi}</T>

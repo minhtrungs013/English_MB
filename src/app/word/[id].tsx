@@ -67,7 +67,7 @@ export default function WordDetail() {
           <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}><PosBadge pos={w.pos} /><LevelBadge level={w.level} /><StatusBadge status={w.status} /></View>
           <T size={38} weight="extrabold" style={{ letterSpacing: -1, lineHeight: 44 }}>{w.word}</T>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <T size={17} tone="muted">{w.ipa}</T>
+            <T ipa size={17} tone="muted">{w.ipa}</T>
             <IconButton name="volume" label="Play pronunciation" size={38} color={t.primaryInk} onPress={() => speak(w.word)} />
           </View>
           <View style={{ height: 1, backgroundColor: t.border, marginVertical: 6 }} />

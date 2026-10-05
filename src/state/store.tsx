@@ -4,7 +4,7 @@ import {
   api, ApiError, loadToken, setToken, setUnauthorizedHandler,
   type AuthResponse, type LibraryWord, type Topic, type WordInput
 } from '../lib/api';
-import { DAY, MIN, dayKey, isDue, type Data, type Rating, type Settings, type Word } from '../lib/data';
+import { DAY, MIN, dayKey, isDue, type Category, type Data, type Rating, type Settings, type Word } from '../lib/data';
 import { setVoicePrefs, stopSpeaking } from '../lib/speech';
 import { makePalette, type Palette } from '../lib/theme';
 
@@ -106,6 +106,36 @@ function useStoreState() {
     if (ok) { patch((d) => ({ words: d.words.filter((x) => x.id !== id) })); showToast('Deleted “' + (w?.word ?? '') + '”.'); }
     return ok;
   };
+  /* ---------- categories & tags ---------- */
+  /** Creates (no id) or updates a category. Throws on failure so the form can show the message. */
+  const saveCategory = async (name: string, icon: Category['icon'], id?: string): Promise<Category> => {
+    if (id) {
+      const c = await api.updateCategory(id, { name, icon });
+      patch((d) => ({ cats: d.cats.map((x) => (x.id === id ? c : x)) }));
+      return c;
+    }
+    const c = await api.createCategory({ name, icon });
+    patch((d) => ({ cats: [...d.cats, c] }));
+    return c;
+  };
+  /** Deletes a category; its words become uncategorized. */
+  const deleteCategory = async (id: string): Promise<boolean> => {
+    const ok = (await call(api.deleteCategory(id).then(() => true))) ?? false;
+    if (ok) {
+      patch((d) => ({ cats: d.cats.filter((c) => c.id !== id), words: d.words.map((w) => (w.cat === id ? { ...w, cat: '' } : w)) }));
+      showToast('Category deleted. Its words are now uncategorized.');
+    }
+    return ok;
+  };
+  /** Deletes a tag and removes it from every word. */
+  const deleteTag = async (name: string): Promise<boolean> => {
+    const ok = (await call(api.deleteTag(name).then(() => true))) ?? false;
+    if (ok) {
+      patch((d) => ({ tags: d.tags.filter((x) => x !== name), words: d.words.map((w) => (w.tags.includes(name) ? { ...w, tags: w.tags.filter((x) => x !== name) } : w)) }));
+      showToast('Tag #' + name + ' deleted.');
+    }
+    return ok;
+  };
   const createTag = async (name: string): Promise<string | undefined> => {
     const res = await call(api.createTag(name));
     if (res) patch((d) => ({ tags: d.tags.includes(res.name) ? d.tags : [...d.tags, res.name] }));
@@ -193,7 +223,7 @@ function useStoreState() {
     data, status, loadError, toast,
     actions: {
       reload: load, login, register, logout, showToast, call,
-      saveWord, deleteWord, createTag, rate, dueIds,
+      saveWord, deleteWord, createTag, deleteTag, saveCategory, deleteCategory, rate, dueIds,
       saveFromLibrary, shareWord, unshare, setSettings
     }
   };

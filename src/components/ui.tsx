@@ -25,13 +25,15 @@ export function Icon({ name, size = 20, color, strokeWidth = 1.9 }: { name: Icon
 /* ---------- text ---------- */
 type Weight = keyof typeof FONT;
 type Tone = 'text' | 'muted' | 'faint' | 'primary' | 'primaryInk' | 'danger' | 'success' | 'warning' | 'info' | 'white';
-export function T({ children, size = 15, weight = 'regular', tone = 'text', style, numberOfLines, center }: {
+export function T({ children, size = 15, weight = 'regular', tone = 'text', style, numberOfLines, center, ipa }: {
   children: ReactNode; size?: number; weight?: Weight; tone?: Tone; style?: StyleProp<TextStyle>; numberOfLines?: number; center?: boolean;
+  /** Phonetic text: use the system font, which has the IPA symbols (ə, ɪ, ˈ…) that Plus Jakarta Sans lacks. */
+  ipa?: boolean;
 }) {
   const t = useTheme();
   const color = tone === 'white' ? '#fff' : (t as unknown as Record<string, string>)[tone];
   return (
-    <Text numberOfLines={numberOfLines} style={[{ fontFamily: FONT[weight], fontSize: size, color, lineHeight: Math.round(size * 1.45), includeFontPadding: false }, center && { textAlign: 'center' }, style]}>
+    <Text numberOfLines={numberOfLines} style={[{ fontFamily: ipa ? undefined : FONT[weight], fontSize: size, color, lineHeight: Math.round(size * 1.45), includeFontPadding: false }, ipa && { flexShrink: 1 }, center && { textAlign: 'center' }, style]}>
       {children}
     </Text>
   );
@@ -185,10 +187,10 @@ export function Field({ label, children, hint, error }: { label?: string; childr
   );
 }
 
-export function Input(props: TextInputProps & { invalid?: boolean; big?: boolean; leftIcon?: IconName }) {
+export function Input(props: TextInputProps & { invalid?: boolean; big?: boolean; leftIcon?: IconName; ipa?: boolean }) {
   const t = useTheme();
   const [focus, setFocus] = useState(false);
-  const { invalid, big, leftIcon, style, multiline, ...rest } = props;
+  const { invalid, big, leftIcon, ipa, style, multiline, ...rest } = props;
   return (
     <View style={{ justifyContent: 'center' }}>
       {leftIcon ? <View style={{ position: 'absolute', left: 13, zIndex: 1 }}><Icon name={leftIcon} size={18} color={t.faint} /></View> : null}
@@ -202,7 +204,7 @@ export function Input(props: TextInputProps & { invalid?: boolean; big?: boolean
           minHeight: big ? 56 : 46, paddingHorizontal: 14, paddingLeft: leftIcon ? 40 : 14, paddingVertical: multiline ? 11 : 0,
           borderWidth: 1, borderRadius: big ? 12 : 10, backgroundColor: t.surface, color: t.text,
           borderColor: invalid ? t.danger : focus ? t.primary : t.border,
-          fontFamily: big ? FONT.bold : FONT.regular, fontSize: big ? 20 : 15, textAlignVertical: multiline ? 'top' : 'center', includeFontPadding: false
+          fontFamily: ipa ? undefined : big ? FONT.bold : FONT.regular, fontSize: big ? 20 : 15, textAlignVertical: multiline ? 'top' : 'center', includeFontPadding: false
         }, multiline && { minHeight: 88 }, style]}
       />
     </View>

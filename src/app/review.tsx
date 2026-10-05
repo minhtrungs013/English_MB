@@ -124,7 +124,7 @@ export default function Review() {
                 <T size={38} weight="extrabold" center style={{ letterSpacing: -1, lineHeight: 44 }}>{viFirst ? word.vi : word.word}</T>
                 {!viFirst && (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                    <T size={18} tone="muted">{word.ipa}</T>
+                    <T ipa size={18} tone="muted">{word.ipa}</T>
                     <IconButton name="volume" label="Play pronunciation" size={38} color={t.primaryInk} onPress={() => speak(word.word)} />
                   </View>
                 )}
@@ -134,7 +134,7 @@ export default function Review() {
                 <View style={{ flexDirection: 'row', gap: 6 }}><PosBadge pos={word.pos} /><LevelBadge level={word.level} /></View>
                 <T size={36} weight="extrabold" center style={{ letterSpacing: -1, lineHeight: 42 }}>{word.word}</T>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <T size={18} tone="muted">{word.ipa}</T>
+                  <T ipa size={18} tone="muted">{word.ipa}</T>
                   <IconButton name="volume" label="Play pronunciation" size={38} color={t.primaryInk} onPress={() => speak(word.word)} />
                 </View>
                 <View style={{ width: 56, height: 3, borderRadius: 3, backgroundColor: t.surface3, marginVertical: 4 }} />

@@ -1,5 +1,8 @@
 import { router } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, View } from 'react-native';
+import { HomeSearch } from '../../components/home-search';
+import { Sheet, SheetItem } from '../../components/sheet';
 import { Button, Card, EmptyState, Icon, IconTile, LevelBadge, Screen, T } from '../../components/ui';
 import { DAY, dayKey, fmtAgo, isDue } from '../../lib/data';
 import { useNow } from '../../hooks/use-now';
@@ -34,6 +37,9 @@ export default function Home() {
   const greeting = (hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening') + ', ' + (settings.name || 'there');
   const recent = words.slice().sort((a, b) => b.addedAt - a.addedAt).slice(0, 5);
   const initial = (settings.name || '?').trim().charAt(0).toUpperCase();
+  const [menu, setMenu] = useState(false);
+  /** Close the account menu, then go (so the sheet doesn't stay open behind the next screen). */
+  const goTo = (path: '/categories' | '/tags' | '/settings') => { setMenu(false); router.push(path); };
 
   const startReview = () => {
     if (!actions.dueIds().length) { actions.showToast('No words are due right now.'); return; }
@@ -44,12 +50,13 @@ export default function Home() {
     <Screen
       title={greeting} sub="Keep learning a few words today."
       right={
-        <Pressable onPress={() => router.push('/settings')} accessibilityRole="button" accessibilityLabel="Settings"
+        <Pressable onPress={() => setMenu(true)} accessibilityRole="button" accessibilityLabel="Account menu"
           style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: '#FBD9BC', alignItems: 'center', justifyContent: 'center' }}>
           <T size={16} weight="extrabold" style={{ color: '#7A3A0C' }}>{initial}</T>
         </Pressable>
       }>
       <View style={{ gap: 12 }}>
+        <HomeSearch />
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <Stat icon="layers" tone="indigo" value={words.length} label="Total words" foot={'+' + week + ' this week'} />
           <Stat icon="clock" tone="amber" value={due} label="To review" />
@@ -99,6 +106,27 @@ export default function Home() {
           )}
         </Card>
       </View>
+
+      {/* Account menu (like the avatar menu on the web app). */}
+      <Sheet visible={menu} onClose={() => setMenu(false)}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 4, paddingBottom: 4 }}>
+          <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#FBD9BC', alignItems: 'center', justifyContent: 'center' }}>
+            <T size={18} weight="extrabold" style={{ color: '#7A3A0C' }}>{initial}</T>
+          </View>
+          <View style={{ flex: 1 }}>
+            <T weight="extrabold">{settings.name}</T>
+            <T size={13} tone="muted" numberOfLines={1}>{settings.email}</T>
+          </View>
+        </View>
+        <View style={{ height: 1, backgroundColor: t.border }} />
+        <View>
+          <SheetItem icon="folder" label="Categories" onPress={() => goTo('/categories')} />
+          <SheetItem icon="tag" label="Tags" onPress={() => goTo('/tags')} />
+          <SheetItem icon="sliders" label="Settings" onPress={() => goTo('/settings')} />
+        </View>
+        <View style={{ height: 1, backgroundColor: t.border }} />
+        <SheetItem icon="logout" label="Log out" danger onPress={() => { setMenu(false); void actions.logout(); }} />
+      </Sheet>
     </Screen>
   );
 }

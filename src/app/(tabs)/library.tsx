@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -26,6 +26,10 @@ export default function Library() {
   const loading = loadedKey !== key;
   const [more, setMore] = useState(false);
   const reqId = useRef(0);
+
+  // Opened from the Home search: start with that search.
+  const params = useLocalSearchParams<{ q?: string }>();
+  useEffect(() => { if (params.q !== undefined) setQ(params.q); }, [params.q]);
 
   useEffect(() => { const id = setTimeout(() => setQuery(q.trim()), 300); return () => clearTimeout(id); }, [q]);
 
@@ -97,7 +101,7 @@ export default function Library() {
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingTop: 12, paddingRight: 12 }}>
             <Pressable onPress={open} accessibilityRole="button" accessibilityLabel={w.word + ', ' + w.vi} style={{ flex: 1, paddingLeft: 16, paddingTop: 4 }}>
               <T size={18} weight="extrabold">{w.word}</T>
-              <T size={12.5} tone="muted">{w.ipa}</T>
+              <T ipa size={12.5} tone="muted">{w.ipa}</T>
             </Pressable>
             <SaveFromLibrary w={w} />
           </View>

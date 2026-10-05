@@ -89,7 +89,10 @@ export const api = {
     req<{ word: Word; progress?: Progress }>('POST', '/words/' + id + '/review', { rating, practice, day }),
 
   createCategory: (c: Omit<Category, 'id'>) => req<Category>('POST', '/categories', c),
+  updateCategory: (id: string, c: Partial<Omit<Category, 'id'>>) => req<Category>('PATCH', '/categories/' + id, c),
+  deleteCategory: (id: string) => req<void>('DELETE', '/categories/' + id),
   createTag: (name: string) => req<{ name: string }>('POST', '/tags', { name }),
+  deleteTag: (name: string) => req<void>('DELETE', '/tags/' + encodeURIComponent(name)),
 
   updateSettings: (s: Partial<Omit<Settings, 'name' | 'email'>>) => req<Settings>('PATCH', '/profile/settings', s),
   lookup: (word: string) => req<LookupResult>('GET', '/lookup?word=' + encodeURIComponent(word)),

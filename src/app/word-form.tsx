@@ -26,6 +26,7 @@ export default function WordForm() {
   const [ant, setAnt] = useState((editing?.ant ?? []).join(', '));
   const [level, setLevel] = useState<Level>(editing?.level ?? 'B1');
   const [tags, setTags] = useState<string[]>(editing?.tags ?? []);
+  const [cat, setCat] = useState(editing?.cat ?? '');
   const [notes, setNotes] = useState(editing?.notes ?? '');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
@@ -62,7 +63,7 @@ export default function WordForm() {
     try {
       const saved = await actions.saveWord({
         word: w, ipa: ipa.trim(), pos, meaning: meaning.trim(), vi: vi.trim(), ex: ex.trim(),
-        syn: toList(syn), ant: toList(ant), level, cat: editing?.cat ?? '', tags, notes: notes.trim()
+        syn: toList(syn), ant: toList(ant), level, cat, tags, notes: notes.trim()
       }, editing?.id);
       actions.showToast(editing ? 'Changes saved.' : 'Saved “' + w + '” to your words.');
       if (editing) router.back();
@@ -89,7 +90,7 @@ export default function WordForm() {
         </Card>
 
         <Card style={{ gap: 16 }}>
-          <Field label="Pronunciation"><Input value={ipa} onChangeText={setIpa} placeholder="/mənˈteɪn/" autoCapitalize="none" /></Field>
+          <Field label="Pronunciation"><Input ipa value={ipa} onChangeText={setIpa} placeholder="/mənˈteɪn/" autoCapitalize="none" /></Field>
           <Field label="Part of speech">
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>{POS_LIST.map((p) => <Chip key={p} soft label={p} on={pos === p} onPress={() => setPos(p)} />)}</View>
           </Field>
@@ -101,6 +102,13 @@ export default function WordForm() {
           <Field label="Level">
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>{LEVELS.map((l) => <Chip key={l} label={l} on={level === l} onPress={() => setLevel(l)} />)}</View>
           </Field>
+          {data.cats.length > 0 && (
+            <Field label="Category">
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                {[{ id: '', name: 'No category' }, ...data.cats].map((c) => <Chip key={c.id || 'none'} soft label={c.name} on={cat === c.id} onPress={() => setCat(c.id)} />)}
+              </View>
+            </Field>
+          )}
           {data.tags.length > 0 && (
             <Field label="Tags">
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>

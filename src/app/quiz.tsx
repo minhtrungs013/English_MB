@@ -136,7 +136,7 @@ export default function Quiz() {
       {mode !== 'mc' ? (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', gap: 8 }}>
           <T size={20} weight="extrabold">{q.answer}</T>
-          <T tone="muted">{w?.ipa}</T>
+          <T ipa tone="muted">{w?.ipa}</T>
           <T tone="muted">· {w?.vi}</T>
         </View>
       ) : null}
