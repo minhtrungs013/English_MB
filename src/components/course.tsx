@@ -1,10 +1,10 @@
 import { router } from 'expo-router';
-import type { ReactNode } from 'react';
-import { Pressable, View } from 'react-native';
+import { useState, type ReactNode } from 'react';
+import { Pressable, View, type StyleProp, type ViewStyle } from 'react-native';
 import type { CourseDay, CourseDetail, CourseSummary, CourseWord, HomeworkType } from '../lib/api';
 import { speak } from '../lib/speech';
-import { useTheme } from '../state/store';
-import { Badge, Icon, IconButton, LevelBadge, T } from './ui';
+import { useStore, useTheme } from '../state/store';
+import { Badge, Button, Icon, IconButton, LevelBadge, T } from './ui';
 
 export const WORDS_PER_DAY = [3, 4, 5, 6, 7, 8, 9, 10];
 
@@ -171,6 +171,41 @@ export function CourseWordCard({ w, right, children }: { w: CourseWord; right?: 
       {w.ex ? <T size={13.5} style={{ fontStyle: 'italic' }}>“{w.ex}”</T> : null}
       {children}
     </View>
+  );
+}
+
+/** True when this word (any case) is already in my words. */
+export function useInMyWords(): (word: string) => boolean {
+  const { data } = useStore();
+  const mine = new Set(data.words.map((w) => w.word.toLowerCase()));
+  return (word: string) => mine.has(word.toLowerCase());
+}
+
+/**
+ * "Save to My Vocabulary" for one course word, or "Saved ✓" once it's in my words.
+ * `canSave` false (not joined, or the day isn't open) shows only the saved state.
+ */
+export function SaveCourseWord({ courseId, day, word, canSave = true, style }: {
+  courseId: string; day: number; word: string; canSave?: boolean; style?: StyleProp<ViewStyle>;
+}) {
+  const t = useTheme();
+  const { actions } = useStore();
+  const inMine = useInMyWords();
+  const [busy, setBusy] = useState(false);
+  if (inMine(word)) {
+    return (
+      <View accessible accessibilityLabel={word + ' is saved in My Vocabulary'}
+        style={[{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 12, borderRadius: 10, backgroundColor: t.successSoft, alignSelf: 'flex-start' }, style]}>
+        <T size={13.5} weight="bold" style={{ color: t.success }}>Saved ✓</T>
+      </View>
+    );
+  }
+  if (!canSave) return null;
+  return (
+    <Button title="Save to My Vocabulary" icon="plus" variant="secondary" size="sm" loading={busy}
+      accessibilityLabel={'Save ' + word + ' to My Vocabulary'}
+      style={[{ minHeight: 44, alignSelf: 'flex-start' }, style]}
+      onPress={async () => { setBusy(true); await actions.saveCourseWords(courseId, day, [word]); setBusy(false); }} />
   );
 }
 

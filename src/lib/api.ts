@@ -106,7 +106,8 @@ export interface CourseDay {
 export interface CourseDetail extends CourseSummary { days: CourseDay[] }
 export interface CourseInput { title: string; description?: string; wordsPerDay?: number; visibility?: CourseVisibility }
 export interface AiWordResult { source: 'library' | 'ai' | 'online'; word: CourseWord; quota: Quota }
-export interface LearnResult { added: Word[]; skipped: string[]; tag: string; course: CourseDetail }
+export interface SaveWordsResult { added: Word[]; skipped: string[]; tag: string }
+export interface LearnResult extends SaveWordsResult { course: CourseDetail }
 
 /* ---------- tense question bank (owner) ---------- */
 export const TENSES = ['present-simple', 'present-continuous', 'present-perfect', 'past-simple', 'past-continuous', 'future-simple', 'going-to'] as const;
@@ -241,7 +242,12 @@ export const api = {
   joinCourseByCode: (code: string) => req<CourseDetail>('POST', '/courses/join', { code }),
   joinCourse: (id: string) => req<CourseDetail>('POST', '/courses/' + id + '/join'),
   leaveCourse: (id: string) => req<void>('DELETE', '/courses/' + id + '/enrollment'),
-  learnCourseDay: (id: string, day: number) => req<LearnResult>('POST', '/courses/' + id + '/days/' + day + '/learn'),
+  /** Marks a day as learned and saves the listed words to My Vocabulary (`[]` = none; omitted = all). */
+  learnCourseDay: (id: string, day: number, save?: string[]) =>
+    req<LearnResult>('POST', '/courses/' + id + '/days/' + day + '/learn', save ? { save } : undefined),
+  /** Saves some words of an open day to My Vocabulary without marking the day as learned. */
+  saveCourseWords: (id: string, day: number, words: string[]) =>
+    req<SaveWordsResult>('POST', '/courses/' + id + '/days/' + day + '/words/save', { words }),
   /** Opening the homework starts its timer (time breaks ties), so only call this when the learner starts. */
   getHomework: (id: string, day: number) => req<Homework>('GET', '/courses/' + id + '/days/' + day + '/homework'),
   /** One answer per question, in order ('' when left blank). Can be handed in once. */

@@ -5,7 +5,7 @@ import {
   type NativeScrollEvent, type NativeSyntheticEvent
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { isCorrect, normAnswer, Progress, scoreColors } from '../../../../components/course';
+import { isCorrect, normAnswer, Progress, SaveCourseWord, scoreColors } from '../../../../components/course';
 import { BackBar, Badge, Button, Card, EmptyState, Icon, IconButton, Input, LevelBadge, PosBadge, SectionTitle, T } from '../../../../components/ui';
 import { api, type CourseDetail, type CourseWord } from '../../../../lib/api';
 import { shuffle } from '../../../../lib/data';
@@ -112,6 +112,7 @@ export default function LearnDayScreen() {
   const [input, setInput] = useState('');
   const [res, setRes] = useState<{ answer: string; correct: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [savingAll, setSavingAll] = useState(false);
   // Match round
   const [sel, setSel] = useState<number | null>(null);
   const [paired, setPaired] = useState<number[]>([]);
@@ -232,16 +233,22 @@ export default function LearnDayScreen() {
   const n = words.length;
   const e = c.enrollment;
   const learned = !!e?.learned.includes(day);
-  const canSave = !!e && day <= e.currentDay && !learned;
+  // Words can be saved one by one while the day is open; finishing doesn't save anything.
+  const open = !!e && day <= e.currentDay;
+  const canFinish = open && !learned;
   const mine = new Set(data.words.map((w) => w.word.toLowerCase()));
-  const newCount = words.filter((w) => !mine.has(w.word.toLowerCase())).length;
-  const saveTitle = newCount > 0 ? 'Save ' + newCount + (newCount === 1 ? ' word' : ' words') + ' to My Vocabulary' : 'Mark day as learned';
+  const remaining = words.filter((w) => !mine.has(w.word.toLowerCase())).map((w) => w.word);
 
-  const save = async () => {
+  const finish = async () => {
     setBusy(true);
-    const r = await actions.learnCourseDay(c.id, day);
+    const r = await actions.learnCourseDay(c.id, day, []);
     setBusy(false);
     if (r) { setC(r); stopSpeaking(); router.back(); }
+  };
+  const saveAll = async () => {
+    setSavingAll(true);
+    await actions.saveCourseWords(c.id, day, remaining);
+    setSavingAll(false);
   };
 
   const resetItem = () => {
@@ -290,6 +297,7 @@ export default function LearnDayScreen() {
                     <IconButton name="volume" label="Play the example" color={t.primaryInk} onPress={() => speak(w.ex, 0.95)} />
                   </View>
                 ) : null}
+                <SaveCourseWord courseId={c.id} day={day} word={w.word} canSave={open} style={{ alignSelf: 'center', marginTop: 4 }} />
               </Card>
             </ScrollView>
           ))}
@@ -306,8 +314,8 @@ export default function LearnDayScreen() {
               ? <Button title="Start practice" icon="right" size="lg" onPress={startPractice} style={{ flex: 1 }} />
               : <Button title="Next" icon="right" size="lg" onPress={() => goTo(card + 1)} style={{ flex: 1 }} accessibilityLabel="Next word" />}
           </View>
-          {canSave
-            ? <Button title="Skip practice — save words" variant="ghost" loading={busy} onPress={() => void save()} block />
+          {canFinish
+            ? <Button title="Skip practice" variant="ghost" loading={busy} onPress={() => void finish()} block accessibilityLabel="Skip practice and mark the day as learned" />
             : !last ? <Button title="Skip to practice" variant="ghost" onPress={startPractice} block /> : null}
         </View>
       </View>
@@ -319,7 +327,7 @@ export default function LearnDayScreen() {
     const answered = run?.answered ?? 0;
     const pct = answered ? Math.round(((run?.right ?? 0) / answered) * 100) : 0;
     const [sBg, sFg] = scoreColors(pct, t);
-    const retried = words.map((w, k) => ({ w, misses: run?.misses[k] ?? 0 })).filter((x) => x.misses > 0);
+    const list = words.map((w, k) => ({ w, misses: run?.misses[k] ?? 0 }));
     return (
       <View style={{ flex: 1, backgroundColor: t.bg }}>
         <BackBar title={title} />
@@ -335,24 +343,32 @@ export default function LearnDayScreen() {
               You practiced {n} {n === 1 ? 'word' : 'words'} · {run?.right ?? 0} of {answered} answers correct.
             </T>
           </Card>
-          {canSave ? (
-            <Button title={saveTitle} icon="plus" size="lg" loading={busy} onPress={() => void save()} block />
+          {canFinish ? (
+            <Button title="Finish" icon="check" size="lg" loading={busy} onPress={() => void finish()} block accessibilityLabel="Finish and mark the day as learned" />
           ) : (
             <Button title="Done" icon="check" size="lg" onPress={() => { stopSpeaking(); router.back(); }} block />
           )}
           <Button title="Practice again" icon="refresh" variant="secondary" onPress={startPractice} block />
-          {retried.length ? <SectionTitle style={{ marginTop: 4 }}>Needed another try</SectionTitle> : null}
-          {retried.map(({ w, misses }) => (
-            <View key={w.word} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: t.surface, borderColor: t.border, borderWidth: 1, borderRadius: 14, paddingLeft: 14, paddingRight: 4, paddingVertical: 10 }}>
-              <View accessible accessibilityLabel={w.word + ', ' + (w.vi || w.meaning) + ', missed ' + misses + (misses === 1 ? ' time' : ' times')} style={{ flex: 1, gap: 2 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <T size={16} weight="extrabold">{w.word}</T>
-                  {w.ipa ? <T ipa size={13} tone="muted">{w.ipa}</T> : null}
-                  <Badge label={'missed ' + misses + '×'} bg={t.warningSoft} fg={t.warning} />
+          <SectionTitle style={{ marginTop: 4 }}>Today’s words</SectionTitle>
+          {open ? <T size={13.5} tone="muted">Save the words you want to keep reviewing. Skip the ones you already know.</T> : null}
+          {open && remaining.length > 1 ? (
+            <Button title={'Save all remaining (' + remaining.length + ')'} icon="plus" variant="secondary" loading={savingAll} onPress={() => void saveAll()} block
+              accessibilityLabel={'Save all ' + remaining.length + ' remaining words to My Vocabulary'} />
+          ) : null}
+          {list.map(({ w, misses }) => (
+            <View key={w.word} style={{ gap: 6, backgroundColor: t.surface, borderColor: t.border, borderWidth: 1, borderRadius: 14, paddingLeft: 14, paddingRight: 4, paddingVertical: 10 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View accessible accessibilityLabel={w.word + (w.vi || w.meaning ? ', ' + (w.vi || w.meaning) : '') + (misses ? ', missed ' + misses + (misses === 1 ? ' time' : ' times') : '')} style={{ flex: 1, gap: 2 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <T size={16} weight="extrabold">{w.word}</T>
+                    {w.ipa ? <T ipa size={13} tone="muted">{w.ipa}</T> : null}
+                    {misses ? <Badge label={'missed ' + misses + '×'} bg={t.warningSoft} fg={t.warning} /> : null}
+                  </View>
+                  {w.vi ? <T size={14} weight="semibold">{w.vi}</T> : null}
                 </View>
-                {w.vi ? <T size={14} weight="semibold">{w.vi}</T> : null}
+                <IconButton name="volume" label={'Play ' + w.word} color={t.primaryInk} onPress={() => speak(w.word)} />
               </View>
-              <IconButton name="volume" label={'Play ' + w.word} color={t.primaryInk} onPress={() => speak(w.word)} />
+              <SaveCourseWord courseId={c.id} day={day} word={w.word} canSave={open} />
             </View>
           ))}
         </ScrollView>

@@ -2,7 +2,7 @@ import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CourseWordCard, scoreColors } from '../../../../components/course';
+import { CourseWordCard, SaveCourseWord, scoreColors } from '../../../../components/course';
 import { BackBar, Badge, Button, Card, EmptyState, IconTile, T } from '../../../../components/ui';
 import { api, type CourseDetail } from '../../../../lib/api';
 import { errMsg, useStore, useTheme } from '../../../../state/store';
@@ -43,22 +43,22 @@ export default function CourseDayScreen() {
   const learned = !!e?.learned.includes(day);
   const canLearn = !!e && day <= e.currentDay && words.length > 0;
 
+  // Marks the day as learned without saving anything: words are saved one by one with their own buttons.
   const learn = async () => {
     setBusy(true);
-    const res = await actions.learnCourseDay(c.id, day);
+    const res = await actions.learnCourseDay(c.id, day, []);
     setBusy(false);
     if (res) setC(res);
   };
 
-  // Learning happens on the learn screen (meet the words, then practice); saving straight away stays available.
+  // Learning happens on the learn screen (meet the words, then practice); marking the day as learned straight away stays available.
   const openLearn = () => router.push({ pathname: '/course/[id]/learn/[day]', params: { id: c.id, day: String(day) } });
   let footer = null;
   if (canLearn && !learned) {
     footer = (
       <View style={{ gap: 6 }}>
         <Button title="Start learning" icon="right" size="lg" onPress={openLearn} block />
-        <Button title={newCount > 0 ? 'Skip practice — save ' + newCount + (newCount === 1 ? ' word' : ' words') : 'Skip practice — mark day as learned'}
-          variant="ghost" loading={busy} onPress={learn} block />
+        <Button title="Mark day as learned" variant="ghost" loading={busy} onPress={learn} block />
       </View>
     );
   } else if (words.length && d.words !== null) {
@@ -107,7 +107,7 @@ export default function CourseDayScreen() {
         <T tone="muted">
           {d.words === null ? 'This day opens later. Come back on day ' + day + '.'
             : !words.length ? 'No words yet — coming soon.'
-            : words.length + (words.length === 1 ? ' word' : ' words') + (newCount < words.length ? ' · ' + (words.length - newCount) + ' already in your words' : '') + '. Tap the speaker to hear each one.'}
+            : words.length + (words.length === 1 ? ' word' : ' words') + (newCount < words.length ? ' · ' + (words.length - newCount) + ' in My Vocabulary' : '') + '. Tap the speaker to hear each one' + (canLearn ? ', and save the ones you want to keep.' : '.')}
         </T>
         {!e && words.length ? <T size={13.5} tone="muted">Preview — join the course to save these words.</T> : null}
         {canLearn && day >= 2 ? (
@@ -125,7 +125,7 @@ export default function CourseDayScreen() {
         ) : null}
         {words.map((w) => (
           <CourseWordCard key={w.word} w={w}>
-            {mine.has(w.word.toLowerCase()) ? <View style={{ flexDirection: 'row', marginTop: 4 }}><Badge label="✓ In my words" bg={t.successSoft} fg={t.success} /></View> : null}
+            <SaveCourseWord courseId={c.id} day={day} word={w.word} canSave={canLearn} style={{ marginTop: 4 }} />
           </CourseWordCard>
         ))}
         {homework}

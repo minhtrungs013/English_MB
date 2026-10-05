@@ -204,7 +204,7 @@ export default function CourseScreen() {
       if (s.id === 'learn') {
         return (
           <StepCard key="learn" n={n} total={total} icon="book" title="Learn today’s words" state={s.state}
-            sub={s.state === 'done' ? words + (words === 1 ? ' word' : ' words') + ' saved to My Vocabulary' : words + ' new ' + (words === 1 ? 'word' : 'words') + ' today'}
+            sub={s.state === 'done' ? 'Done · ' + words + (words === 1 ? ' word' : ' words') + ' learned' : words + ' new ' + (words === 1 ? 'word' : 'words') + ' today'}
             lockedText="Unlocks after you review old lessons">
             <Button title="Start learning" icon="right" onPress={() => openLearn(p.day)} block />
           </StepCard>

@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import { useColorScheme } from 'react-native';
 import {
   api, ApiError, loadToken, setToken, setUnauthorizedHandler,
-  type AuthResponse, type CourseDetail, type LibraryWord, type Topic, type WordInput
+  type AuthResponse, type CourseDetail, type LibraryWord, type SaveWordsResult, type Topic, type WordInput
 } from '../lib/api';
 import { DAY, MIN, dayKey, isDue, type Category, type Data, type Rating, type Settings, type Word } from '../lib/data';
 import { setVoicePrefs, stopSpeaking } from '../lib/speech';
@@ -206,20 +206,44 @@ function useStoreState() {
   };
 
   /* ---------- courses ---------- */
-  /** Saves an open course day into My Vocabulary. Returns the updated course, or undefined on failure (toast shown). */
-  const learnCourseDay = async (courseId: string, day: number): Promise<CourseDetail | undefined> => {
-    const res = await call(api.learnCourseDay(courseId, day));
-    if (!res) return undefined;
+  /** Adds saved course words to my words (no duplicates) and the course tag if it's new. */
+  const mergeCourseWords = (res: SaveWordsResult) => {
     const ids = new Set(res.added.map((w) => w.id));
+    const names = new Set(res.added.map((w) => w.word.toLowerCase()));
     patch((d) => ({
-      words: [...res.added, ...d.words.filter((w) => !ids.has(w.id))],
-      tags: d.tags.includes(res.tag) ? d.tags : [...d.tags, res.tag]
+      words: [...res.added, ...d.words.filter((w) => !ids.has(w.id) && !names.has(w.word.toLowerCase()))],
+      tags: !res.tag || d.tags.includes(res.tag) ? d.tags : [...d.tags, res.tag]
     }));
+  };
+  /**
+   * Marks an open course day as learned. `save` lists the words to also save to My Vocabulary (`[]` = none; omitted = all).
+   * Returns the updated course, or undefined on failure (toast shown).
+   */
+  const learnCourseDay = async (courseId: string, day: number, save?: string[]): Promise<CourseDetail | undefined> => {
+    const res = await call(api.learnCourseDay(courseId, day, save));
+    if (!res) return undefined;
+    mergeCourseWords(res);
     const n = res.added.length, k = res.skipped.length;
-    showToast(n || !k
-      ? 'Saved ' + n + (n === 1 ? ' word' : ' words') + (k ? ' · ' + k + ' already in your words' : '') + '.'
-      : 'All ' + k + (k === 1 ? ' word is' : ' words are') + ' already in your words.');
+    if (save && !save.length) showToast('Day ' + day + ' marked as learned.');
+    else {
+      showToast(n || !k
+        ? 'Saved ' + n + (n === 1 ? ' word' : ' words') + (k ? ' · ' + k + ' already in your words' : '') + '.'
+        : 'All ' + k + (k === 1 ? ' word is' : ' words are') + ' already in your words.');
+    }
     return res.course;
+  };
+  /** Saves some words of an open course day to My Vocabulary (the day isn't marked as learned). False on failure (toast shown). */
+  const saveCourseWords = async (courseId: string, day: number, words: string[]): Promise<boolean> => {
+    if (!words.length) return true;
+    const res = await call(api.saveCourseWords(courseId, day, words));
+    if (!res) return false;
+    mergeCourseWords(res);
+    const n = res.added.length, k = res.skipped.length;
+    const one = words.length === 1 ? '“' + (res.added[0]?.word ?? words[0]) + '”' : '';
+    showToast(n
+      ? 'Saved ' + (n === 1 && one ? one : n + (n === 1 ? ' word' : ' words')) + ' to My Vocabulary' + (k ? ' · ' + k + ' already there' : '') + '.'
+      : one ? one + ' is already in My Vocabulary.' : 'All ' + k + (k === 1 ? ' word is' : ' words are') + ' already in My Vocabulary.');
+    return true;
   };
 
   /* ---------- settings (saved half a second after the last change) ---------- */
@@ -242,7 +266,7 @@ function useStoreState() {
       reload: load, login, register, logout, showToast, call,
       setAutofill: (q: Data['autofill']) => patch({ autofill: q }),
       saveWord, deleteWord, createTag, deleteTag, saveCategory, deleteCategory, rate, dueIds,
-      saveFromLibrary, shareWord, unshare, learnCourseDay, setSettings
+      saveFromLibrary, shareWord, unshare, learnCourseDay, saveCourseWords, setSettings
     }
   };
 }
