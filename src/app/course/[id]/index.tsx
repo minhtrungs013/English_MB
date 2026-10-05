@@ -1,12 +1,42 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, View } from 'react-native';
-import { Progress, scoreColors } from '../../../components/course';
-import { BackBar, Badge, Button, Card, EmptyState, Icon, IconButton, SectionTitle, T } from '../../../components/ui';
+import { coursePlan, Progress, scoreColors, type CoursePlan, type PlanStepId, type PlanStepState } from '../../../components/course';
+import { BackBar, Badge, Button, Card, EmptyState, Icon, IconButton, IconTile, SectionTitle, T } from '../../../components/ui';
 import { api, type CourseDay, type CourseDetail } from '../../../lib/api';
+import type { IconName } from '../../../lib/icons';
 import { errMsg, useStore, useTheme } from '../../../state/store';
 
 type DayState = 'learned' | 'today' | 'open' | 'locked' | 'empty';
+
+/** One step of today's plan. The header is read as one item; the action (if any) is a separate button below it. */
+function StepCard({ n, total, icon, title, sub, state, lockedText, children }: {
+  n: number; total: number; icon: IconName; title: string; sub: string; state: PlanStepState; lockedText: string; children?: ReactNode;
+}) {
+  const t = useTheme();
+  const active = state === 'active';
+  const done = state === 'done';
+  const [mBg, mFg] = done ? [t.successSoft, t.success] : active ? [t.primary, '#fff'] : [t.surface2, t.faint];
+  const text = state === 'locked' ? lockedText : sub;
+  return (
+    <Card style={[{ gap: 12, padding: 16 }, active && { borderColor: t.primary, borderWidth: 1.5 }]}>
+      <View accessible accessibilityLabel={'Step ' + n + ' of ' + total + ': ' + title + ', ' + (done ? 'done' : active ? 'to do now' : 'locked') + '. ' + text}
+        style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: mBg, alignItems: 'center', justifyContent: 'center' }}>
+          {done ? <Icon name="check" size={20} color={mFg} strokeWidth={2.4} />
+            : state === 'locked' ? <Icon name="lock" size={17} color={mFg} />
+            : <Icon name={icon} size={19} color={mFg} />}
+        </View>
+        <View style={{ flex: 1 }}>
+          <T size={12} weight="extrabold" tone={active ? 'primaryInk' : 'muted'} style={{ textTransform: 'uppercase', letterSpacing: 0.6 }}>Step {n}</T>
+          <T size={16.5} weight="extrabold" style={state === 'locked' ? { color: t.muted } : undefined}>{title}</T>
+          <T size={13} tone="muted">{text}</T>
+        </View>
+      </View>
+      {active ? children : null}
+    </Card>
+  );
+}
 
 export default function CourseScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -16,10 +46,13 @@ export default function CourseScreen() {
   const [err, setErr] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [skipping, setSkipping] = useState(false);
+  const [allDays, setAllDays] = useState(false);
 
   const load = useCallback(async () => {
     try { setC(await api.course(id)); setErr(''); } catch (e) { setErr(errMsg(e)); }
   }, [id]);
+  // Reload on focus so the plan moves on when coming back from a step.
   useFocusEffect(useCallback(() => { void load(); }, [load]));
   const refresh = async () => { setRefreshing(true); await load(); setRefreshing(false); };
 
@@ -37,6 +70,7 @@ export default function CourseScreen() {
   }
 
   const e = c.enrollment;
+  const plan = coursePlan(c);
   const join = async () => {
     setBusy(true);
     const res = await actions.call(api.joinCourse(c.id));
@@ -56,6 +90,18 @@ export default function CourseScreen() {
     }
   ]);
 
+  const params = (day: number) => ({ id: c.id, day: String(day) });
+  const openDay = (day: number) => router.push({ pathname: '/course/[id]/day/[day]', params: params(day) });
+  const openWarmup = (day: number) => router.push({ pathname: '/course/[id]/warmup/[day]', params: params(day) });
+  const openHomework = (day: number) => router.push({ pathname: '/course/[id]/homework/[day]', params: params(day) });
+  const openBoard = () => router.push({ pathname: '/course/[id]/leaderboard', params: { id: c.id } });
+  const skipReview = async (day: number) => {
+    setSkipping(true);
+    const res = await actions.call(api.warmupDone(c.id, day));
+    setSkipping(false);
+    if (res && c.enrollment) setC({ ...c, enrollment: { ...c.enrollment, warmedUp: res.warmedUp } });
+  };
+
   const stateOf = (d: CourseDay): DayState => {
     if (e) {
       if (e.learned.includes(d.day)) return 'learned';
@@ -67,8 +113,6 @@ export default function CourseScreen() {
     if (!d.count) return 'empty';
     return d.words ? 'open' : 'locked';
   };
-  const openDay = (d: CourseDay) => router.push({ pathname: '/course/[id]/day/[day]', params: { id: c.id, day: String(d.day) } });
-  const current = e ? c.days.find((d) => d.day === e.currentDay) : undefined;
 
   const dayRow = (d: CourseDay, i: number) => {
     const s = stateOf(d);
@@ -98,7 +142,7 @@ export default function CourseScreen() {
     const a11y = 'Day ' + d.day + ', ' + sub + (score !== null ? ', homework score ' + score : '');
     const rowStyle = { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 12, minHeight: 60, paddingHorizontal: 14, borderTopWidth: i ? 1 : 0, borderTopColor: t.border };
     return tappable ? (
-      <Pressable key={d.day} onPress={() => openDay(d)} accessibilityRole="button" accessibilityLabel={a11y}
+      <Pressable key={d.day} onPress={() => openDay(d.day)} accessibilityRole="button" accessibilityLabel={a11y}
         style={({ pressed }) => [rowStyle, { backgroundColor: pressed ? t.surface2 : s === 'today' ? t.primarySoft : 'transparent' }]}>
         {body}
       </Pressable>
@@ -106,50 +150,156 @@ export default function CourseScreen() {
       <View key={d.day} style={rowStyle} accessible accessibilityLabel={a11y}>{body}</View>
     );
   };
+  const dayList = <Card pad={false} style={{ overflow: 'hidden' }}>{c.days.map(dayRow)}</Card>;
+
+  /* ---------- today's plan (learners) ---------- */
+  const catchUpNotice = (p: CoursePlan) => {
+    const first = p.catchUp[0];
+    if (!first) return null;
+    const more = p.catchUp.length - 1;
+    const lateText = first.lateDays + (first.lateDays === 1 ? ' day' : ' days') + ' late · hand it in now to keep ' + first.penalty + '% of the score';
+    return (
+      <Card style={{ gap: 12, padding: 16, backgroundColor: t.warningSoft, borderColor: t.warning }}>
+        <View accessible accessibilityLabel={'Unfinished homework from day ' + first.day + '. ' + lateText + (more > 0 ? '. Plus ' + more + ' more' : '')}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <Icon name="alert" size={22} color={t.warning} />
+          <View style={{ flex: 1 }}>
+            <T size={15.5} weight="extrabold">Unfinished homework from day {first.day}</T>
+            <T size={13} weight="semibold" tone="muted">{lateText}</T>
+            {more > 0 ? <T size={13} weight="bold" tone="warning">+{more} more</T> : null}
+          </View>
+        </View>
+        <Button title={'Do day ' + first.day + ' homework'} icon="right" variant="secondary" onPress={() => openHomework(first.day)} block />
+      </Card>
+    );
+  };
+
+  const todayPlan = (p: CoursePlan) => {
+    const words = p.today?.count ?? 0;
+    if (p.empty) {
+      return (
+        <Card style={{ gap: 10, alignItems: 'center', padding: 22 }}>
+          <IconTile name="clock" tone="blue" size={52} />
+          <T size={16.5} weight="extrabold" center>No words for day {p.day} yet</T>
+          <T tone="muted" center>The course owner hasn’t added words for day {p.day} yet.</T>
+        </Card>
+      );
+    }
+    const total = p.steps.length;
+    const stateOfStep = (s: PlanStepId) => p.steps.find((x) => x.id === s)?.state ?? 'locked';
+    const cards = p.steps.map((s, k) => {
+      const n = k + 1;
+      if (s.id === 'review') {
+        return (
+          <StepCard key="review" n={n} total={total} icon="zap" title="Review old lessons" state={s.state}
+            sub={s.state === 'done' ? 'Done' : 'Review before today’s new words'} lockedText="">
+            <View style={{ gap: 6 }}>
+              <Button title="Start review" icon="right" onPress={() => openWarmup(p.day)} block />
+              <Button title="Skip review" variant="ghost" loading={skipping} onPress={() => void skipReview(p.day)} block />
+            </View>
+          </StepCard>
+        );
+      }
+      if (s.id === 'learn') {
+        return (
+          <StepCard key="learn" n={n} total={total} icon="book" title="Learn today’s words" state={s.state}
+            sub={s.state === 'done' ? words + (words === 1 ? ' word' : ' words') + ' saved to My Vocabulary' : words + ' new ' + (words === 1 ? 'word' : 'words') + ' today'}
+            lockedText="Unlocks after you review old lessons">
+            <Button title="Start learning" icon="right" onPress={() => openDay(p.day)} block />
+          </StepCard>
+        );
+      }
+      const reviewLeft = p.hasReview && stateOfStep('review') !== 'done';
+      return (
+        <StepCard key="homework" n={n} total={total} icon="listcheck" title="Homework" state={s.state}
+          sub={p.score !== null ? 'Handed in · score ' + p.score + ' / 100' : 'Test yourself on today’s words. Hand in today for full marks.'}
+          lockedText={'Unlocks after ' + (reviewLeft ? 'review and learning today’s words' : 'you learn today’s words')}>
+          <Button title="Start homework" icon="right" onPress={() => openHomework(p.day)} block />
+        </StepCard>
+      );
+    });
+    let doneCard = null;
+    if (p.next === 'done') {
+      const last = p.day >= p.totalDays;
+      const [sBg, sFg] = p.score !== null ? scoreColors(p.score, t) : [t.successSoft, t.success];
+      doneCard = (
+        <Card style={{ gap: 12, alignItems: 'center', padding: 22, backgroundColor: t.successSoft, borderColor: t.success }}>
+          <View accessible accessibilityLabel={(last ? 'Course complete' : 'Day ' + p.day + ' complete. Come back tomorrow for day ' + (p.day + 1)) + (p.score !== null ? '. Homework score ' + p.score : '')}
+            style={{ alignItems: 'center', gap: 8 }}>
+            <View style={{ width: 84, height: 84, borderRadius: 42, backgroundColor: p.score !== null ? sBg : t.surface, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: sFg }}>
+              {p.score !== null ? <T size={28} weight="extrabold" style={{ color: sFg, lineHeight: 34 }}>{p.score}</T> : <Icon name="check" size={34} color={sFg} />}
+            </View>
+            <T size={19} weight="extrabold" center>{last ? 'Course complete' : 'Day ' + p.day + ' complete'}</T>
+            <T tone="muted" center>{last ? 'You finished all ' + p.totalDays + ' days. Great work!' : 'Come back tomorrow for day ' + (p.day + 1) + '.'}</T>
+          </View>
+          <Button title="Leaderboard" icon="trophy" onPress={openBoard} block />
+        </Card>
+      );
+    }
+    return <>{cards}{doneCard}</>;
+  };
+
+  const header = (
+    <Card style={{ gap: 10 }}>
+      <T size={24} weight="extrabold" style={{ letterSpacing: -0.4 }}>{c.title}</T>
+      <T size={13.5} tone="muted">by {c.isOwner ? 'You' : c.ownerName}</T>
+      {c.description ? <T>{c.description}</T> : null}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+        <Badge label={c.readyDays + '/' + c.totalDays + ' days ready'} bg={t.surface2} fg={t.muted} />
+        <Badge label={c.wordsPerDay + ' words/day'} bg={t.surface2} fg={t.muted} />
+        <Badge label={c.members + (c.members === 1 ? ' member' : ' members')} bg={t.surface2} fg={t.muted} />
+        <Badge label={c.visibility === 'public' ? 'Public' : 'Private'} bg={c.visibility === 'public' ? t.successSoft : t.warningSoft} fg={c.visibility === 'public' ? t.success : t.warning} />
+      </View>
+      {e ? (
+        <View style={{ gap: 6, marginTop: 4 }}>
+          <Progress pct={(e.learned.length / c.totalDays) * 100} />
+          <T size={13.5} weight="semibold" tone="muted">Day {e.currentDay} of {c.totalDays} · {e.learned.length} learned</T>
+        </View>
+      ) : null}
+      {!e ? (
+        <Button title={c.isOwner ? 'Take this course yourself' : 'Join course'} icon="plus" loading={busy} onPress={join} variant={c.isOwner ? 'secondary' : 'primary'} block />
+      ) : null}
+    </Card>
+  );
+
+  const joinCode = c.isOwner && c.joinCode ? (
+    <Card style={{ gap: 6 }}>
+      <SectionTitle>Join code</SectionTitle>
+      <View accessible accessibilityLabel={'Join code ' + c.joinCode.split('').join(' ')}><T size={28} weight="extrabold" style={{ letterSpacing: 4 }}>{c.joinCode}</T></View>
+      <T size={13} tone="muted">Share this code so others can join{c.visibility === 'private' ? ' this private course' : ''}.</T>
+    </Card>
+  ) : null;
 
   return (
     <View style={{ flex: 1, backgroundColor: t.bg }}>
       <BackBar title="Course" right={c.isOwner ? <IconButton name="edit" label="Edit course" color={t.primaryInk} onPress={() => router.push({ pathname: '/course-edit/[id]', params: { id: c.id } })} /> : undefined} />
       <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 0, gap: 12, paddingBottom: 32 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={t.primary} colors={[t.primary]} />}>
-        <Card style={{ gap: 10 }}>
-          <T size={24} weight="extrabold" style={{ letterSpacing: -0.4 }}>{c.title}</T>
-          <T size={13.5} tone="muted">by {c.isOwner ? 'You' : c.ownerName}</T>
-          {c.description ? <T>{c.description}</T> : null}
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-            <Badge label={c.readyDays + '/' + c.totalDays + ' days ready'} bg={t.surface2} fg={t.muted} />
-            <Badge label={c.wordsPerDay + ' words/day'} bg={t.surface2} fg={t.muted} />
-            <Badge label={c.members + (c.members === 1 ? ' member' : ' members')} bg={t.surface2} fg={t.muted} />
-            <Badge label={c.visibility === 'public' ? 'Public' : 'Private'} bg={c.visibility === 'public' ? t.successSoft : t.warningSoft} fg={c.visibility === 'public' ? t.success : t.warning} />
-          </View>
-          {e ? (
-            <View style={{ gap: 6, marginTop: 4 }}>
-              <Progress pct={(e.learned.length / c.totalDays) * 100} />
-              <T size={13.5} weight="semibold" tone="muted">Day {e.currentDay} of {c.totalDays} · {e.learned.length} learned</T>
-            </View>
-          ) : null}
-          {e && current && current.count > 0 && !e.learned.includes(current.day) ? (
-            <Button title={'Learn day ' + current.day} icon="right" onPress={() => openDay(current)} block />
-          ) : null}
-          {!e ? (
-            <Button title={c.isOwner ? 'Take this course yourself' : 'Join course'} icon="plus" loading={busy} onPress={join} variant={c.isOwner ? 'secondary' : 'primary'} block />
-          ) : null}
-        </Card>
+        {header}
 
-        {e || c.isOwner ? (
-          <Button title="Leaderboard" icon="trophy" variant="secondary" onPress={() => router.push({ pathname: '/course/[id]/leaderboard', params: { id: c.id } })} block />
-        ) : null}
-
-        {c.isOwner && c.joinCode ? (
-          <Card style={{ gap: 6 }}>
-            <SectionTitle>Join code</SectionTitle>
-            <View accessible accessibilityLabel={'Join code ' + c.joinCode.split('').join(' ')}><T size={28} weight="extrabold" style={{ letterSpacing: 4 }}>{c.joinCode}</T></View>
-            <T size={13} tone="muted">Share this code so others can join{c.visibility === 'private' ? ' this private course' : ''}.</T>
-          </Card>
-        ) : null}
-
-        <SectionTitle style={{ marginTop: 4 }}>30 days</SectionTitle>
-        <Card pad={false} style={{ overflow: 'hidden' }}>{c.days.map(dayRow)}</Card>
+        {plan ? (
+          <>
+            <SectionTitle style={{ marginTop: 4 }}>Today · day {plan.day}</SectionTitle>
+            {catchUpNotice(plan)}
+            {todayPlan(plan)}
+            {plan.next !== 'done' ? <Button title="Leaderboard" icon="trophy" variant="secondary" onPress={openBoard} block /> : null}
+            {joinCode}
+            <Pressable onPress={() => setAllDays(!allDays)} accessibilityRole="button" accessibilityLabel={'All days, ' + c.totalDays + ' days'}
+              accessibilityState={{ expanded: allDays }}
+              style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48, marginTop: 4, paddingHorizontal: 4, borderRadius: 10, backgroundColor: pressed ? t.surface2 : 'transparent' })}>
+              <SectionTitle style={{ flex: 1 }}>All days</SectionTitle>
+              <View style={{ transform: [{ rotate: allDays ? '180deg' : '0deg' }] }}><Icon name="down" size={18} color={t.muted} /></View>
+            </Pressable>
+            {allDays ? dayList : null}
+          </>
+        ) : (
+          <>
+            {c.isOwner ? <Button title="Leaderboard" icon="trophy" variant="secondary" onPress={openBoard} block /> : null}
+            {joinCode}
+            <SectionTitle style={{ marginTop: 4 }}>30 days</SectionTitle>
+            {dayList}
+          </>
+        )}
 
         {e ? <Button title="Leave course" icon="logout" variant="dangerSoft" onPress={leave} /> : null}
       </ScrollView>

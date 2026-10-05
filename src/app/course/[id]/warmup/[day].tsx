@@ -6,7 +6,7 @@ import { ASK, isCorrect, isSentence, isTyped, Progress, scoreColors, TenseNote }
 import { BackBar, Badge, Button, Card, EmptyState, Icon, IconButton, IconTile, Input, SectionTitle, T } from '../../../../components/ui';
 import { api, type Warmup } from '../../../../lib/api';
 import { speak } from '../../../../lib/speech';
-import { errMsg, useTheme } from '../../../../state/store';
+import { errMsg, useStore, useTheme } from '../../../../state/store';
 
 type Phase = 'overview' | 'practice' | 'summary';
 /** The learner's answer to one question, once checked. */
@@ -15,6 +15,7 @@ type Checked = { answer: string; correct: boolean };
 export default function WarmupScreen() {
   const { id, day: dayParam } = useLocalSearchParams<{ id: string; day: string }>();
   const day = Number(dayParam);
+  const { actions } = useStore();
   const t = useTheme();
   const insets = useSafeAreaInsets();
   const [w, setW] = useState<Warmup | null>(null);
@@ -24,6 +25,7 @@ export default function WarmupScreen() {
   const [i, setI] = useState(0);
   const [input, setInput] = useState('');
   const [checked, setChecked] = useState<(Checked | null)[]>([]);
+  const [skipping, setSkipping] = useState(false);
 
   useEffect(() => {
     let live = true;
@@ -31,13 +33,13 @@ export default function WarmupScreen() {
     return () => { live = false; };
   }, [id, day]);
 
-  const title = 'Day ' + (dayParam ?? '') + ' warm-up';
+  const title = 'Day ' + (dayParam ?? '') + ' review';
   if (!w) {
     return (
       <View style={{ flex: 1, backgroundColor: t.bg }}>
         <BackBar title={title} />
         {err ? (
-          <EmptyState icon="alert" tone="red" title="Couldn’t open the warm-up" text={err}>
+          <EmptyState icon="alert" tone="red" title="Couldn’t open the review" text={err}>
             <Button title="Back" variant="secondary" onPress={() => router.back()} />
           </EmptyState>
         ) : <ActivityIndicator color={t.primary} style={{ marginTop: 40 }} />}
@@ -48,7 +50,13 @@ export default function WarmupScreen() {
   const qs = w.questions;
   const n = qs.length;
   const startPractice = () => { setChecked(qs.map(() => null)); setI(0); setInput(''); setPhase('practice'); };
-  const toHomework = () => router.replace({ pathname: '/course/[id]/homework/[day]', params: { id, day: String(day) } });
+  /** Skipping (or finishing a review with no questions) also counts as done, so the course plan moves on. */
+  const skip = async () => {
+    setSkipping(true);
+    const res = await actions.call(api.warmupDone(id, day));
+    setSkipping(false);
+    if (res) router.back();
+  };
 
   /* ---------- practice ---------- */
   if (phase === 'practice' && n) {
@@ -60,7 +68,12 @@ export default function WarmupScreen() {
       const r = { answer: a, correct: isCorrect(a, q.answer, q.accept) };
       setChecked((prev) => prev.map((x, k) => (k === i ? r : x)));
     };
-    const next = () => { if (last) setPhase('summary'); else { setI(i + 1); setInput(''); } };
+    const next = () => {
+      if (!last) { setI(i + 1); setInput(''); return; }
+      setPhase('summary');
+      // Not graded: the result only marks today's review as done. A failure just shows a toast.
+      void actions.call(api.warmupDone(id, day, { correct: checked.filter((x) => x?.correct).length, total: n }));
+    };
     const typed = isTyped(q);
     return (
       <KeyboardAvoidingView style={{ flex: 1, backgroundColor: t.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -146,19 +159,16 @@ export default function WarmupScreen() {
         <BackBar title={title} />
         <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 0, gap: 12, paddingBottom: insets.bottom + 24 }}>
           <Card style={{ alignItems: 'center', gap: 8, padding: 24 }}>
-            <SectionTitle>Warm-up done</SectionTitle>
+            <SectionTitle>Review done</SectionTitle>
             <View accessible accessibilityLabel={right + ' of ' + n + ' correct'}
               style={{ width: 110, height: 110, borderRadius: 55, backgroundColor: sBg, alignItems: 'center', justifyContent: 'center' }}>
               <T size={34} weight="extrabold" style={{ color: sFg, lineHeight: 42 }}>{right}/{n}</T>
             </View>
-            <T size={20} weight="extrabold" center>{pct >= 80 ? 'You’re ready!' : pct >= 50 ? 'Good warm-up!' : 'Worth another look'}</T>
-            <T tone="muted" center>This practice isn’t graded. Your homework is next.</T>
+            <T size={20} weight="extrabold" center>{pct >= 80 ? 'You’re ready!' : pct >= 50 ? 'Good review!' : 'Worth another look'}</T>
+            <T tone="muted" center>This practice isn’t graded. Next, learn today’s words.</T>
           </Card>
-          <Button title="Start homework" icon="right" size="lg" onPress={toHomework} block />
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            <Button title="Practice again" icon="refresh" variant="secondary" onPress={startPractice} style={{ flex: 1 }} />
-            <Button title="Back to day" variant="secondary" onPress={() => router.back()} style={{ flex: 1 }} />
-          </View>
+          <Button title="Continue" icon="right" size="lg" onPress={() => router.back()} block />
+          <Button title="Practice again" icon="refresh" variant="secondary" onPress={startPractice} block />
           {missed.length ? <SectionTitle style={{ marginTop: 4 }}>To review</SectionTitle> : null}
           {missed.map(({ q, r }, k) => (
             <View key={k} accessible accessibilityLabel={q.prompt + '. Correct answer: ' + q.answer + (r?.answer ? '. Your answer: ' + r.answer : '') + (q.tenseLabel ? '. ' + q.tenseLabel : '')}
@@ -183,12 +193,12 @@ export default function WarmupScreen() {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <IconTile name="zap" tone="amber" size={52} />
           <View style={{ flex: 1 }}>
-            <T size={22} weight="extrabold" style={{ letterSpacing: -0.4 }}>Warm-up</T>
-            <T size={13} tone="muted">Refresh earlier words before today’s homework. Optional and not graded.</T>
+            <T size={22} weight="extrabold" style={{ letterSpacing: -0.4 }}>Review old lessons</T>
+            <T size={13} tone="muted">Refresh earlier words before today’s new words. Not graded.</T>
           </View>
         </View>
 
-        {empty ? <EmptyState icon="zap" title="Nothing to warm up yet" text="There are no earlier words to review for this day." /> : null}
+        {empty ? <EmptyState icon="zap" title="Nothing to review yet" text="There are no earlier words to review for this day." /> : null}
 
         {w.recap ? (
           <Card style={{ gap: 10 }}>
@@ -227,7 +237,9 @@ export default function WarmupScreen() {
         {n ? (
           <Button title={'Practice ' + n + (n === 1 ? ' question' : ' questions')} icon="right" size="lg" onPress={startPractice} block style={{ marginTop: 4 }} />
         ) : null}
-        <Button title="Skip to homework" variant="ghost" onPress={toHomework} block />
+        {n
+          ? <Button title="Skip review" variant="ghost" loading={skipping} onPress={() => void skip()} block />
+          : <Button title="Done reviewing" icon="check" size="lg" loading={skipping} onPress={() => void skip()} block style={{ marginTop: 4 }} />}
       </ScrollView>
     </View>
   );

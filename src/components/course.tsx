@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import type { ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
-import type { CourseSummary, CourseWord, HomeworkType } from '../lib/api';
+import type { CourseDay, CourseDetail, CourseSummary, CourseWord, HomeworkType } from '../lib/api';
 import { speak } from '../lib/speech';
 import { useTheme } from '../state/store';
 import { Badge, Icon, IconButton, LevelBadge, T } from './ui';
@@ -37,6 +37,81 @@ export function Progress({ pct, color, height = 6 }: { pct: number; color?: stri
 export function courseProgressLabel(c: CourseSummary): string {
   const e = c.enrollment;
   return e ? 'Day ' + e.currentDay + ' of ' + c.totalDays + ' · ' + e.learned.length + ' learned' : '';
+}
+
+/* ---------- today's plan (learner) ---------- */
+
+const DAY_MS = 86400000;
+/** Course days follow Vietnam time (UTC+7 all year, no daylight saving), like the server. */
+const VN_OFFSET_MS = 7 * 3600000;
+/** Whole days since 1970-01-01 for today in Vietnam. */
+function vnToday(now: number): number { return Math.floor((now + VN_OFFSET_MS) / DAY_MS); }
+/** Whole days since 1970-01-01 for a 'YYYY-MM-DD' key. */
+function keyDays(key: string): number {
+  const [y, m, d] = key.split('-').map(Number);
+  return Math.floor(Date.UTC(y, (m || 1) - 1, d || 1) / DAY_MS);
+}
+/** Days since `day` opened for this learner (0 = it opened today). */
+export function lateDaysFor(startDay: string, day: number, now = Date.now()): number {
+  return Math.max(0, vnToday(now) - (keyDays(startDay) + day - 1));
+}
+/** % of the homework score kept when handed in this many days late (same as the server). */
+export function penaltyFor(lateDays: number): number {
+  return lateDays <= 0 ? 100 : lateDays === 1 ? 80 : lateDays === 2 ? 60 : 50;
+}
+
+export type PlanStepId = 'review' | 'learn' | 'homework';
+export type PlanStepState = 'done' | 'active' | 'locked';
+export interface CoursePlan {
+  day: number; totalDays: number;
+  /** Today's course day (always open for a learner). */
+  today: CourseDay | undefined;
+  /** Today has no words yet: there's nothing to do but catch up. */
+  empty: boolean;
+  /** Earlier open days whose homework isn't handed in, oldest first, with the penalty it gets now. */
+  catchUp: { day: number; lateDays: number; penalty: number }[];
+  /** False on day 1, or when no earlier day has words (then there's nothing to review). */
+  hasReview: boolean;
+  steps: { id: PlanStepId; state: PlanStepState }[];
+  /** Today's homework score, once handed in. */
+  score: number | null;
+  /** The step to do now, or 'done' when today's steps are all finished (or 'empty'). */
+  next: PlanStepId | 'done' | 'empty';
+}
+
+/** The learner's guided plan for today, or null when not taking the course. */
+export function coursePlan(c: CourseDetail, now = Date.now()): CoursePlan | null {
+  const e = c.enrollment;
+  if (!e) return null;
+  const day = e.currentDay;
+  const today = c.days.find((d) => d.day === day);
+  const empty = !today || !today.count || !today.words?.length;
+  const catchUp = c.days
+    .filter((d) => d.day < day && d.count > 0 && d.words !== null && (d.myScore ?? null) === null)
+    .sort((a, b) => a.day - b.day)
+    .map((d) => { const late = lateDaysFor(e.startDay, d.day, now); return { day: d.day, lateDays: late, penalty: penaltyFor(late) }; });
+  const hasReview = day >= 2 && c.days.some((d) => d.day < day && d.count > 0);
+  const score = today?.myScore ?? null;
+  const done: Record<PlanStepId, boolean> = {
+    review: (e.warmedUp ?? []).includes(day),
+    learn: e.learned.includes(day),
+    homework: score !== null
+  };
+  const order: PlanStepId[] = hasReview ? ['review', 'learn', 'homework'] : ['learn', 'homework'];
+  // Strictly in order: the first unfinished step is the one to do; later ones wait for it.
+  const firstOpen = order.find((s) => !done[s]);
+  const steps = order.map((id) => ({ id, state: (done[id] ? 'done' : id === firstOpen ? 'active' : 'locked') as PlanStepState }));
+  return { day, totalDays: c.totalDays, today, empty, catchUp, hasReview, steps, score, next: empty ? 'empty' : firstOpen ?? 'done' };
+}
+
+/** Short "what to do next" for the Home card. */
+export function planNextLabel(p: CoursePlan): string {
+  if (p.next === 'review') return 'Next: review old lessons';
+  if (p.next === 'learn') return 'Next: learn today’s words';
+  if (p.next === 'homework') return 'Next: today’s homework';
+  if (p.catchUp.length) return 'Next: finish day ' + p.catchUp[0].day + ' homework';
+  if (p.next === 'empty') return 'No new words yet today';
+  return p.day >= p.totalDays ? 'Course complete' : 'Done for today';
 }
 
 /** One course in a list. The whole card is a single button (nothing tappable inside it). */

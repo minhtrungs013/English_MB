@@ -1,6 +1,7 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, View } from 'react-native';
+import { coursePlan, planNextLabel, type CoursePlan } from '../../components/course';
 import { HomeSearch } from '../../components/home-search';
 import { Sheet, SheetItem } from '../../components/sheet';
 import { Button, Card, EmptyState, Icon, IconTile, LevelBadge, Screen, T } from '../../components/ui';
@@ -24,15 +25,26 @@ function Stat({ icon, tone, value, label, foot }: { icon: Parameters<typeof Icon
 function CoursesCard() {
   const t = useTheme();
   const [course, setCourse] = useState<CourseSummary | null | undefined>(undefined);
+  const [plan, setPlan] = useState<{ id: string; p: CoursePlan } | null>(null);
   useFocusEffect(useCallback(() => {
     let alive = true;
-    api.courses('joined').then((l) => { if (alive) setCourse(l[0] ?? null); }).catch(() => { if (alive) setCourse((c) => c ?? null); });
+    api.courses('joined')
+      .then(async (l) => {
+        if (!alive) return;
+        setCourse(l[0] ?? null);
+        // The list has no per-day data; the course itself says what today's next step is.
+        const d = l[0] ? await api.course(l[0].id) : null;
+        const p = d ? coursePlan(d) : null;
+        if (alive) setPlan(d && p ? { id: d.id, p } : null);
+      })
+      .catch(() => { if (alive) setCourse((c) => c ?? null); });
     return () => { alive = false; };
   }, []));
   const e = course?.enrollment;
-  const learnedToday = !!e && e.learned.includes(e.currentDay);
   const title = course && e ? 'Continue: ' + course.title : 'Explore courses';
-  const sub = course && e ? 'Day ' + e.currentDay + ' of ' + course.totalDays + (learnedToday ? ' · done for today' : ' · new words today') : 'Learn a few words every day for 30 days.';
+  const sub = course && e
+    ? 'Day ' + e.currentDay + ' of ' + course.totalDays + (plan && plan.id === course.id ? ' · ' + planNextLabel(plan.p) : '')
+    : 'Learn a few words every day for 30 days.';
   return (
     <Pressable onPress={() => (course ? router.push({ pathname: '/course/[id]', params: { id: course.id } }) : router.push('/courses'))}
       accessibilityRole="button" accessibilityLabel={title + '. ' + sub}

@@ -83,8 +83,11 @@ export interface CourseWord {
   /** '' when the word isn't in the shared library. */
   libraryId: string; source: 'library' | 'ai' | 'manual';
 }
-/** currentDay 1..30: day 1 is the day they joined, +1 each day (Vietnam time). */
-export type CourseEnrollment = { startDay: string; currentDay: number; learned: number[] } | null;
+/**
+ * currentDay 1..30: day 1 is the day they joined ('YYYY-MM-DD' startDay), +1 each day (Vietnam time).
+ * warmedUp: days whose warm-up (review of earlier days) was finished or skipped.
+ */
+export type CourseEnrollment = { startDay: string; currentDay: number; learned: number[]; warmedUp: number[] } | null;
 export type CourseVisibility = 'private' | 'public';
 export interface CourseSummary {
   id: string; title: string; description: string; ownerId: string; ownerName: string; isOwner: boolean;
@@ -246,6 +249,9 @@ export const api = {
     req<HomeworkResult>('POST', '/courses/' + id + '/days/' + day + '/homework', { answers }),
   /** Practice before the homework. Not graded: answers are included and checked on the device. */
   getWarmup: (id: string, day: number) => req<Warmup>('GET', '/courses/' + id + '/days/' + day + '/warmup'),
+  /** Marks a day's warm-up as done: with the practice result when finished, without one when skipped. */
+  warmupDone: (id: string, day: number, result?: { correct: number; total: number }) =>
+    req<{ warmedUp: number[] }>('POST', '/courses/' + id + '/days/' + day + '/warmup/done', result ?? {}),
 
   /* question bank (owner) */
   courseQuestions: (id: string, day: number) => req<BankItem[]>('GET', '/courses/' + id + '/questions?day=' + day),

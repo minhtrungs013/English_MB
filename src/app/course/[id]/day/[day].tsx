@@ -109,11 +109,11 @@ export default function CourseDayScreen() {
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
               <IconTile name="zap" tone="amber" size={52} />
               <View style={{ flex: 1 }}>
-                <T size={16.5} weight="extrabold">Warm-up</T>
-                <T size={13} tone="muted">A short recap of earlier days and a few practice questions. Optional, not graded.</T>
+                <T size={16.5} weight="extrabold">Review old lessons</T>
+                <T size={13} tone="muted">A short recap of earlier days and a few practice questions. Not graded.</T>
               </View>
             </View>
-            <Button title="Start warm-up" icon="right" variant="secondary" block
+            <Button title="Start review" icon="right" variant="secondary" block
               onPress={() => router.push({ pathname: '/course/[id]/warmup/[day]', params: { id: c.id, day: String(day) } })} />
           </Card>
         ) : null}
