@@ -102,6 +102,8 @@ export const api = {
     return req<LibraryPage>('GET', '/library' + (qs ? '?' + qs : ''));
   },
   libraryWord: (id: string) => req<LibraryWord>('GET', '/library/' + id),
+  /** Exact library entry for a word (case-insensitive), or null. */
+  findInLibrary: (word: string) => req<{ word: LibraryWord | null }>('GET', '/library/find?word=' + encodeURIComponent(word)),
   saveFromLibrary: (id: string) => req<{ word: Word; tag: string }>('POST', '/library/' + id + '/save'),
   shareToLibrary: (wordId: string, topic: Topic) => req<LibraryWord>('POST', '/library/share', { wordId, topic }),
   unshare: (id: string) => req<void>('DELETE', '/library/' + id)

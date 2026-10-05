@@ -1,13 +1,28 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BackBar, Button, Card, Chip, Field, Icon, Input, T } from '../components/ui';
-import { api, ApiError } from '../lib/api';
+import { BackBar, Button, Card, Chip, Field, Icon, Input, LevelBadge, T, TopicBadge } from '../components/ui';
+import { api, ApiError, type LibraryWord } from '../lib/api';
 import { LEVELS, POS_LIST, type Level } from '../lib/data';
 import { errMsg, useStore, useTheme } from '../state/store';
 
 const toList = (s: string) => s.split(',').map((x) => x.trim()).filter(Boolean);
+
+/** While adding a word: the library's entry for exactly that word (if any), checked as you type. */
+function useLibraryMatch(word: string, enabled: boolean): LibraryWord | null {
+  const [match, setMatch] = useState<{ key: string; w: LibraryWord | null } | null>(null);
+  const key = word.trim().toLowerCase();
+  useEffect(() => {
+    if (!enabled || !key) return;
+    let alive = true;
+    const t = setTimeout(() => {
+      api.findInLibrary(key).then((r) => { if (alive) setMatch({ key, w: r.word }); }).catch(() => { /* offline: just don't suggest */ });
+    }, 400);
+    return () => { alive = false; clearTimeout(t); };
+  }, [key, enabled]);
+  return enabled && key && match?.key === key ? match.w : null;
+}
 
 export default function WordForm() {
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -31,6 +46,16 @@ export default function WordForm() {
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   const [looking, setLooking] = useState(false);
+  const libMatch = useLibraryMatch(word, !editing);
+  const mineMatch = !editing && word.trim() ? data.words.find((w) => w.word.toLowerCase() === word.trim().toLowerCase()) : undefined;
+  const [usingLib, setUsingLib] = useState(false);
+  const useLibraryWord = async () => {
+    if (!libMatch || usingLib) return;
+    setUsingLib(true);
+    const w = await actions.saveFromLibrary(libMatch);
+    setUsingLib(false);
+    if (w) router.replace({ pathname: '/word/[id]', params: { id: w.id } });
+  };
 
   const autofill = async () => {
     const w = word.trim();
@@ -82,7 +107,29 @@ export default function WordForm() {
           <Field label="Word *" error={err}>
             <Input value={word} onChangeText={(v) => { setWord(v); setErr(''); }} placeholder="e.g. maintain" autoCapitalize="none" autoCorrect={false} big invalid={!!err} autoFocus={!editing} returnKeyType="search" onSubmitEditing={autofill} />
           </Field>
-          <Button title={looking ? 'Looking up…' : 'Auto-fill details'} icon="sparkle" loading={looking} onPress={autofill} />
+          {mineMatch ? (
+            <View style={{ gap: 10, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: t.primary, backgroundColor: t.primarySoft }}>
+              <T weight="bold" tone="primaryInk">You already have “{mineMatch.word}” in your vocabulary.</T>
+              <Button title="Open it" icon="right" variant="secondary" size="sm" onPress={() => router.replace({ pathname: '/word/[id]', params: { id: mineMatch.id } })} />
+            </View>
+          ) : libMatch ? (
+            <View accessibilityLiveRegion="polite" style={{ gap: 10, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: t.primary, backgroundColor: t.primarySoft }}>
+              <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                <Icon name="globe" size={16} color={t.primaryInk} />
+                <T weight="bold" tone="primaryInk" style={{ flex: 1 }}>“{libMatch.word}” is already in the library — save it instead of typing it again.</T>
+              </View>
+              <View style={{ backgroundColor: t.surface, borderRadius: 10, borderWidth: 1, borderColor: t.border, padding: 12, gap: 4 }}>
+                <T size={17} weight="extrabold">{libMatch.word}</T>
+                <T ipa size={13} tone="muted">{libMatch.ipa}</T>
+                <T weight="semibold">{libMatch.vi}</T>
+                <T size={13.5} tone="muted">{libMatch.meaning}</T>
+                <View style={{ flexDirection: 'row', gap: 6, marginTop: 4 }}><TopicBadge topic={libMatch.topic} /><LevelBadge level={libMatch.level} /></View>
+              </View>
+              <Button title="Save from library" icon="plus" loading={usingLib} onPress={useLibraryWord} />
+            </View>
+          ) : (
+            <Button title={looking ? 'Looking up…' : 'Auto-fill details'} icon="sparkle" loading={looking} onPress={autofill} />
+          )}
           <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
             <Icon name="sparkle" size={14} color={t.primary} />
             <T size={12.5} tone="muted" style={{ flex: 1 }}>Optional — every field below can be filled in or edited by hand.</T>
@@ -124,7 +171,9 @@ export default function WordForm() {
       </ScrollView>
       <View style={{ flexDirection: 'row', gap: 10, padding: 12, paddingBottom: insets.bottom + 12, backgroundColor: t.surface, borderTopWidth: 1, borderTopColor: t.border }}>
         <Button title="Cancel" variant="secondary" onPress={() => router.back()} style={{ flex: 1 }} />
-        <Button title={editing ? 'Save Changes' : 'Save Vocabulary'} icon="check" loading={busy} onPress={save} style={{ flex: 2 }} />
+        {libMatch && !mineMatch
+          ? <Button title="Save from library" icon="plus" loading={usingLib} onPress={useLibraryWord} style={{ flex: 2 }} />
+          : <Button title={editing ? 'Save Changes' : 'Save Vocabulary'} icon="check" loading={busy} onPress={save} style={{ flex: 2 }} />}
       </View>
     </KeyboardAvoidingView>
   );
