@@ -10,6 +10,7 @@ import { BackBar, Badge, Button, Card, EmptyState, Icon, IconButton, Input, Leve
 import { api, type CourseDetail, type CourseWord } from '../../../../lib/api';
 import { shuffle } from '../../../../lib/data';
 import { speak, stopSpeaking } from '../../../../lib/speech';
+import { DayStepper, FlowNext, useDayFlow } from '../../../../components/day-flow';
 import { errMsg, useStore, useTheme } from '../../../../state/store';
 
 type Phase = 'meet' | 'practice' | 'summary';
@@ -98,7 +99,7 @@ const letters = (s: string) => s.replace(/[\s'-]/g, '').length;
 /* ---------- screen ---------- */
 
 export default function LearnDayScreen() {
-  const { id, day: dayParam } = useLocalSearchParams<{ id: string; day: string }>();
+  const { id, day: dayParam, flow } = useLocalSearchParams<{ id: string; day: string; flow?: string }>();
   const day = Number(dayParam);
   const { data, actions } = useStore();
   const t = useTheme();
@@ -113,6 +114,9 @@ export default function LearnDayScreen() {
   const [res, setRes] = useState<{ answer: string; correct: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const [savingAll, setSavingAll] = useState(false);
+  /** Opened from the Today plan: part of the guided day flow. */
+  const inFlow = flow === '1';
+  const dayFlow = useDayFlow(id, day, inFlow);
   // Match round
   const [sel, setSel] = useState<number | null>(null);
   const [paired, setPaired] = useState<number[]>([]);
@@ -243,7 +247,10 @@ export default function LearnDayScreen() {
     setBusy(true);
     const r = await actions.learnCourseDay(c.id, day, []);
     setBusy(false);
-    if (r) { setC(r); stopSpeaking(); router.back(); }
+    if (!r) return;
+    setC(r); stopSpeaking();
+    // In the day flow, stay for the summary (save words, then continue); otherwise back to the course.
+    if (inFlow) setPhase('summary'); else router.back();
   };
   const saveAll = async () => {
     setSavingAll(true);
@@ -275,6 +282,7 @@ export default function LearnDayScreen() {
           <T size={16} weight="extrabold" numberOfLines={1} style={{ flex: 1 }}>{title} · Meet the words</T>
           <T size={14} weight="bold" tone="muted" style={{ paddingHorizontal: 8 }}>{card + 1} / {n}</T>
         </View>
+        {inFlow ? <DayStepper flow={dayFlow} current="learn" currentDone={learned} /> : null}
         <ScrollView ref={pager} horizontal pagingEnabled showsHorizontalScrollIndicator={false} onMomentumScrollEnd={onSwipe} style={{ flex: 1 }}>
           {words.map((w, k) => (
             <ScrollView key={w.word + k} style={{ width }} contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 16, paddingTop: 4 }}>
@@ -331,8 +339,10 @@ export default function LearnDayScreen() {
     return (
       <View style={{ flex: 1, backgroundColor: t.bg }}>
         <BackBar title={title} />
+        {inFlow ? <DayStepper flow={dayFlow} current="learn" currentDone={learned} /> : null}
         <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 0, gap: 12, paddingBottom: insets.bottom + 24 }}>
-          <Card style={{ alignItems: 'center', gap: 8, padding: 24 }}>
+          {/* No practice result when the practice was skipped. */}
+          {run ? <Card style={{ alignItems: 'center', gap: 8, padding: 24 }}>
             <SectionTitle>Practice done</SectionTitle>
             <View accessible accessibilityLabel={'Accuracy ' + pct + ' percent'}
               style={{ width: 110, height: 110, borderRadius: 55, backgroundColor: sBg, alignItems: 'center', justifyContent: 'center' }}>
@@ -342,9 +352,11 @@ export default function LearnDayScreen() {
             <T tone="muted" center>
               You practiced {n} {n === 1 ? 'word' : 'words'} · {run?.right ?? 0} of {answered} answers correct.
             </T>
-          </Card>
+          </Card> : null}
           {canFinish ? (
             <Button title="Finish" icon="check" size="lg" loading={busy} onPress={() => void finish()} block accessibilityLabel="Finish and mark the day as learned" />
+          ) : inFlow ? (
+            <FlowNext flow={dayFlow} current="learn" />
           ) : (
             <Button title="Done" icon="check" size="lg" onPress={() => { stopSpeaking(); router.back(); }} block />
           )}

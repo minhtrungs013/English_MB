@@ -6,6 +6,7 @@ import { ASK, isCorrect, isSentence, isTyped, Progress, scoreColors, TenseNote }
 import { BackBar, Badge, Button, Card, EmptyState, Icon, IconButton, IconTile, Input, SectionTitle, T } from '../../../../components/ui';
 import { api, type Warmup } from '../../../../lib/api';
 import { speak } from '../../../../lib/speech';
+import { DayStepper, FlowDoneScreen, FlowNext, useDayFlow } from '../../../../components/day-flow';
 import { errMsg, useStore, useTheme } from '../../../../state/store';
 
 type Phase = 'overview' | 'practice' | 'summary';
@@ -13,7 +14,7 @@ type Phase = 'overview' | 'practice' | 'summary';
 type Checked = { answer: string; correct: boolean };
 
 export default function WarmupScreen() {
-  const { id, day: dayParam } = useLocalSearchParams<{ id: string; day: string }>();
+  const { id, day: dayParam, flow } = useLocalSearchParams<{ id: string; day: string; flow?: string }>();
   const day = Number(dayParam);
   const { actions } = useStore();
   const t = useTheme();
@@ -26,6 +27,11 @@ export default function WarmupScreen() {
   const [input, setInput] = useState('');
   const [checked, setChecked] = useState<(Checked | null)[]>([]);
   const [skipping, setSkipping] = useState(false);
+  /** Opened from the Today plan: part of the guided day flow. */
+  const inFlow = flow === '1';
+  const dayFlow = useDayFlow(id, day, inFlow);
+  /** Skipped (or done without questions) in the flow: show what's next. */
+  const [skipped, setSkipped] = useState(false);
 
   useEffect(() => {
     let live = true;
@@ -55,8 +61,11 @@ export default function WarmupScreen() {
     setSkipping(true);
     const res = await actions.call(api.warmupDone(id, day));
     setSkipping(false);
-    if (res) router.back();
+    if (!res) return;
+    if (inFlow) setSkipped(true); else router.back();
   };
+
+  if (skipped) return <FlowDoneScreen title={title} flow={dayFlow} current="review" />;
 
   /* ---------- practice ---------- */
   if (phase === 'practice' && n) {
@@ -157,6 +166,7 @@ export default function WarmupScreen() {
     return (
       <View style={{ flex: 1, backgroundColor: t.bg }}>
         <BackBar title={title} />
+        {inFlow ? <DayStepper flow={dayFlow} current="review" currentDone /> : null}
         <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 0, gap: 12, paddingBottom: insets.bottom + 24 }}>
           <Card style={{ alignItems: 'center', gap: 8, padding: 24 }}>
             <SectionTitle>Review done</SectionTitle>
@@ -167,7 +177,7 @@ export default function WarmupScreen() {
             <T size={20} weight="extrabold" center>{pct >= 80 ? 'You’re ready!' : pct >= 50 ? 'Good review!' : 'Worth another look'}</T>
             <T tone="muted" center>This practice isn’t graded. Next, learn today’s words.</T>
           </Card>
-          <Button title="Continue" icon="right" size="lg" onPress={() => router.back()} block />
+          {inFlow ? <FlowNext flow={dayFlow} current="review" /> : <Button title="Continue" icon="right" size="lg" onPress={() => router.back()} block />}
           <Button title="Practice again" icon="refresh" variant="secondary" onPress={startPractice} block />
           {missed.length ? <SectionTitle style={{ marginTop: 4 }}>To review</SectionTitle> : null}
           {missed.map(({ q, r }, k) => (
@@ -189,6 +199,7 @@ export default function WarmupScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: t.bg }}>
       <BackBar title={title} />
+      {inFlow ? <DayStepper flow={dayFlow} current="review" /> : null}
       <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 0, gap: 12, paddingBottom: insets.bottom + 24 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <IconTile name="zap" tone="amber" size={52} />

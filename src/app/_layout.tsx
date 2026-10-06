@@ -63,6 +63,8 @@ function Root({ fontsReady }: { fontsReady: boolean }) {
           <Stack.Screen name="course/[id]/learn/[day]" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
           <Stack.Screen name="course/[id]/listening/[day]" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
           <Stack.Screen name="course/[id]/leaderboard" />
+          <Stack.Screen name="course/[id]/members" />
+          <Stack.Screen name="course/[id]/member/[userId]" />
           <Stack.Screen name="course-edit/[id]/index" />
           <Stack.Screen name="course-edit/[id]/questions/[day]" />
         </Stack.Protected>

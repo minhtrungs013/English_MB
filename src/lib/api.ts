@@ -224,6 +224,38 @@ export interface Leaderboard {
   dayBoard: Board<DayBoardRow>; overall: Board<OverallBoardRow>; streak: Board<StreakBoardRow>;
 }
 
+/* ---------- members (owner) ---------- */
+/** One learner's progress in a course. Counts are numbers of days; times are ms since 1970 (null when unknown). */
+export interface CourseMember {
+  userId: string; name: string; isOwner: boolean; joinedAt: number | null;
+  startDay: string; currentDay: number;
+  learned: number; warmedUp: number; listened: number;
+  /** Homework handed in. */
+  homework: number;
+  /** Open days with words whose homework isn't handed in. */
+  missing: number;
+  /** Homework handed in late. */
+  late: number;
+  totalScore: number; avgScore: number | null; streak: number; lastActive: number | null;
+}
+/** `members` is sorted by last activity (most recent first). */
+export interface CourseMembers { members: CourseMember[]; totalDays: number; daysWithWords: number }
+export interface MemberHomework { score: number; raw: number; correct: number; total: number; lateDays: number; durationMs: number; submittedAt: number }
+export interface MemberDay {
+  day: number;
+  /** 'YYYY-MM-DD' this day opens for the learner. */
+  date: string;
+  open: boolean; words: number;
+  learnedAt: number | null; warmedUpAt: number | null; listenedAt: number | null;
+  warmup: { correct: number; total: number } | null;
+  listening: { correct: number; total: number } | null;
+  /** null = not opened; `{ opened: true }` = opened but not handed in. */
+  homework: null | { opened: true } | MemberHomework;
+}
+export interface MemberDetail {
+  userId: string; name: string; isOwner: boolean; joinedAt: number | null; startDay: string; currentDay: number; days: MemberDay[];
+}
+
 export const api = {
   register: (name: string, email: string, password: string) => req<AuthResponse>('POST', '/auth/register', { name, email, password }),
   login: (email: string, password: string) => req<AuthResponse>('POST', '/auth/login', { email, password }),
@@ -312,5 +344,11 @@ export const api = {
   setQuestionsStatus: (id: string, ids: string[], status: BankStatus) => req<unknown>('POST', '/courses/' + id + '/questions/status', { ids, status }),
   deleteQuestion: (id: string, qid: string) => req<void>('DELETE', '/courses/' + id + '/questions/' + qid),
 
-  getLeaderboard: (id: string, day?: number) => req<Leaderboard>('GET', '/courses/' + id + '/leaderboard' + (day ? '?day=' + day : ''))
+  getLeaderboard: (id: string, day?: number) => req<Leaderboard>('GET', '/courses/' + id + '/leaderboard' + (day ? '?day=' + day : '')),
+
+  /* members (owner only; 403 for anyone else) */
+  courseMembers: (id: string) => req<CourseMembers>('GET', '/courses/' + id + '/members'),
+  courseMember: (id: string, userId: string) => req<MemberDetail>('GET', '/courses/' + id + '/members/' + userId),
+  /** Removes a learner and their homework. 400 for the owner themself, 404 when not a member. */
+  removeCourseMember: (id: string, userId: string) => req<void>('DELETE', '/courses/' + id + '/members/' + userId)
 };

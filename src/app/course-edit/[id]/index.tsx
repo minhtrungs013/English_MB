@@ -214,7 +214,12 @@ export default function CourseEdit() {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: t.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <BackBar title="Edit course" right={saving ? <ActivityIndicator color={t.primary} style={{ marginRight: 12 }} accessibilityLabel="Saving" /> : undefined} />
+      <BackBar title="Edit course" right={
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          {saving ? <ActivityIndicator color={t.primary} style={{ marginRight: 8 }} accessibilityLabel="Saving" /> : null}
+          <IconButton name="users" label="Members" color={t.primaryInk} onPress={() => router.push({ pathname: '/course/[id]/members', params: { id: c.id } })} />
+        </View>
+      } />
       <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 0, gap: 12, paddingBottom: 32 }} keyboardShouldPersistTaps="handled">
         <SettingsCard key={c.id} c={c} onSaved={setC} />
 

@@ -144,21 +144,58 @@ export function coursePlan(c: CourseDetail, now = Date.now(), hasListening = fal
     .filter((d) => d.day < day && d.count > 0 && d.words !== null && (d.myScore ?? null) === null)
     .sort((a, b) => a.day - b.day)
     .map((d) => { const late = lateDaysFor(e.startDay, d.day, now); return { day: d.day, lateDays: late, penalty: penaltyFor(late) }; });
-  const hasReview = day >= 2 && c.days.some((d) => d.day < day && d.count > 0);
   const score = today?.myScore ?? null;
+  const flow = daySteps(c, day, hasListening);
+  // Strictly in order: the first unfinished step is the one to do; later ones wait for it.
+  const firstOpen = flow.find((s) => !s.done)?.id;
+  const steps = flow.map(({ id, done }) => ({ id, state: (done ? 'done' : id === firstOpen ? 'active' : 'locked') as PlanStepState }));
+  return { day, totalDays: c.totalDays, today, empty, catchUp, hasReview: hasReviewOn(c, day), hasListening, steps, score, next: empty ? 'empty' : firstOpen ?? 'done', startsOn: '' };
+}
+
+/** A day has a review step when an earlier day has words. */
+function hasReviewOn(c: CourseDetail, day: number): boolean {
+  return day >= 2 && c.days.some((d) => d.day < day && d.count > 0);
+}
+
+/**
+ * The steps of one course day for the learner, in order: review (when there's something to review), learn,
+ * listening (when the day has a dialogue) and homework, each with whether it's done.
+ */
+export function daySteps(c: CourseDetail, day: number, hasListening: boolean): { id: PlanStepId; done: boolean }[] {
+  const e = c.enrollment;
+  const score = c.days.find((d) => d.day === day)?.myScore ?? null;
   const done: Record<PlanStepId, boolean> = {
-    review: (e.warmedUp ?? []).includes(day),
-    learn: e.learned.includes(day),
-    listening: (e.listened ?? []).includes(day),
+    review: !!e?.warmedUp?.includes(day),
+    learn: !!e?.learned.includes(day),
+    listening: !!e?.listened?.includes(day),
     homework: score !== null
   };
   const order: PlanStepId[] = [
-    ...(hasReview ? ['review' as const] : []), 'learn', ...(hasListening ? ['listening' as const] : []), 'homework'
+    ...(hasReviewOn(c, day) ? ['review' as const] : []), 'learn', ...(hasListening ? ['listening' as const] : []), 'homework'
   ];
-  // Strictly in order: the first unfinished step is the one to do; later ones wait for it.
-  const firstOpen = order.find((s) => !done[s]);
-  const steps = order.map((id) => ({ id, state: (done[id] ? 'done' : id === firstOpen ? 'active' : 'locked') as PlanStepState }));
-  return { day, totalDays: c.totalDays, today, empty, catchUp, hasReview, hasListening, steps, score, next: empty ? 'empty' : firstOpen ?? 'done', startsOn: '' };
+  return order.map((id) => ({ id, done: done[id] }));
+}
+
+/** Short names of the day's steps (stepper, "next: …"). */
+export const STEP_LABEL: Record<PlanStepId, string> = { review: 'Review', learn: 'Learn', listening: 'Listening', homework: 'Homework' };
+
+/* ---------- members (owner) ---------- */
+/** "just now", "5m ago", "2h ago", "3d ago", "10 Oct" for a time in ms; '' for null. */
+export function fmtAgo(ms: number | null, now = Date.now()): string {
+  if (!ms) return '';
+  const s = Math.max(0, Math.round((now - ms) / 1000));
+  if (s < 60) return 'just now';
+  if (s < 3600) return Math.floor(s / 60) + 'm ago';
+  if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+  if (s < 7 * 86400) return Math.floor(s / 86400) + 'd ago';
+  return fmtDateKey(courseTodayKey(ms));
+}
+/** Learner count, average homework score (of those with one) and how many were active in the last 2 days. */
+export function membersSummary(members: { avgScore: number | null; lastActive: number | null }[], now = Date.now()): { count: number; avg: number | null; active: number } {
+  const scored = members.filter((m) => m.avgScore !== null);
+  const avg = scored.length ? Math.round(scored.reduce((s, m) => s + (m.avgScore ?? 0), 0) / scored.length) : null;
+  const active = members.filter((m) => m.lastActive && now - m.lastActive <= 2 * DAY_MS).length;
+  return { count: members.length, avg, active };
 }
 
 /** Short "what to do next" for the Home card. */

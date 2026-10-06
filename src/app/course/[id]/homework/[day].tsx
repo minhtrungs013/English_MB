@@ -6,6 +6,7 @@ import { ASK, fmtDuration, isSentence, isTyped, Progress, scoreColors, TenseNote
 import { BackBar, Badge, Button, Card, EmptyState, Icon, IconButton, IconTile, Input, SectionTitle, T } from '../../../../components/ui';
 import { api, ApiError, type CourseDetail, type Homework, type HomeworkQuestion, type HomeworkResult } from '../../../../lib/api';
 import { speak } from '../../../../lib/speech';
+import { DayStepper, FlowNext, useDayFlow } from '../../../../components/day-flow';
 import { errMsg, useStore, useTheme } from '../../../../state/store';
 
 type Phase = 'intro' | 'loading' | 'quiz' | 'sending' | 'result';
@@ -13,7 +14,7 @@ type Phase = 'intro' | 'loading' | 'quiz' | 'sending' | 'result';
 const TYPE_LABEL: Record<HomeworkQuestion['type'], string> = { meaning: 'Meaning', word: 'Word', type: 'Spelling', blank: 'Sentence', tense: 'Tense', tenseChoice: 'Tense' };
 
 export default function HomeworkScreen() {
-  const { id, day: dayParam } = useLocalSearchParams<{ id: string; day: string }>();
+  const { id, day: dayParam, flow } = useLocalSearchParams<{ id: string; day: string; flow?: string }>();
   const day = Number(dayParam);
   const { actions } = useStore();
   const t = useTheme();
@@ -25,6 +26,9 @@ export default function HomeworkScreen() {
   const [i, setI] = useState(0);
   const [phase, setPhase] = useState<Phase>('intro');
   const [err, setErr] = useState('');
+  /** Opened from the Today plan: part of the guided day flow. */
+  const inFlow = flow === '1';
+  const dayFlow = useDayFlow(id, day, inFlow);
 
   /** Opens the homework (this starts the timer on the server, unless it was already handed in). */
   const start = useCallback(async () => {
@@ -101,7 +105,10 @@ export default function HomeworkScreen() {
     return (
       <View style={{ flex: 1, backgroundColor: t.bg }}>
         <BackBar title={title} />
+        {inFlow ? <DayStepper flow={dayFlow} current="homework" currentDone /> : null}
         <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 0, gap: 12, paddingBottom: insets.bottom + 24 }}>
+          {/* In the day flow, the last step ends with "Day N complete". */}
+          {inFlow ? <FlowNext flow={dayFlow} current="homework" score={result.score} /> : null}
           <Card style={{ alignItems: 'center', gap: 8, padding: 24 }}>
             <SectionTitle>Your score</SectionTitle>
             <View accessible accessibilityLabel={'Score ' + result.score + ' out of 100'}
@@ -130,7 +137,7 @@ export default function HomeworkScreen() {
             </View>
           </Card>
 
-          <Button title="Leaderboard" icon="trophy" variant="secondary" onPress={() => router.push({ pathname: '/course/[id]/leaderboard', params: { id, day: String(day) } })} block />
+          {inFlow ? null : <Button title="Leaderboard" icon="trophy" variant="secondary" onPress={() => router.push({ pathname: '/course/[id]/leaderboard', params: { id, day: String(day) } })} block />}
 
           <SectionTitle style={{ marginTop: 4 }}>Answers</SectionTitle>
           {result.review.map((r, k) => {
@@ -243,6 +250,7 @@ export default function HomeworkScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: t.bg }}>
       <BackBar title={c?.title ?? title} />
+      {inFlow ? <DayStepper flow={dayFlow} current="homework" /> : null}
       {(!c && !err) || (phase === 'loading' && d?.myScore != null) ? <ActivityIndicator color={t.primary} style={{ marginTop: 40 }} />
         : !c ? (
           <EmptyState icon="alert" tone="red" title="Couldn’t open this homework" text={err}>

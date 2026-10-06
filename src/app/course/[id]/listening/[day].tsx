@@ -7,6 +7,7 @@ import { BackBar, Badge, Button, Card, EmptyState, Icon, IconButton, Input, Sect
 import { api, type Dialogue, type ListeningDialogue } from '../../../../lib/api';
 import { shuffle } from '../../../../lib/data';
 import { pickDialogueVoices, speakThen, stopSpeaking, useEnglishVoices, type SpeakerVoice } from '../../../../lib/speech';
+import { DayStepper, FlowDoneScreen, FlowNext, useDayFlow } from '../../../../components/day-flow';
 import { errMsg, useStore, useTheme } from '../../../../state/store';
 
 type Step = 'listen' | 'fill' | 'questions' | 'summary';
@@ -48,7 +49,7 @@ function lineText(text: string, reveal: boolean): string {
  * `preview` (a bank item id) lets the course owner try a dialogue from the question bank; nothing is saved then.
  */
 export default function ListeningScreen() {
-  const { id, day: dayParam, preview } = useLocalSearchParams<{ id: string; day: string; preview?: string }>();
+  const { id, day: dayParam, preview, flow } = useLocalSearchParams<{ id: string; day: string; preview?: string; flow?: string }>();
   const day = Number(dayParam);
   const { actions } = useStore();
   const t = useTheme();
@@ -67,6 +68,13 @@ export default function ListeningScreen() {
   // Questions: the chosen choice per question
   const [picks, setPicks] = useState<(number | null)[]>([]);
   const [finishing, setFinishing] = useState(false);
+  /** Opened from the Today plan: part of the guided day flow (never for an owner's preview). */
+  const inFlow = flow === '1' && !preview;
+  const dayFlow = useDayFlow(id, day, inFlow);
+  /** In the flow: finished (the summary then offers what's next) or skipped. */
+  const [flowDone, setFlowDone] = useState(false);
+  const [skipped, setSkipped] = useState(false);
+  const [skipping, setSkipping] = useState(false);
   // Player
   const [playing, setPlaying] = useState(false);
   const [current, setCurrent] = useState<number | null>(null);
@@ -147,6 +155,8 @@ export default function ListeningScreen() {
     );
   }
 
+  if (skipped) return <FlowDoneScreen title={title} flow={dayFlow} current="listening" />;
+
   const { blanks } = parsed;
   const qs = dlg.questions;
   const results = blanks.map((b) => isCorrect(fills[b.n] ?? '', b.said, [b.base]));
@@ -195,7 +205,17 @@ export default function ListeningScreen() {
     setFinishing(true);
     const res = await actions.call(api.listeningDone(id, day, { correct: blanksRight + questionsRight, total: blanks.length + qs.length }));
     setFinishing(false);
-    if (res) { actions.showToast('Listening done.'); back(); }
+    if (!res) return;
+    actions.showToast('Listening done.');
+    if (inFlow) setFlowDone(true); else back();
+  };
+  /** Skipping also counts as done, so the day moves on. */
+  const skip = async () => {
+    stop();
+    setSkipping(true);
+    const res = await actions.call(api.listeningDone(id, day));
+    setSkipping(false);
+    if (res) setSkipped(true);
   };
 
   /* ---------- pieces ---------- */
@@ -472,7 +492,12 @@ export default function ListeningScreen() {
         {listenLines}
       </>
     );
-    footer = <Button title="Next: fill the blanks" icon="right" size="lg" onPress={() => goStep('fill')} block />;
+    footer = inFlow ? (
+      <View style={{ gap: 6 }}>
+        <Button title="Next: fill the blanks" icon="right" size="lg" onPress={() => goStep('fill')} block />
+        <Button title="Skip listening" variant="ghost" loading={skipping} onPress={() => void skip()} block />
+      </View>
+    ) : <Button title="Next: fill the blanks" icon="right" size="lg" onPress={() => goStep('fill')} block />;
   } else if (step === 'fill') {
     body = (
       <>
@@ -530,8 +555,10 @@ export default function ListeningScreen() {
           </View>
           {preview ? <T size={13} tone="muted" center>Preview — nothing is saved.</T> : null}
         </Card>
-        <Button title={preview ? 'Close preview' : 'Finish'} icon="check" size="lg" loading={finishing} onPress={() => void finish()} block
-          accessibilityLabel={preview ? 'Close preview' : 'Finish and mark today’s listening as done'} />
+        {flowDone ? <FlowNext flow={dayFlow} current="listening" /> : (
+          <Button title={preview ? 'Close preview' : 'Finish'} icon="check" size="lg" loading={finishing} onPress={() => void finish()} block
+            accessibilityLabel={preview ? 'Close preview' : 'Finish and mark today’s listening as done'} />
+        )}
         <Button title="Practise again" icon="refresh" variant="secondary" onPress={again} block />
         <SectionTitle style={{ marginTop: 4 }}>Transcript</SectionTitle>
         {dlg.lines.map((l, i) => (
@@ -551,6 +578,7 @@ export default function ListeningScreen() {
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: t.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <BackBar title={title} onBack={back} />
+      {inFlow ? <DayStepper flow={dayFlow} current="listening" currentDone={flowDone} /> : null}
       {stepBar}
       <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 4, gap: 12, paddingBottom: 24 }} keyboardShouldPersistTaps="handled">
         {preview && step === 'listen' ? (
