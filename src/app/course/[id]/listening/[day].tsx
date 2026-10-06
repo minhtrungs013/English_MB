@@ -480,6 +480,8 @@ export default function ListeningScreen() {
   /* ---------- layout ---------- */
   let body = null;
   let footer = null;
+  /** Pinned above the scrolling lines (the word bank while filling), so it's always in view. */
+  let pinned: React.ReactNode = null;
   if (step === 'listen') {
     body = (
       <>
@@ -499,6 +501,7 @@ export default function ListeningScreen() {
       </View>
     ) : <Button title="Next: fill the blanks" icon="right" size="lg" onPress={() => goStep('fill')} block />;
   } else if (step === 'fill') {
+    if (!checked) pinned = wordBank;
     body = (
       <>
         <T size={14} weight="bold" tone="muted">Listen again and fill each blank with the word you hear.</T>
@@ -509,7 +512,7 @@ export default function ListeningScreen() {
             {fillResult}
             {toggle('Translation', showVi, () => setShowVi(!showVi))}
           </>
-        ) : wordBank}
+        ) : null}
       </>
     );
     footer = checked
@@ -580,6 +583,9 @@ export default function ListeningScreen() {
       <BackBar title={title} onBack={back} />
       {inFlow ? <DayStepper flow={dayFlow} current="listening" currentDone={flowDone} /> : null}
       {stepBar}
+      {pinned ? (
+        <View style={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: t.border, backgroundColor: t.bg }}>{pinned}</View>
+      ) : null}
       <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 4, gap: 12, paddingBottom: 24 }} keyboardShouldPersistTaps="handled">
         {preview && step === 'listen' ? (
           <View style={{ flexDirection: 'row', gap: 10, padding: 12, borderRadius: 12, backgroundColor: t.infoSoft }}>
