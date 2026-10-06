@@ -16,13 +16,22 @@ export default function CourseDayScreen() {
   const [c, setC] = useState<CourseDetail | null>(null);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
+  /** This day has a listening dialogue (checked once the day is open for the learner). */
+  const [hasListening, setHasListening] = useState(false);
 
   // Reload on focus so a homework score shows up when coming back from the homework screen.
   useFocusEffect(useCallback(() => {
     let live = true;
-    api.course(id).then((res) => { if (live) { setC(res); setErr(''); } }).catch((e) => { if (live) setErr(errMsg(e)); });
+    api.course(id).then((res) => {
+      if (!live) return;
+      setC(res); setErr('');
+      const en = res.enrollment;
+      if (en && day >= 1 && day <= en.currentDay && res.days.find((x) => x.day === day)?.words) {
+        api.getListening(id, day).then((l) => { if (live) setHasListening(!!l.dialogue); }).catch(() => { if (live) setHasListening(false); });
+      }
+    }).catch((e) => { if (live) setErr(errMsg(e)); });
     return () => { live = false; };
-  }, [id]));
+  }, [id, day]));
 
   const d = c?.days.find((x) => x.day === day);
   if (!c || !d) {
@@ -42,6 +51,7 @@ export default function CourseDayScreen() {
   const newCount = words.filter((w) => !mine.has(w.word.toLowerCase())).length;
   const learned = !!e?.learned.includes(day);
   const canLearn = !!e && day <= e.currentDay && words.length > 0;
+  const listened = !!e?.listened?.includes(day);
 
   // Marks the day as learned without saving anything: words are saved one by one with their own buttons.
   const learn = async () => {
@@ -128,6 +138,23 @@ export default function CourseDayScreen() {
             <SaveCourseWord courseId={c.id} day={day} word={w.word} canSave={canLearn} style={{ marginTop: 4 }} />
           </CourseWordCard>
         ))}
+        {canLearn && hasListening ? (
+          <Card style={{ gap: 12 }}>
+            <View accessible accessibilityLabel={'Listening' + (listened ? ', done' : '') + '. A short dialogue with gaps to fill and a few questions. Not graded.'}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <IconTile name="volume" tone="blue" size={52} />
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <T size={16.5} weight="extrabold">🎧 Listening</T>
+                  {listened ? <Badge label="Done" bg={t.successSoft} fg={t.success} /> : null}
+                </View>
+                <T size={13} tone="muted">A short dialogue: fill the gaps, then answer a few questions. Not graded.</T>
+              </View>
+            </View>
+            <Button title={listened ? 'Listen again' : 'Start listening'} icon="right" variant="secondary" block
+              onPress={() => router.push({ pathname: '/course/[id]/listening/[day]', params: { id: c.id, day: String(day) } })} />
+          </Card>
+        ) : null}
         {homework}
       </ScrollView>
       {footer ? (

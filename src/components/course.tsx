@@ -103,7 +103,7 @@ export function penaltyFor(lateDays: number): number {
   return lateDays <= 0 ? 100 : lateDays === 1 ? 80 : lateDays === 2 ? 60 : 50;
 }
 
-export type PlanStepId = 'review' | 'learn' | 'homework';
+export type PlanStepId = 'review' | 'learn' | 'listening' | 'homework';
 export type PlanStepState = 'done' | 'active' | 'locked';
 export interface CoursePlan {
   day: number; totalDays: number;
@@ -115,6 +115,8 @@ export interface CoursePlan {
   catchUp: { day: number; lateDays: number; penalty: number }[];
   /** False on day 1, or when no earlier day has words (then there's nothing to review). */
   hasReview: boolean;
+  /** Today has a listening dialogue (a step between learning and the homework). */
+  hasListening: boolean;
   steps: { id: PlanStepId; state: PlanStepState }[];
   /** Today's homework score, once handed in. */
   score: number | null;
@@ -124,14 +126,17 @@ export interface CoursePlan {
   startsOn: string;
 }
 
-/** The learner's guided plan for today, or null when not taking the course. */
-export function coursePlan(c: CourseDetail, now = Date.now()): CoursePlan | null {
+/**
+ * The learner's guided plan for today, or null when not taking the course.
+ * `hasListening`: today has a listening dialogue (fetched separately), which adds a step before the homework.
+ */
+export function coursePlan(c: CourseDetail, now = Date.now(), hasListening = false): CoursePlan | null {
   const e = c.enrollment;
   if (!e) return null;
   const day = e.currentDay;
   // Day 0: the course has a start date that hasn't come yet, so nothing is open.
   if (day < 1) {
-    return { day: 0, totalDays: c.totalDays, today: undefined, empty: true, catchUp: [], hasReview: false, steps: [], score: null, next: 'upcoming', startsOn: e.startDay };
+    return { day: 0, totalDays: c.totalDays, today: undefined, empty: true, catchUp: [], hasReview: false, hasListening: false, steps: [], score: null, next: 'upcoming', startsOn: e.startDay };
   }
   const today = c.days.find((d) => d.day === day);
   const empty = !today || !today.count || !today.words?.length;
@@ -144,13 +149,16 @@ export function coursePlan(c: CourseDetail, now = Date.now()): CoursePlan | null
   const done: Record<PlanStepId, boolean> = {
     review: (e.warmedUp ?? []).includes(day),
     learn: e.learned.includes(day),
+    listening: (e.listened ?? []).includes(day),
     homework: score !== null
   };
-  const order: PlanStepId[] = hasReview ? ['review', 'learn', 'homework'] : ['learn', 'homework'];
+  const order: PlanStepId[] = [
+    ...(hasReview ? ['review' as const] : []), 'learn', ...(hasListening ? ['listening' as const] : []), 'homework'
+  ];
   // Strictly in order: the first unfinished step is the one to do; later ones wait for it.
   const firstOpen = order.find((s) => !done[s]);
   const steps = order.map((id) => ({ id, state: (done[id] ? 'done' : id === firstOpen ? 'active' : 'locked') as PlanStepState }));
-  return { day, totalDays: c.totalDays, today, empty, catchUp, hasReview, steps, score, next: empty ? 'empty' : firstOpen ?? 'done', startsOn: '' };
+  return { day, totalDays: c.totalDays, today, empty, catchUp, hasReview, hasListening, steps, score, next: empty ? 'empty' : firstOpen ?? 'done', startsOn: '' };
 }
 
 /** Short "what to do next" for the Home card. */
@@ -158,6 +166,7 @@ export function planNextLabel(p: CoursePlan): string {
   if (p.next === 'upcoming') return 'Starts ' + fmtDateKey(p.startsOn);
   if (p.next === 'review') return 'Next: review old lessons';
   if (p.next === 'learn') return 'Next: learn today’s words';
+  if (p.next === 'listening') return 'Next: today’s listening';
   if (p.next === 'homework') return 'Next: today’s homework';
   if (p.catchUp.length) return 'Next: finish day ' + p.catchUp[0].day + ' homework';
   if (p.next === 'empty') return 'No new words yet today';
@@ -271,6 +280,32 @@ export function normAnswer(s: string): string {
 export function isCorrect(input: string, answer: string, accept: string[] = []): boolean {
   const a = normAnswer(input);
   return !!a && [answer, ...accept].some((x) => normAnswer(x) === a);
+}
+
+/* ---------- listening dialogues ---------- */
+/** A piece of a dialogue line: plain text, or a blank with what's said (`said`, the correct fill) and the word-bank word (`base`). */
+export type LinePart = { text: string } | { said: string; base: string };
+const BLANK_RE = /\[\[([^\]|]+?)(?:\|([^\]]+?))?\]\]/g;
+/** Splits a line written with [[word]] / [[said form|word]] blanks (same pattern as the server). */
+export function lineParts(text: string): LinePart[] {
+  const out: LinePart[] = [];
+  let at = 0;
+  for (const m of text.matchAll(BLANK_RE)) {
+    const i = m.index ?? 0;
+    if (i > at) out.push({ text: text.slice(at, i) });
+    out.push({ said: m[1].trim(), base: (m[2] ?? m[1]).trim() });
+    at = i + m[0].length;
+  }
+  if (at < text.length) out.push({ text: text.slice(at) });
+  return out;
+}
+/** The line as it's spoken (blanks replaced by their said form). */
+export function spokenLine(text: string): string {
+  return lineParts(text).map((p) => ('text' in p ? p.text : p.said)).join('');
+}
+/** Number of blanks in a dialogue. */
+export function dialogueBlankCount(lines: { text: string }[]): number {
+  return lines.reduce((n, l) => n + lineParts(l.text).filter((p) => 'said' in p).length, 0);
 }
 
 /** Tense name and the (Vietnamese) explanation of a tense question. Renders nothing for other questions. */

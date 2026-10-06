@@ -1,7 +1,7 @@
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
-import { Progress, TenseNote } from '../../../../components/course';
+import { dialogueBlankCount, Progress, TenseNote } from '../../../../components/course';
 import { Sheet } from '../../../../components/sheet';
 import { BackBar, Badge, Button, Card, Chip, ChipRow, EmptyState, Field, Icon, IconButton, Input, SectionTitle, T } from '../../../../components/ui';
 import {
@@ -10,7 +10,59 @@ import {
 } from '../../../../lib/api';
 import { errMsg, useStore, useTheme } from '../../../../state/store';
 
-const KIND_LABEL: Record<BankKind, string> = { tense: 'Typed', tenseChoice: 'Multiple choice', recap: 'Recap story' };
+const KIND_LABEL: Record<BankKind, string> = { tense: 'Typed', tenseChoice: 'Multiple choice', recap: 'Recap story', dialogue: 'Listening dialogue' };
+const STATUS_LABEL: Record<BankStatus, string> = { pending: 'Waiting for review', approved: 'Approved', rejected: 'Rejected' };
+const DIALOGUE_EXAMPLE = `{
+  "title": "Fixing a login bug",
+  "scenario": "Hai đồng nghiệp bàn về lỗi đăng nhập.",
+  "speakers": [{ "name": "Anna", "gender": "female" }, { "name": "Ben", "gender": "male" }],
+  "lines": [
+    { "s": 0, "text": "Did you [[deploy]] the fix?", "vi": "Anh đã triển khai bản sửa chưa?" },
+    { "s": 1, "text": "Yes, I [[deployed|deploy]] it this morning.", "vi": "Rồi, sáng nay." }
+  ],
+  "questions": [{ "question": "When was the fix deployed?", "choices": ["Today", "Yesterday", "Last week", "Not yet"], "answer": "Today", "explain": "Ben nói sáng nay." }]
+}`;
+
+/** One listening dialogue in the bank, with its review actions. The card itself isn't tappable. */
+function DialogueCard({ q, busy, onStatus, onPreview, onDelete }: {
+  q: BankItem; busy: boolean; onStatus: (s: BankStatus) => void; onPreview: () => void; onDelete: () => void;
+}) {
+  const t = useTheme();
+  const d = q.data;
+  const what = 'dialogue “' + (d?.title || q.prompt) + '”';
+  const [sBg, sFg] = q.status === 'approved' ? [t.successSoft, t.success] : q.status === 'pending' ? [t.warningSoft, t.warning] : [t.surface2, t.muted];
+  const counts = d ? [
+    d.lines.length + (d.lines.length === 1 ? ' line' : ' lines'),
+    dialogueBlankCount(d.lines) + ' blanks',
+    d.questions.length + (d.questions.length === 1 ? ' question' : ' questions')
+  ] : [];
+  return (
+    <View style={{ backgroundColor: t.surface, borderColor: q.status === 'pending' ? t.warning : t.border, borderWidth: 1, borderRadius: 16, padding: 14, gap: 8, opacity: q.status === 'rejected' ? 0.75 : 1 }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+        <Badge label={STATUS_LABEL[q.status] ?? q.status} bg={sBg} fg={sFg} />
+        <Badge label={SOURCE_LABEL[q.source] ?? q.source} bg={t.surface2} fg={t.muted} />
+      </View>
+      <T weight="extrabold" size={15.5}>{d?.title || q.prompt}</T>
+      {d?.speakers.length ? (
+        <T size={13.5} tone="muted">
+          {d.speakers.map((s) => (s.gender === 'female' ? '♀ ' : '♂ ') + s.name).join('  ·  ')}
+        </T>
+      ) : null}
+      {counts.length ? <T size={13} tone="muted">{counts.join(' · ')}</T> : null}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginTop: 2 }}>
+        <Button title="Preview" icon="eye" size="sm" variant="secondary" disabled={busy || !d} onPress={onPreview} style={{ minHeight: 44 }} accessibilityLabel={'Preview ' + what} />
+        {q.status !== 'approved'
+          ? <Button title="Approve" icon="check" size="sm" disabled={busy} onPress={() => onStatus('approved')} style={{ minHeight: 44 }} accessibilityLabel={'Approve ' + what} />
+          : null}
+        {q.status !== 'rejected'
+          ? <Button title="Reject" icon="x" size="sm" variant="secondary" disabled={busy} onPress={() => onStatus('rejected')} style={{ minHeight: 44 }} accessibilityLabel={'Reject ' + what} />
+          : null}
+        <View style={{ flex: 1 }} />
+        {busy ? <ActivityIndicator color={t.primary} accessibilityLabel="Saving" /> : <IconButton name="trash" tone="danger" label={'Delete ' + what} onPress={onDelete} />}
+      </View>
+    </View>
+  );
+}
 const SOURCE_LABEL: Record<BankItem['source'], string> = { ai: 'AI', template: 'Template', manual: 'Written by you' };
 const GROUPS: { status: BankStatus; title: string }[] = [
   { status: 'pending', title: 'Waiting for review' },
@@ -110,6 +162,14 @@ export default function CourseQuestions() {
   const [form, setForm] = useState<FormState>(blankForm('tense'));
   const [formErr, setFormErr] = useState('');
   const [saving, setSaving] = useState(false);
+  // Listening dialogue
+  const [dlgGenerating, setDlgGenerating] = useState(false);
+  const [dlgElapsed, setDlgElapsed] = useState(0);
+  const [dlgErr, setDlgErr] = useState('');
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [pasteText, setPasteText] = useState('');
+  const [pasteErr, setPasteErr] = useState('');
+  const [pasting, setPasting] = useState(false);
 
   const reload = useCallback(async () => {
     const res = await api.courseQuestions(id, day);
@@ -144,7 +204,10 @@ export default function CourseQuestions() {
   }
 
   const words = c.days.find((d) => d.day === day)?.words ?? [];
-  const pending = items.filter((q) => q.status === 'pending');
+  // Dialogues have their own section (and are approved one at a time, since a day uses a single one).
+  const dialogues = items.filter((q) => q.kind === 'dialogue');
+  const bankItems = items.filter((q) => q.kind !== 'dialogue');
+  const pending = bankItems.filter((q) => q.status === 'pending');
   const recap = items.find((q) => q.kind === 'recap' && q.status === 'approved');
   const aiLeft = quota ? Math.max(0, quota.limit - quota.used) : null;
 
@@ -164,7 +227,7 @@ export default function CourseQuestions() {
   const setStatus = (q: BankItem, s: BankStatus) =>
     run(q.id, api.updateQuestion(c.id, q.id, { status: s }), s === 'approved' ? 'Approved.' : s === 'rejected' ? 'Rejected.' : 'Moved back to review.');
   const approveAll = () => run(null, api.setQuestionsStatus(c.id, pending.map((q) => q.id), 'approved'), 'Approved ' + pending.length + (pending.length === 1 ? ' item.' : ' items.'));
-  const remove = (q: BankItem) => Alert.alert(q.kind === 'recap' ? 'Delete this recap story?' : 'Delete this question?', 'This can’t be undone.', [
+  const remove = (q: BankItem) => Alert.alert(q.kind === 'recap' ? 'Delete this recap story?' : q.kind === 'dialogue' ? 'Delete this dialogue?' : 'Delete this question?', 'This can’t be undone.', [
     { text: 'Cancel', style: 'cancel' },
     { text: 'Delete', style: 'destructive', onPress: () => void run(q.id, api.deleteQuestion(c.id, q.id), 'Deleted.') }
   ]);
@@ -195,6 +258,60 @@ export default function CourseQuestions() {
     } finally {
       clearInterval(timer.current);
       setGenerating(false);
+    }
+  };
+
+  /* ---------- listening dialogue ---------- */
+  const setDialogueStatus = (q: BankItem, s: BankStatus) =>
+    run(q.id, api.updateQuestion(c.id, q.id, { status: s }),
+      s === 'approved' ? 'Approved. Learners hear this dialogue on day ' + day + '.' : s === 'rejected' ? 'Rejected.' : 'Moved back to review.');
+  const previewDialogue = (q: BankItem) =>
+    router.push({ pathname: '/course/[id]/listening/[day]', params: { id: c.id, day: String(day), preview: q.id } });
+  const generateDialogue = async () => {
+    setDlgGenerating(true); setDlgErr(''); setDlgElapsed(0);
+    const started = Date.now();
+    timer.current = setInterval(() => setDlgElapsed(Math.round((Date.now() - started) / 1000)), 1000);
+    try {
+      const res = await api.generateDialogue(c.id, day);
+      setQuota(res.quota);
+      setItems(res.items);
+      actions.showToast('Dialogue written with AI. Review it below.');
+    } catch (e) {
+      const qb = e instanceof ApiError ? (e.body?.quota as Quota | undefined) : undefined;
+      if (qb) setQuota(qb);
+      else if (e instanceof ApiError && e.status === 429 && quota) setQuota({ ...quota, used: quota.limit });
+      // 422: AI isn't available — the server's message suggests pasting the dialogue instead.
+      setDlgErr(errMsg(e));
+    } finally {
+      clearInterval(timer.current);
+      setDlgGenerating(false);
+    }
+  };
+  const openPaste = () => { setPasteErr(''); setPasteOpen(true); };
+  const savePasted = async () => {
+    const text = pasteText.trim();
+    if (!text) { setPasteErr('Paste the dialogue JSON first.'); return; }
+    let data: unknown;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      setPasteErr('That isn’t valid JSON' + (e instanceof Error && e.message ? ': ' + e.message : '.'));
+      return;
+    }
+    // Also accept a whole bank item ({ kind, data }) copied from elsewhere.
+    if (data && typeof data === 'object' && !Array.isArray(data) && !('lines' in data) && 'data' in data) data = (data as { data: unknown }).data;
+    if (!data || typeof data !== 'object' || Array.isArray(data)) { setPasteErr('The JSON must be one dialogue object: { "title", "speakers", "lines", "questions" }.'); return; }
+    setPasting(true);
+    try {
+      await api.createDialogue(c.id, day, data);
+      await reload();
+      setPasteOpen(false); setPasteText('');
+      actions.showToast('Dialogue saved and approved.');
+    } catch (e) {
+      // Show the server's validation message (e.g. "A dialogue needs 2–10 blanks").
+      setPasteErr(errMsg(e));
+    } finally {
+      setPasting(false);
     }
   };
 
@@ -277,7 +394,7 @@ export default function CourseQuestions() {
                 </View>
               ) : null}
               {genErr && !generating ? <T size={13} weight="semibold" tone="danger">{genErr}</T> : null}
-              <Button title={generating ? 'Generating…' : 'Generate with AI'} icon="sparkle" loading={generating} disabled={aiLeft === 0} onPress={generate} />
+              <Button title={generating ? 'Generating…' : 'Generate with AI'} icon="sparkle" loading={generating} disabled={aiLeft === 0 || dlgGenerating} onPress={generate} />
               {aiLeft !== null ? (
                 <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
                   <Icon name="sparkle" size={14} color={t.primary} />
@@ -297,10 +414,10 @@ export default function CourseQuestions() {
         </View>
         {day === 1 ? <T size={13} tone="muted">Day 1 has no warm-up, so it has no recap story.</T> : null}
 
-        {!items.length ? <EmptyState icon="listcheck" title="No questions yet" text="Generate some with AI, or write your own." /> : null}
+        {!bankItems.length ? <EmptyState icon="listcheck" title="No questions yet" text="Generate some with AI, or write your own." /> : null}
 
         {GROUPS.map(({ status, title: groupTitle }) => {
-          const list = items.filter((q) => q.status === status);
+          const list = bankItems.filter((q) => q.status === status);
           if (!list.length) return null;
           return (
             <View key={status} style={{ gap: 10, marginTop: 4 }}>
@@ -317,6 +434,38 @@ export default function CourseQuestions() {
             </View>
           );
         })}
+
+        {/* Listening dialogue */}
+        <SectionTitle style={{ marginTop: 12 }}>Listening dialogue</SectionTitle>
+        <Card style={{ gap: 12 }}>
+          <T size={13.5} tone="muted">
+            A short two-person dialogue learners listen to after learning day {day}’s words: they fill its blanks and answer a few questions.
+            Only one approved dialogue is used per day. Line-by-line editing is on the web app.
+          </T>
+          {dlgGenerating ? (
+            <View style={{ gap: 8 }} accessibilityLiveRegion="polite">
+              <Progress pct={Math.min(95, (dlgElapsed / 45) * 100)} />
+              <T size={13} tone="muted">Writing the dialogue… {dlgElapsed}s · this can take up to 45 seconds.</T>
+            </View>
+          ) : null}
+          {dlgErr && !dlgGenerating ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10, borderRadius: 10, backgroundColor: t.warningSoft }} accessibilityLiveRegion="polite">
+              <Icon name="alert" size={16} color={t.warning} />
+              <T size={13.5} weight="semibold" tone="warning" style={{ flex: 1 }}>{dlgErr}</T>
+            </View>
+          ) : null}
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <Button title={dlgGenerating ? 'Generating…' : 'Generate with AI'} icon="sparkle" variant="secondary" loading={dlgGenerating}
+              disabled={!words.length || aiLeft === 0 || generating} onPress={() => void generateDialogue()} style={{ flex: 1 }} accessibilityLabel="Generate a dialogue with AI" />
+            <Button title="Paste JSON" icon="plus" variant="secondary" onPress={openPaste} style={{ flex: 1 }} accessibilityLabel="Paste a dialogue as JSON" />
+          </View>
+          {!words.length ? <T size={13} tone="muted">Add words to day {day} before generating a dialogue.</T> : null}
+        </Card>
+        {!dialogues.length ? <T size={13.5} tone="muted">No dialogue for this day yet.</T> : null}
+        {dialogues.map((q) => (
+          <DialogueCard key={q.id} q={q} busy={busyId === q.id} onStatus={(s) => void setDialogueStatus(q, s)}
+            onPreview={() => previewDialogue(q)} onDelete={() => remove(q)} />
+        ))}
       </ScrollView>
 
       <Sheet visible={!!mode} onClose={() => setMode(null)} title={sheetTitle}>
@@ -405,6 +554,29 @@ export default function CourseQuestions() {
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <Button title="Cancel" variant="secondary" onPress={() => setMode(null)} style={{ flex: 1 }} />
           <Button title={mode?.kind === 'edit' ? 'Save' : form.kind === 'recap' ? 'Save recap' : 'Add question'} icon="check" loading={saving} onPress={save} style={{ flex: 1.4 }} />
+        </View>
+      </Sheet>
+
+      <Sheet visible={pasteOpen} onClose={() => setPasteOpen(false)} title="Paste dialogue JSON">
+        <ScrollView style={{ maxHeight: height * 0.62 }} contentContainerStyle={{ gap: 14 }} keyboardShouldPersistTaps="handled">
+          <T size={13.5} tone="muted">
+            Exactly 2 speakers, 4–16 lines (“s” is 0 or 1) and 2–10 blanks written as [[word]] or [[said form|word]]; up to 5 questions with 4 choices.
+            It’s approved straight away and replaces day {day}’s current dialogue.
+          </T>
+          <Field label="Dialogue JSON">
+            <Input value={pasteText} onChangeText={(v) => { setPasteText(v); setPasteErr(''); }} multiline placeholder={DIALOGUE_EXAMPLE}
+              autoCapitalize="none" autoCorrect={false} spellCheck={false} style={{ minHeight: 220, fontSize: 13.5 }} accessibilityLabel="Dialogue JSON" />
+          </Field>
+          {pasteErr ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10, borderRadius: 10, backgroundColor: t.dangerSoft }} accessibilityLiveRegion="polite">
+              <Icon name="alert" size={16} color={t.danger} />
+              <T size={13.5} weight="semibold" tone="danger" style={{ flex: 1 }}>{pasteErr}</T>
+            </View>
+          ) : null}
+        </ScrollView>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <Button title="Cancel" variant="secondary" onPress={() => setPasteOpen(false)} style={{ flex: 1 }} />
+          <Button title="Save dialogue" icon="check" loading={pasting} onPress={() => void savePasted()} style={{ flex: 1.4 }} />
         </View>
       </Sheet>
     </View>

@@ -88,8 +88,9 @@ export interface CourseWord {
  * startDay is the course's startDate when it has one, else the day they joined.
  * currentDay is 0 before the course's start date: nothing is open yet (day words are null).
  * warmedUp: days whose warm-up (review of earlier days) was finished or skipped.
+ * listened: days whose listening dialogue was finished or skipped.
  */
-export type CourseEnrollment = { startDay: string; currentDay: number; learned: number[]; warmedUp: number[] } | null;
+export type CourseEnrollment = { startDay: string; currentDay: number; learned: number[]; warmedUp: number[]; listened?: number[] } | null;
 export type CourseVisibility = 'private' | 'public';
 export interface CourseSummary {
   id: string; title: string; description: string; ownerId: string; ownerName: string; isOwner: boolean;
@@ -127,11 +128,33 @@ export const TENSE_LABEL: Record<Tense, string> = {
   'future-simple': 'Future simple (will)',
   'going-to': 'Future (be going to)'
 };
+/* ---------- listening dialogues ---------- */
+export interface DialogueSpeaker { name: string; gender: 'female' | 'male' }
+/**
+ * `s` = speaker index. Blanks are written in `text` as [[word]] or [[said form|word]]
+ * (said form = what's spoken and the correct fill; word = the base form shown in the word bank).
+ */
+export interface DialogueLine { s: 0 | 1; text: string; vi: string }
+/** `explain` is Vietnamese. */
+export interface DialogueQuestion { question: string; choices: string[]; answer: string; explain: string }
+/** A two-person dialogue for a course day; `scenario` is Vietnamese. */
+export interface Dialogue {
+  title: string; scenario: string;
+  /** Exactly 2. */
+  speakers: DialogueSpeaker[];
+  lines: DialogueLine[];
+  questions: DialogueQuestion[];
+}
+/** The day's approved dialogue for a learner (answers included: it's practice), with a shuffled word bank of the blanks' base words. */
+export interface ListeningDialogue extends Dialogue { id: string; wordBank: string[] }
+export interface Listening { day: number; dialogue: ListeningDialogue | null }
+
 /**
  * 'tense': typed — a sentence with one "___" and the base verb in brackets.
  * 'tenseChoice': the same with 4 choices. 'recap': a short story of earlier words (explain = Vietnamese translation).
+ * 'dialogue': a listening dialogue (`data`; prompt = its title).
  */
-export type BankKind = 'tense' | 'tenseChoice' | 'recap';
+export type BankKind = 'tense' | 'tenseChoice' | 'recap' | 'dialogue';
 export type BankStatus = 'pending' | 'approved' | 'rejected';
 export interface BankItem {
   id: string; day: number; kind: BankKind; word: string;
@@ -139,8 +162,11 @@ export interface BankItem {
   tense: Tense | ''; tenseLabel: string;
   prompt: string; choices: string[]; answer: string; accept: string[]; explain: string;
   source: 'ai' | 'template' | 'manual'; status: BankStatus;
+  /** Dialogues only. */
+  data?: Dialogue;
 }
 export interface BankItemInput { kind: BankKind; word?: string; tense?: Tense | ''; prompt: string; choices?: string[]; answer?: string; accept?: string[]; explain?: string }
+export interface GenerateDialogueResult { quota: Quota; items: BankItem[] }
 export interface GenerateResult { source: 'ai' | 'template'; added: number; quota: Quota; items: BankItem[] }
 
 /* ---------- homework & leaderboard ---------- */
@@ -263,6 +289,11 @@ export const api = {
   /** Marks a day's warm-up as done: with the practice result when finished, without one when skipped. */
   warmupDone: (id: string, day: number, result?: { correct: number; total: number }) =>
     req<{ warmedUp: number[] }>('POST', '/courses/' + id + '/days/' + day + '/warmup/done', result ?? {}),
+  /** The day's listening dialogue, or `dialogue: null` when the owner hasn't added one. */
+  getListening: (id: string, day: number) => req<Listening>('GET', '/courses/' + id + '/days/' + day + '/listening'),
+  /** Marks a day's listening as done: with the result when finished, without one when skipped. */
+  listeningDone: (id: string, day: number, result?: { correct: number; total: number }) =>
+    req<{ listened: number[] }>('POST', '/courses/' + id + '/days/' + day + '/listening/done', result ?? {}),
 
   /* question bank (owner) */
   courseQuestions: (id: string, day: number) => req<BankItem[]>('GET', '/courses/' + id + '/questions?day=' + day),
@@ -273,6 +304,11 @@ export const api = {
   createQuestion: (id: string, day: number, q: BankItemInput) => req<BankItem>('POST', '/courses/' + id + '/days/' + day + '/questions', q),
   updateQuestion: (id: string, qid: string, q: Partial<BankItemInput> & { status?: BankStatus }) =>
     req<BankItem>('PATCH', '/courses/' + id + '/questions/' + qid, q),
+  /** Written (or pasted) by the owner, so approved straight away; replaces the day's approved dialogue. 400 with the first problem. */
+  createDialogue: (id: string, day: number, data: unknown) =>
+    req<BankItem>('POST', '/courses/' + id + '/days/' + day + '/questions', { kind: 'dialogue', data }),
+  /** Can take up to ~45 s. The new dialogue waits for approval. 422 when AI isn't available, 429 at the daily limit. */
+  generateDialogue: (id: string, day: number) => req<GenerateDialogueResult>('POST', '/courses/' + id + '/days/' + day + '/dialogue/generate'),
   setQuestionsStatus: (id: string, ids: string[], status: BankStatus) => req<unknown>('POST', '/courses/' + id + '/questions/status', { ids, status }),
   deleteQuestion: (id: string, qid: string) => req<void>('DELETE', '/courses/' + id + '/questions/' + qid),
 

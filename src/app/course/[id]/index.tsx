@@ -50,9 +50,20 @@ export default function CourseScreen() {
   const [busy, setBusy] = useState(false);
   const [skipping, setSkipping] = useState(false);
   const [allDays, setAllDays] = useState(false);
+  /** The course day whose listening dialogue exists (null = none, or not checked yet). */
+  const [listeningDay, setListeningDay] = useState<number | null>(null);
+  const [skippingListening, setSkippingListening] = useState(false);
 
   const load = useCallback(async () => {
-    try { setC(await api.course(id)); setErr(''); } catch (e) { setErr(errMsg(e)); }
+    try {
+      const res = await api.course(id);
+      // Today's listening dialogue is an extra plan step when the owner added one (checked before showing the plan, so it doesn't jump).
+      const cur = res.enrollment?.currentDay ?? 0;
+      const today = res.days.find((d) => d.day === cur);
+      const l = cur >= 1 && today?.count && today.words ? await api.getListening(id, cur).catch(() => null) : null;
+      setListeningDay(l?.dialogue ? cur : null);
+      setC(res); setErr('');
+    } catch (e) { setErr(errMsg(e)); }
   }, [id]);
   // Reload on focus so the plan moves on when coming back from a step.
   useFocusEffect(useCallback(() => { void load(); }, [load]));
@@ -72,7 +83,7 @@ export default function CourseScreen() {
   }
 
   const e = c.enrollment;
-  const plan = coursePlan(c);
+  const plan = coursePlan(c, Date.now(), !!e && listeningDay === e.currentDay);
   const join = async () => {
     setBusy(true);
     const res = await actions.call(api.joinCourse(c.id));
@@ -96,6 +107,7 @@ export default function CourseScreen() {
   const openDay = (day: number) => router.push({ pathname: '/course/[id]/day/[day]', params: params(day) });
   const openLearn = (day: number) => router.push({ pathname: '/course/[id]/learn/[day]', params: params(day) });
   const openWarmup = (day: number) => router.push({ pathname: '/course/[id]/warmup/[day]', params: params(day) });
+  const openListening = (day: number) => router.push({ pathname: '/course/[id]/listening/[day]', params: params(day) });
   const openHomework = (day: number) => router.push({ pathname: '/course/[id]/homework/[day]', params: params(day) });
   const openBoard = () => router.push({ pathname: '/course/[id]/leaderboard', params: { id: c.id } });
   const skipReview = async (day: number) => {
@@ -103,6 +115,12 @@ export default function CourseScreen() {
     const res = await actions.call(api.warmupDone(c.id, day));
     setSkipping(false);
     if (res && c.enrollment) setC({ ...c, enrollment: { ...c.enrollment, warmedUp: res.warmedUp } });
+  };
+  const skipListening = async (day: number) => {
+    setSkippingListening(true);
+    const res = await actions.call(api.listeningDone(c.id, day));
+    setSkippingListening(false);
+    if (res && c.enrollment) setC({ ...c, enrollment: { ...c.enrollment, listened: res.listened } });
   };
 
   const stateOf = (d: CourseDay): DayState => {
@@ -224,11 +242,30 @@ export default function CourseScreen() {
           </StepCard>
         );
       }
-      const reviewLeft = p.hasReview && stateOfStep('review') !== 'done';
+      if (s.id === 'listening') {
+        return (
+          <StepCard key="listening" n={n} total={total} icon="volume" title="🎧 Listening" state={s.state}
+            sub={s.state === 'done' ? 'Done' : 'Listen to a short dialogue, fill the gaps and answer a few questions'}
+            lockedText="Unlocks after you learn today’s words">
+            <View style={{ gap: 6 }}>
+              <Button title="Start listening" icon="right" onPress={() => openListening(p.day)} block />
+              <Button title="Skip listening" variant="ghost" loading={skippingListening} onPress={() => void skipListening(p.day)} block />
+            </View>
+          </StepCard>
+        );
+      }
+      const before = [
+        p.hasReview && stateOfStep('review') !== 'done' ? 'review' : '',
+        stateOfStep('learn') !== 'done' ? 'learning today’s words' : '',
+        p.hasListening && stateOfStep('listening') !== 'done' ? 'listening' : ''
+      ].filter(Boolean);
+      const homeworkLocked = 'Unlocks after ' + (before.length
+        ? before.slice(0, -1).join(', ') + (before.length > 1 ? ' and ' : '') + before[before.length - 1]
+        : 'the steps above');
       return (
         <StepCard key="homework" n={n} total={total} icon="listcheck" title="Homework" state={s.state}
           sub={p.score !== null ? 'Handed in · score ' + p.score + ' / 100' : 'Test yourself on today’s words. Hand in today for full marks.'}
-          lockedText={'Unlocks after ' + (reviewLeft ? 'review and learning today’s words' : 'you learn today’s words')}>
+          lockedText={homeworkLocked}>
           <Button title="Start homework" icon="right" onPress={() => openHomework(p.day)} block />
         </StepCard>
       );
