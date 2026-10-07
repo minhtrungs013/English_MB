@@ -1,13 +1,43 @@
 import { useState } from 'react';
 import { Alert, Pressable, ScrollView, Switch, View } from 'react-native';
 import { BackBar, Button, Card, Chip, Field, Icon, Input, SectionTitle, T } from '../components/ui';
-import { api, API_URL } from '../lib/api';
+import { api, API_URL, type NoteType } from '../lib/api';
 import type { Theme } from '../lib/data';
 import { speak, useEnglishVoices } from '../lib/speech';
 import { ACCENT_SWATCH } from '../lib/theme';
 import { errMsg, useStore, useTheme } from '../state/store';
 
 const SAMPLE = 'Could you clarify the requirements before the deadline?';
+
+/** Notification switches, grouped (each one adds or removes its type from the `mute` setting). */
+const NOTE_GROUPS: { title: string; items: [type: NoteType, title: string, sub: string][] }[] = [
+  {
+    title: 'Courses — learner',
+    items: [
+      ['course_start', 'Course starting', 'The day before a course you joined starts'],
+      ['day_open', 'New course day', 'When today’s words are open'],
+      ['homework_due', 'Homework due', 'When today’s homework isn’t handed in yet'],
+      ['streak_risk', 'Streak at risk', 'When your course streak ends tonight'],
+      ['homework_late', 'Late homework', 'When a day’s homework is overdue'],
+      ['member_removed', 'Removed from a course', 'When a course owner removes you']
+    ]
+  },
+  {
+    title: 'Courses — owner',
+    items: [
+      ['member_joined', 'New members', 'When someone joins your course'],
+      ['owner_pending', 'Waiting for approval', 'Questions or dialogues to review'],
+      ['owner_empty_day', 'Days without words', 'When a learner is about to reach an empty day']
+    ]
+  },
+  {
+    title: 'Vocabulary & library',
+    items: [
+      ['words_due', 'Words due for review', 'Once a day, when words are waiting'],
+      ['library_saved', 'Your shared words', 'When someone saves a word you shared']
+    ]
+  }
+];
 
 function Row({ title, sub, children }: { title: string; sub?: string; children?: React.ReactNode }) {
   const t = useTheme();
@@ -48,6 +78,7 @@ export default function Settings() {
   const { data, actions } = useStore();
   const t = useTheme();
   const st = data.settings;
+  const mute = st.mute ?? [];
   const voices = useEnglishVoices();
   const [showVoices, setShowVoices] = useState(false);
   const voiceName = voices.find((v) => v.identifier === st.voice)?.name ?? 'Default English voice';
@@ -85,6 +116,26 @@ export default function Settings() {
             <View key={key} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, borderTopWidth: 1, borderTopColor: t.border }}>
               <View style={{ flex: 1 }}><T weight="bold">{title}</T><T size={13.5} tone="muted">{sub}</T></View>
               <Switch value={st[key as 'autoplay' | 'showEx']} onValueChange={(v) => actions.setSettings({ [key]: v })} trackColor={{ true: t.primary, false: t.surface3 }} thumbColor="#fff" accessibilityLabel={title} />
+            </View>
+          ))}
+        </Card>
+
+        <Card>
+          <SectionTitle>Notifications</SectionTitle>
+          <T size={13.5} tone="muted" style={{ marginTop: 4 }}>Choose what shows up under the bell on Home.</T>
+          {NOTE_GROUPS.map((g) => (
+            <View key={g.title} style={{ marginTop: 14 }}>
+              <T size={13.5} weight="extrabold" tone="primaryInk" style={{ marginBottom: 2 }}>{g.title}</T>
+              {g.items.map(([type, title, sub]) => {
+                const on = !mute.includes(type);
+                return (
+                  <View key={type} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderTopWidth: 1, borderTopColor: t.border }}>
+                    <View style={{ flex: 1 }}><T weight="bold">{title}</T><T size={13.5} tone="muted">{sub}</T></View>
+                    <Switch value={on} onValueChange={(v) => actions.setSettings({ mute: v ? mute.filter((x) => x !== type) : [...mute, type] })}
+                      trackColor={{ true: t.primary, false: t.surface3 }} thumbColor="#fff" accessibilityLabel={title + ' notifications'} />
+                  </View>
+                );
+              })}
             </View>
           ))}
         </Card>

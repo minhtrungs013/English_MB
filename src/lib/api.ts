@@ -256,6 +256,23 @@ export interface MemberDetail {
   userId: string; name: string; isOwner: boolean; joinedAt: number | null; startDay: string; currentDay: number; days: MemberDay[];
 }
 
+/* ---------- notifications ---------- */
+export const NOTE_TYPES = [
+  'day_open', 'homework_due', 'homework_late', 'streak_risk', 'course_start', 'words_due',
+  'member_joined', 'member_removed', 'owner_pending', 'owner_empty_day', 'library_saved'
+] as const;
+export type NoteType = (typeof NOTE_TYPES)[number];
+/** Where a notification takes the user when tapped. */
+export interface NoteLink {
+  to: 'course' | 'review' | 'library';
+  courseId?: string; day?: number;
+  tab?: 'today' | 'map' | 'board' | 'members';
+  step?: 'review' | 'learn' | 'listen' | 'homework';
+}
+/** `type` may be a kind this app version doesn't know yet. `count` groups repeats; `at` is ms since 1970. */
+export interface Note { id: string; type: string; title: string; body: string; link: NoteLink | null; count: number; read: boolean; at: number }
+export interface NotePage { items: Note[]; hasMore: boolean; unread: number }
+
 export const api = {
   register: (name: string, email: string, password: string) => req<AuthResponse>('POST', '/auth/register', { name, email, password }),
   login: (email: string, password: string) => req<AuthResponse>('POST', '/auth/login', { email, password }),
@@ -350,5 +367,14 @@ export const api = {
   courseMembers: (id: string) => req<CourseMembers>('GET', '/courses/' + id + '/members'),
   courseMember: (id: string, userId: string) => req<MemberDetail>('GET', '/courses/' + id + '/members/' + userId),
   /** Removes a learner and their homework. 400 for the owner themself, 404 when not a member. */
-  removeCourseMember: (id: string, userId: string) => req<void>('DELETE', '/courses/' + id + '/members/' + userId)
+  removeCourseMember: (id: string, userId: string) => req<void>('DELETE', '/courses/' + id + '/members/' + userId),
+
+  /* notifications (both GETs also make the server check for new ones) */
+  /** Newest first; `before` (ms) pages back to older ones. */
+  notifications: (before?: number, limit = 30) =>
+    req<NotePage>('GET', '/notifications?limit=' + limit + (before ? '&before=' + before : '')),
+  notificationsUnread: () => req<{ unread: number }>('GET', '/notifications/unread'),
+  markNotesRead: (ids: string[]) => req<{ unread: number }>('POST', '/notifications/read', { ids }),
+  markAllNotesRead: () => req<{ unread: number }>('POST', '/notifications/read', { all: true }),
+  deleteNote: (id: string) => req<void>('DELETE', '/notifications/' + id)
 };

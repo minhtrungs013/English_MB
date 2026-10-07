@@ -10,10 +10,13 @@ import { api, type CourseDay, type CourseDetail, type CourseMembers, type Leader
 import { errMsg, useStore, useTheme } from '../../../state/store';
 
 type DayState = 'learned' | 'today' | 'open' | 'locked' | 'empty';
-type Tab = 'today' | 'map' | 'board' | 'members';
+const TABS = ['today', 'map', 'board', 'members'] as const;
+type Tab = (typeof TABS)[number];
 
 export default function CourseScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  /** `tab`: open on this tab (e.g. from a notification); ignored when it doesn't apply. */
+  const { id, tab: tabParam } = useLocalSearchParams<{ id: string; tab?: string }>();
+  const initialTab = TABS.find((k) => k === tabParam) ?? null;
   const { actions } = useStore();
   const t = useTheme();
   const [c, setC] = useState<CourseDetail | null>(null);
@@ -23,7 +26,7 @@ export default function CourseScreen() {
   /** The course day whose listening dialogue exists (null = none, or not checked yet). */
   const [listeningDay, setListeningDay] = useState<number | null>(null);
   /** null = the first tab that applies (Today for learners). */
-  const [tab, setTab] = useState<Tab | null>(null);
+  const [tab, setTab] = useState<Tab | null>(initialTab);
   /** A course map day being opened (checking which step comes next). */
   const [opening, setOpening] = useState<number | null>(null);
   const [lb, setLb] = useState<Leaderboard | null>(null);
@@ -43,7 +46,7 @@ export default function CourseScreen() {
     } catch (e) { setErr(errMsg(e)); }
   }, [id]);
   /** The leaderboard / members tabs were opened, so they're kept up to date. */
-  const wanted = useRef({ board: false, members: false });
+  const wanted = useRef({ board: initialTab === 'board', members: initialTab === 'members' });
   const loadBoard = useCallback(async () => {
     wanted.current.board = true;
     try { setLb(await api.getLeaderboard(id)); setLbErr(''); } catch (e) { setLbErr(errMsg(e)); }

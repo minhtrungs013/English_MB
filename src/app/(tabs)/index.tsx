@@ -21,6 +21,23 @@ function Stat({ icon, tone, value, label, foot }: { icon: Parameters<typeof Icon
   );
 }
 
+/** Bell with the unread count; opens the notifications screen. */
+function NotificationBell({ unread }: { unread: number }) {
+  const t = useTheme();
+  return (
+    <Pressable onPress={() => router.push('/notifications')} accessibilityRole="button" hitSlop={2}
+      accessibilityLabel={unread ? 'Notifications, ' + unread + ' unread' : 'Notifications'}
+      style={({ pressed }) => ({ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: pressed ? t.surface2 : 'transparent' })}>
+      <Icon name="bell" size={22} color={t.muted} />
+      {unread ? (
+        <View style={{ position: 'absolute', top: 4, right: 2, minWidth: 18, height: 18, paddingHorizontal: 4, borderRadius: 9, backgroundColor: t.danger, borderWidth: 2, borderColor: t.bg, alignItems: 'center', justifyContent: 'center' }}>
+          <T size={10} weight="extrabold" tone="white" style={{ lineHeight: 12 }}>{unread > 9 ? '9+' : unread}</T>
+        </View>
+      ) : null}
+    </Pressable>
+  );
+}
+
 /** Compact link to my first joined course (or to all courses). */
 function CoursesCard() {
   const t = useTheme();
@@ -66,7 +83,7 @@ function CoursesCard() {
 }
 
 export default function Home() {
-  const { data, actions } = useStore();
+  const { data, actions, unread } = useStore();
   const t = useTheme();
   const { words, progress, settings } = data;
   const now = useNow();
@@ -85,7 +102,11 @@ export default function Home() {
   const initial = (settings.name || '?').trim().charAt(0).toUpperCase();
   const [menu, setMenu] = useState(false);
   /** Close the account menu, then go (so the sheet doesn't stay open behind the next screen). */
-  const goTo = (path: '/courses' | '/categories' | '/tags' | '/settings') => { setMenu(false); router.push(path); };
+  const goTo = (path: '/courses' | '/notifications' | '/categories' | '/tags' | '/settings') => { setMenu(false); router.push(path); };
+  // Coming back to Home is a good moment to check for new notifications.
+  // (Only on focus: `actions` is a new object every render, and refreshUnread only uses stable state setters and refs.)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useFocusEffect(useCallback(() => { void actions.refreshUnread(); }, []));
 
   const startReview = () => {
     if (!actions.dueIds().length) { actions.showToast('No words are due right now.'); return; }
@@ -96,10 +117,13 @@ export default function Home() {
     <Screen
       title={greeting} sub="Keep learning a few words today."
       right={
-        <Pressable onPress={() => setMenu(true)} accessibilityRole="button" accessibilityLabel="Account menu"
-          style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: '#FBD9BC', alignItems: 'center', justifyContent: 'center' }}>
-          <T size={16} weight="extrabold" style={{ color: '#7A3A0C' }}>{initial}</T>
-        </Pressable>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <NotificationBell unread={unread} />
+          <Pressable onPress={() => setMenu(true)} accessibilityRole="button" accessibilityLabel="Account menu" hitSlop={2}
+            style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: '#FBD9BC', alignItems: 'center', justifyContent: 'center' }}>
+            <T size={16} weight="extrabold" style={{ color: '#7A3A0C' }}>{initial}</T>
+          </Pressable>
+        </View>
       }>
       <View style={{ gap: 12 }}>
         <HomeSearch />
@@ -168,6 +192,7 @@ export default function Home() {
         <View style={{ height: 1, backgroundColor: t.border }} />
         <View>
           <SheetItem icon="cap" label="Courses" onPress={() => goTo('/courses')} />
+          <SheetItem icon="bell" label={unread ? 'Notifications (' + unread + ' unread)' : 'Notifications'} onPress={() => goTo('/notifications')} />
           <SheetItem icon="folder" label="Categories" onPress={() => goTo('/categories')} />
           <SheetItem icon="tag" label="Tags" onPress={() => goTo('/tags')} />
           <SheetItem icon="sliders" label="Settings" onPress={() => goTo('/settings')} />

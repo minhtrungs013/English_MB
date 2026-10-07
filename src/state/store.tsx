@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
-import { useColorScheme } from 'react-native';
+import { AppState, useColorScheme } from 'react-native';
 import {
   api, ApiError, loadToken, setToken, setUnauthorizedHandler,
   type AuthResponse, type CourseDetail, type LibraryWord, type SaveWordsResult, type Topic, type WordInput
@@ -13,7 +13,7 @@ type Status = 'booting' | 'auth' | 'loading' | 'ready' | 'error';
 
 const EMPTY: Data = {
   words: [], cats: [], tags: [], shared: [], userId: '', autofill: { used: 0, limit: 3 },
-  settings: { name: '', email: '', goal: '20', dir: 'en-vi', autoplay: true, showEx: true, theme: 'light', accent: 'indigo', voice: '', rate: 0.9, pitch: 1 },
+  settings: { name: '', email: '', goal: '20', dir: 'en-vi', autoplay: true, showEx: true, theme: 'light', accent: 'indigo', voice: '', rate: 0.9, pitch: 1, mute: [] },
   progress: { streak: 0, lastStreakDay: '', reviewedDay: '', reviewedToday: 0 }
 };
 
@@ -26,6 +26,8 @@ function useStoreState() {
   const [status, setStatus] = useState<Status>('booting');
   const [loadError, setLoadError] = useState('');
   const [toast, setToastState] = useState<Toast | null>(null);
+  /** Unread notifications (for the bell on Home). */
+  const [unread, setUnread] = useState(0);
   const dataRef = useRef(data);
   useEffect(() => { dataRef.current = data; }, [data]);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -65,6 +67,7 @@ function useStoreState() {
     clearTimeout(settingsTimer.current);
     pendingSettings.current = {};
     setData(EMPTY);
+    setUnread(0);
     setStatus('auth');
     if (msg) showToast(msg, 'bad');
   };
@@ -246,6 +249,43 @@ function useStoreState() {
     return true;
   };
 
+  /* ---------- notifications ---------- */
+  /** Asks the server for the unread count (which also makes it check for new notifications). Quiet on failure. */
+  const unreadBusy = useRef(false);
+  const refreshUnread = async () => {
+    // App start and Home's first focus come together: one request is enough.
+    if (unreadBusy.current) return;
+    unreadBusy.current = true;
+    try { setUnread((await api.notificationsUnread()).unread); } catch { /* keep the last count */ }
+    unreadBusy.current = false;
+  };
+  // On start (once signed in) and whenever the app comes back to the foreground.
+  useEffect(() => {
+    if (status !== 'ready') return;
+    void refreshUnread();
+    const sub = AppState.addEventListener('change', (s) => { if (s === 'active') void refreshUnread(); });
+    return () => sub.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
+  /** Marks notifications as read. False on failure (toast shown). */
+  const markNotesRead = async (ids: string[]): Promise<boolean> => {
+    if (!ids.length) return true;
+    const res = await call(api.markNotesRead(ids));
+    if (res) setUnread(res.unread);
+    return !!res;
+  };
+  const markAllNotesRead = async (): Promise<boolean> => {
+    const res = await call(api.markAllNotesRead());
+    if (res) setUnread(res.unread);
+    return !!res;
+  };
+  /** Deletes a notification (`wasUnread` keeps the count right without asking the server). False on failure (toast shown). */
+  const deleteNote = async (id: string, wasUnread: boolean): Promise<boolean> => {
+    const ok = (await call(api.deleteNote(id).then(() => true))) ?? false;
+    if (ok && wasUnread) setUnread((n) => Math.max(0, n - 1));
+    return ok;
+  };
+
   /* ---------- settings (saved half a second after the last change) ---------- */
   const setSettings = (p: Partial<Settings>) => {
     patch((d) => ({ settings: { ...d.settings, ...p } }));
@@ -261,8 +301,9 @@ function useStoreState() {
   };
 
   return {
-    data, status, loadError, toast,
+    data, status, loadError, toast, unread,
     actions: {
+      refreshUnread, setUnread, markNotesRead, markAllNotesRead, deleteNote,
       reload: load, login, register, logout, showToast, call,
       setAutofill: (q: Data['autofill']) => patch({ autofill: q }),
       saveWord, deleteWord, createTag, deleteTag, saveCategory, deleteCategory, rate, dueIds,

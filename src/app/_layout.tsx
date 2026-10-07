@@ -53,6 +53,7 @@ function Root({ fontsReady }: { fontsReady: boolean }) {
           <Stack.Screen name="review" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
           <Stack.Screen name="quiz" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
           <Stack.Screen name="settings" />
+          <Stack.Screen name="notifications" />
           <Stack.Screen name="categories" />
           <Stack.Screen name="tags" />
           <Stack.Screen name="courses" />
