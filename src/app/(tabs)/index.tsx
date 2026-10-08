@@ -5,7 +5,8 @@ import { coursePlan, fmtDateKey, planNextLabel, type CoursePlan } from '../../co
 import { HomeSearch } from '../../components/home-search';
 import { Sheet, SheetItem } from '../../components/sheet';
 import { Button, Card, EmptyState, Icon, IconTile, LevelBadge, Screen, T } from '../../components/ui';
-import { api, type CourseSummary } from '../../lib/api';
+import { masteryLabel } from '../../components/grammar';
+import { api, type CourseSummary, type GrammarTenseSummary } from '../../lib/api';
 import { DAY, dayKey, fmtAgo, isDue } from '../../lib/data';
 import { useNow } from '../../hooks/use-now';
 import { useStore, useTheme } from '../../state/store';
@@ -82,6 +83,38 @@ function CoursesCard() {
   );
 }
 
+/** Grammar: opens the lessons; "Practise" practises the weakest tense (mixed practice until the list loads). */
+function GrammarCard() {
+  const t = useTheme();
+  const [tenses, setTenses] = useState<GrammarTenseSummary[] | null>(null);
+  useFocusEffect(useCallback(() => {
+    let alive = true;
+    api.grammar().then((r) => { if (alive) setTenses(r.tenses); }).catch(() => { /* keep the last list */ });
+    return () => { alive = false; };
+  }, []));
+  // Lowest mastery; ties go to the earlier lesson.
+  const weakest = tenses?.reduce<GrammarTenseSummary | null>((w, x) => (!w || x.mastery < w.mastery ? x : w), null) ?? null;
+  const sub = weakest ? 'Weakest: ' + weakest.name + ' · ' + weakest.mastery + '% · ' + masteryLabel(weakest.mastery) : 'Lessons and practice for 7 English tenses.';
+  return (
+    <View style={{ borderRadius: 16, borderWidth: 1, borderColor: t.border, backgroundColor: t.surface, overflow: 'hidden' }}>
+      <Pressable onPress={() => router.push('/grammar')} accessibilityRole="button" accessibilityLabel={'Grammar. ' + sub}
+        style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, paddingBottom: 10, minHeight: 64, backgroundColor: pressed ? t.surface2 : 'transparent' })}>
+        <IconTile name="type" tone="green" />
+        <View style={{ flex: 1 }}>
+          <T weight="extrabold" numberOfLines={1}>Grammar</T>
+          <T size={13} tone="muted" numberOfLines={2}>{sub}</T>
+        </View>
+        <Icon name="right" size={16} color={t.faint} />
+      </Pressable>
+      <View style={{ paddingHorizontal: 14, paddingBottom: 14 }}>
+        <Button title="Practise" icon="right" variant="secondary" size="sm" style={{ minHeight: 44 }} block
+          accessibilityLabel={weakest ? 'Practise ' + weakest.name : 'Practise grammar'}
+          onPress={() => router.push({ pathname: '/grammar/practice', params: { mode: weakest?.id ?? 'mix' } })} />
+      </View>
+    </View>
+  );
+}
+
 export default function Home() {
   const { data, actions, unread } = useStore();
   const t = useTheme();
@@ -102,7 +135,7 @@ export default function Home() {
   const initial = (settings.name || '?').trim().charAt(0).toUpperCase();
   const [menu, setMenu] = useState(false);
   /** Close the account menu, then go (so the sheet doesn't stay open behind the next screen). */
-  const goTo = (path: '/courses' | '/notifications' | '/categories' | '/tags' | '/settings') => { setMenu(false); router.push(path); };
+  const goTo = (path: '/courses' | '/grammar' | '/notifications' | '/categories' | '/tags' | '/settings') => { setMenu(false); router.push(path); };
   // Coming back to Home is a good moment to check for new notifications.
   // (Only on focus: `actions` is a new object every render, and refreshUnread only uses stable state setters and refs.)
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -128,6 +161,7 @@ export default function Home() {
       <View style={{ gap: 12 }}>
         <HomeSearch />
         <CoursesCard />
+        <GrammarCard />
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <Stat icon="layers" tone="indigo" value={words.length} label="Total words" foot={'+' + week + ' this week'} />
           <Stat icon="clock" tone="amber" value={due} label="To review" />
@@ -192,6 +226,7 @@ export default function Home() {
         <View style={{ height: 1, backgroundColor: t.border }} />
         <View>
           <SheetItem icon="cap" label="Courses" onPress={() => goTo('/courses')} />
+          <SheetItem icon="type" label="Grammar" onPress={() => goTo('/grammar')} />
           <SheetItem icon="bell" label={unread ? 'Notifications (' + unread + ' unread)' : 'Notifications'} onPress={() => goTo('/notifications')} />
           <SheetItem icon="folder" label="Categories" onPress={() => goTo('/categories')} />
           <SheetItem icon="tag" label="Tags" onPress={() => goTo('/tags')} />

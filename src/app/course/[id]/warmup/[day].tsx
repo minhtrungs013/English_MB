@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ASK, isCorrect, isSentence, isTyped, Progress, scoreColors, TenseNote } from '../../../../components/course';
+import { LearnTenseLink } from '../../../../components/grammar';
 import { BackBar, Badge, Button, Card, EmptyState, Icon, IconButton, IconTile, Input, SectionTitle, T } from '../../../../components/ui';
 import { api, type Warmup } from '../../../../lib/api';
 import { speak } from '../../../../lib/speech';
@@ -142,6 +143,7 @@ export default function WarmupScreen() {
                   </View>
                 </View>
                 <TenseNote label={q.tenseLabel} explain={q.explain} />
+                <LearnTenseLink tense={q.tense} />
               </View>
             ) : null}
           </Card>
@@ -181,12 +183,16 @@ export default function WarmupScreen() {
           <Button title="Practice again" icon="refresh" variant="secondary" onPress={startPractice} block />
           {missed.length ? <SectionTitle style={{ marginTop: 4 }}>To review</SectionTitle> : null}
           {missed.map(({ q, r }, k) => (
-            <View key={k} accessible accessibilityLabel={q.prompt + '. Correct answer: ' + q.answer + (r?.answer ? '. Your answer: ' + r.answer : '') + (q.tenseLabel ? '. ' + q.tenseLabel : '')}
-              style={{ backgroundColor: t.surface, borderColor: t.border, borderWidth: 1, borderRadius: 16, padding: 14, gap: 6 }}>
-              <T weight="bold">{q.prompt}</T>
-              {r?.answer ? <T size={13.5} weight="semibold" tone="danger">Your answer: {r.answer}</T> : null}
-              <T size={13.5} weight="semibold" tone="success">Correct: {q.answer}</T>
-              <TenseNote label={q.tenseLabel} explain={q.explain} />
+            <View key={k} style={{ backgroundColor: t.surface, borderColor: t.border, borderWidth: 1, borderRadius: 16, padding: 14, gap: 6 }}>
+              <View accessible style={{ gap: 6 }}
+                accessibilityLabel={q.prompt + '. Correct answer: ' + q.answer + (r?.answer ? '. Your answer: ' + r.answer : '') + (q.tenseLabel ? '. ' + q.tenseLabel : '')}>
+                <T weight="bold">{q.prompt}</T>
+                {r?.answer ? <T size={13.5} weight="semibold" tone="danger">Your answer: {r.answer}</T> : null}
+                <T size={13.5} weight="semibold" tone="success">Correct: {q.answer}</T>
+                <TenseNote label={q.tenseLabel} explain={q.explain} />
+              </View>
+              {/* Outside the summary above, so screen readers can reach it. */}
+              <LearnTenseLink tense={q.tense} />
             </View>
           ))}
         </ScrollView>

@@ -273,6 +273,38 @@ export interface NoteLink {
 export interface Note { id: string; type: string; title: string; body: string; link: NoteLink | null; count: number; read: boolean; at: number }
 export interface NotePage { items: Note[]; hasMore: boolean; unread: number }
 
+/* ---------- grammar (tense lessons & practice) ---------- */
+/** One tense in the list, with my mastery (0–100) and how many of its drills I've answered. `lastAt` is ms since 1970. */
+export interface GrammarTenseSummary {
+  id: Tense; name: string; vi: string; summary: string; drills: number;
+  mastery: number; attempts: number; lastAt: number | null;
+}
+export interface GrammarExample { en: string; vi: string }
+export type GrammarForm = 'affirmative' | 'negative' | 'question';
+/** A tense lesson: theory in Vietnamese, examples in English (with a Vietnamese translation). */
+export interface GrammarLesson {
+  id: Tense; name: string; vi: string; summary: string;
+  formula: Record<GrammarForm, { pattern: string; example: string; vi: string }>;
+  uses: { title: string; explain: string; examples: GrammarExample[] }[];
+  signals: string[];
+  mistakes: { wrong: string; right: string; explain: string }[];
+  /** The neighbouring tense it's most often confused with. */
+  compare: { with: Tense; explain: string; examples: (GrammarExample & { tense: Tense })[] };
+  /** Name of `compare.with`. */
+  compareName: string;
+  drillCount: number; mastery: number; attempts: number;
+}
+/** 'tense': typed (the base verb is in brackets after the "___"); 'tenseChoice': 4 choices. No answers here. */
+export interface GrammarQuestion { id: string; kind: 'tense' | 'tenseChoice'; level: 'easy' | 'medium' | 'hard'; prompt: string; choices: string[] }
+export interface GrammarPractice { mode: string; questions: GrammarQuestion[] }
+/** `lesson` = the lesson the drill belongs to (its mastery changes); `tense` = the tense of the answer. `explain` is Vietnamese. */
+export interface GrammarResultItem {
+  id: string; lesson: Tense; tense: Tense; tenseLabel: string; prompt: string;
+  yourAnswer: string; answer: string; correct: boolean; explain: string;
+}
+/** `mastery`: the new mastery of each lesson in the set. */
+export interface GrammarResult { results: GrammarResultItem[]; correct: number; total: number; mastery: Partial<Record<Tense, number>> }
+
 export const api = {
   register: (name: string, email: string, password: string) => req<AuthResponse>('POST', '/auth/register', { name, email, password }),
   login: (email: string, password: string) => req<AuthResponse>('POST', '/auth/login', { email, password }),
@@ -376,5 +408,15 @@ export const api = {
   notificationsUnread: () => req<{ unread: number }>('GET', '/notifications/unread'),
   markNotesRead: (ids: string[]) => req<{ unread: number }>('POST', '/notifications/read', { ids }),
   markAllNotesRead: () => req<{ unread: number }>('POST', '/notifications/read', { all: true }),
-  deleteNote: (id: string) => req<void>('DELETE', '/notifications/' + id)
+  deleteNote: (id: string) => req<void>('DELETE', '/notifications/' + id),
+
+  /* grammar */
+  /** The 7 tenses in lesson order, with my mastery. */
+  grammar: () => req<{ tenses: GrammarTenseSummary[] }>('GET', '/grammar'),
+  /** 404 for an unknown tense. */
+  grammarLesson: (tense: string) => req<GrammarLesson>('GET', '/grammar/' + encodeURIComponent(tense)),
+  /** `mode`: a tense id, or 'mix' (weighted towards my weakest tenses). */
+  grammarPractice: (mode: string, n = 10) => req<GrammarPractice>('GET', '/grammar/practice?mode=' + encodeURIComponent(mode) + '&n=' + n),
+  /** Grades the answers and updates my mastery. */
+  submitGrammar: (answers: { id: string; answer: string }[]) => req<GrammarResult>('POST', '/grammar/practice', { answers })
 };

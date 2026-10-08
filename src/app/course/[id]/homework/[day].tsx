@@ -7,6 +7,7 @@ import { BackBar, Badge, Button, Card, EmptyState, Icon, IconButton, IconTile, I
 import { api, ApiError, type CourseDetail, type Homework, type HomeworkQuestion, type HomeworkResult } from '../../../../lib/api';
 import { speak } from '../../../../lib/speech';
 import { DayStepper, FlowNext, useDayFlow } from '../../../../components/day-flow';
+import { LearnTenseLink } from '../../../../components/grammar';
 import { errMsg, useStore, useTheme } from '../../../../state/store';
 
 type Phase = 'intro' | 'loading' | 'quiz' | 'sending' | 'result';
@@ -143,25 +144,28 @@ export default function HomeworkScreen() {
           {result.review.map((r, k) => {
             const fg = r.correct ? t.success : t.danger;
             return (
-              <View key={k} accessible
-                accessibilityLabel={'Question ' + (k + 1) + ', ' + (r.correct ? 'correct' : 'wrong') + '. ' + r.prompt + '. Your answer: ' + (r.yourAnswer || 'empty') + (r.correct ? '' : '. Correct answer: ' + r.answer) + (r.tenseLabel ? '. ' + r.tenseLabel : '') + (r.explain ? '. ' + r.explain : '')}
-                style={{ backgroundColor: t.surface, borderColor: r.correct ? t.border : t.danger, borderWidth: 1, borderRadius: 16, padding: 14, gap: 6 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                  <Icon name={r.correct ? 'checkc' : 'alert'} size={18} color={fg} />
-                  <T size={13} weight="extrabold" tone="muted">{k + 1}. {TYPE_LABEL[r.type] ?? r.type}</T>
-                  {r.review ? <Badge label="Review" bg={t.infoSoft} fg={t.info} /> : null}
-                </View>
-                <T weight="bold">{r.prompt}</T>
-                {r.hint ? <T size={13} tone="muted">{r.hint}</T> : null}
-                <View style={{ borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, backgroundColor: r.correct ? t.successSoft : t.dangerSoft }}>
-                  <T size={13.5} weight="semibold" style={{ color: fg }}>Your answer: {r.yourAnswer || '— (empty)'}</T>
-                </View>
-                {!r.correct ? (
-                  <View style={{ borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, backgroundColor: t.successSoft }}>
-                    <T size={13.5} weight="semibold" style={{ color: t.success }}>Correct: {r.answer}</T>
+              <View key={k} style={{ backgroundColor: t.surface, borderColor: r.correct ? t.border : t.danger, borderWidth: 1, borderRadius: 16, padding: 14, gap: 6 }}>
+                <View accessible style={{ gap: 6 }}
+                  accessibilityLabel={'Question ' + (k + 1) + ', ' + (r.correct ? 'correct' : 'wrong') + '. ' + r.prompt + '. Your answer: ' + (r.yourAnswer || 'empty') + (r.correct ? '' : '. Correct answer: ' + r.answer) + (r.tenseLabel ? '. ' + r.tenseLabel : '') + (r.explain ? '. ' + r.explain : '')}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <Icon name={r.correct ? 'checkc' : 'alert'} size={18} color={fg} />
+                    <T size={13} weight="extrabold" tone="muted">{k + 1}. {TYPE_LABEL[r.type] ?? r.type}</T>
+                    {r.review ? <Badge label="Review" bg={t.infoSoft} fg={t.info} /> : null}
                   </View>
-                ) : null}
-                <TenseNote label={r.tenseLabel} explain={r.explain} />
+                  <T weight="bold">{r.prompt}</T>
+                  {r.hint ? <T size={13} tone="muted">{r.hint}</T> : null}
+                  <View style={{ borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, backgroundColor: r.correct ? t.successSoft : t.dangerSoft }}>
+                    <T size={13.5} weight="semibold" style={{ color: fg }}>Your answer: {r.yourAnswer || '— (empty)'}</T>
+                  </View>
+                  {!r.correct ? (
+                    <View style={{ borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, backgroundColor: t.successSoft }}>
+                      <T size={13.5} weight="semibold" style={{ color: t.success }}>Correct: {r.answer}</T>
+                    </View>
+                  ) : null}
+                  <TenseNote label={r.tenseLabel} explain={r.explain} />
+                </View>
+                {/* Outside the summary above, so screen readers can reach it. */}
+                <LearnTenseLink tense={r.tense} />
               </View>
             );
           })}
