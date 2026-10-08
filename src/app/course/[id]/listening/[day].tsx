@@ -185,9 +185,20 @@ export default function ListeningScreen() {
     if (checked) return;
     const target = sel ?? firstEmpty(-1, fills);
     if (target === null) { actions.showToast('All blanks are filled. Tap one to change it.', 'bad'); return; }
-    const next = fills.map((x, k) => (k === target ? w : x));
+    // Every copy of this word is in use: take it out of the other blank and move it here.
+    const from = used(w) >= needed(w) && normAnswer(fills[target] ?? '') !== normAnswer(w)
+      ? fills.findIndex((x, k) => k !== target && normAnswer(x) === normAnswer(w)) : -1;
+    const next = fills.map((x, k) => (k === target ? w : k === from ? '' : x));
     setFills(next);
     setSel(firstEmpty(target, next));
+  };
+  const clearBlank = (n: number) => { setFills(fills.map((x, k) => (k === n ? '' : x))); setSel(n); };
+  const clearAll = () => { setFills(blanks.map(() => '')); setSel(firstEmpty(-1, blanks.map(() => ''))); };
+  /** After checking: change the answers again (they're kept), starting at the first wrong blank. */
+  const tryAgain = () => {
+    const wrong = results.findIndex((ok) => !ok);
+    setChecked(false);
+    setSel(wrong >= 0 ? blanks[wrong].n : null);
   };
   const toggleTyping = () => {
     if (!typing && sel === null) setSel(firstEmpty(-1, fills) ?? 0);
@@ -413,7 +424,15 @@ export default function ListeningScreen() {
               );
             })}
           </View>
-          <T size={12.5} tone="muted">Tap a blank, then a word. Tap a filled blank twice to clear it.</T>
+          {filledCount > 0 ? (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {sel !== null && fills[sel] ? (
+                <Button title={'Clear blank ' + (sel + 1)} icon="x" variant="secondary" size="sm" style={{ minHeight: 44 }} onPress={() => clearBlank(sel)} />
+              ) : null}
+              <Button title="Clear all" variant="ghost" size="sm" style={{ minHeight: 44 }} onPress={clearAll} />
+            </View>
+          ) : null}
+          <T size={12.5} tone="muted">Tap a blank, then a word. A word that's already used moves to the blank you picked.</T>
         </>
       )}
     </Card>
@@ -516,7 +535,12 @@ export default function ListeningScreen() {
       </>
     );
     footer = checked
-      ? <Button title={qs.length ? 'Next: questions' : 'See results'} icon="right" size="lg" onPress={() => goStep(qs.length ? 'questions' : 'summary')} block />
+      ? (
+        <View style={{ gap: 6 }}>
+          <Button title={qs.length ? 'Next: questions' : 'See results'} icon="right" size="lg" onPress={() => goStep(qs.length ? 'questions' : 'summary')} block />
+          {blanksRight < blanks.length ? <Button title="Try again" icon="refresh" variant="secondary" onPress={tryAgain} block /> : null}
+        </View>
+      )
       : (
         <View style={{ gap: 4 }}>
           <Button title="Check" icon="check" size="lg" disabled={!filledCount} onPress={check} block
