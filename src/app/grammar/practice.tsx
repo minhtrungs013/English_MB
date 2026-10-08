@@ -185,6 +185,9 @@ export default function GrammarPracticeScreen() {
               <Input key={i} value={a} onChangeText={setA} placeholder="Type the verb form…" autoFocus autoCapitalize="none" autoCorrect={false}
                 spellCheck={false} returnKeyType={last ? 'done' : 'next'} submitBehavior={last ? 'blurAndSubmit' : 'submit'}
                 onSubmitEditing={() => (last ? check() : next())} editable={!sending} accessibilityLabel={'Answer to question ' + (i + 1)} />
+            ) : null}
+            {typed ? (
+              <T size={12.5} tone="muted">Type only the missing words — e.g. “has finished”, not “She has finished”.</T>
             ) : (
               <View style={{ gap: 10 }} accessibilityRole="radiogroup">
                 {q.choices.map((o, k) => {

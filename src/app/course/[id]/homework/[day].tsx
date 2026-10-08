@@ -214,7 +214,9 @@ export default function HomeworkScreen() {
               <Input key={i} value={a} onChangeText={setA} placeholder="Type your answer…" autoFocus autoCapitalize="none" autoCorrect={false}
                 spellCheck={false} returnKeyType={last ? 'done' : 'next'} submitBehavior={last ? 'blurAndSubmit' : 'submit'}
                 onSubmitEditing={() => (last ? handIn() : next())} editable={!sending} accessibilityLabel={'Answer to question ' + (i + 1)} />
-            ) : (
+            ) : null}
+            {isTyped(q) && q.type === 'tense' ? <T size={12.5} tone="muted">Type only the missing words — e.g. “has finished”, not “She has finished”.</T> : null}
+            {isTyped(q) ? null : (
               <View style={{ gap: 10 }} accessibilityRole="radiogroup">
                 {q.choices.map((o, k) => {
                   const on = a === o;
