@@ -273,37 +273,62 @@ export interface NoteLink {
 export interface Note { id: string; type: string; title: string; body: string; link: NoteLink | null; count: number; read: boolean; at: number }
 export interface NotePage { items: Note[]; hasMore: boolean; unread: number }
 
-/* ---------- grammar (tense lessons & practice) ---------- */
-/** One tense in the list, with my mastery (0–100) and how many of its drills I've answered. `lastAt` is ms since 1970. */
+/** Foundations lessons (helping verbs), taught before the tenses. 'aux-cheatsheet' is reference only (no drills). */
+export const FOUNDATIONS = ['be', 'do', 'have', 'agreement', 'aux-cheatsheet'] as const;
+export type Foundation = (typeof FOUNDATIONS)[number];
+/** Any grammar lesson id. */
+export type LessonId = Foundation | Tense;
+/** All lessons in the order they're taught: foundations first. */
+export const LESSON_IDS: readonly LessonId[] = [...FOUNDATIONS, ...TENSES];
+/** Short lesson names (for links, before the server's name is loaded). */
+export const LESSON_LABEL: Record<LessonId, string> = {
+  be: 'Be', do: 'Do', have: 'Have', agreement: 'Subject–verb agreement', 'aux-cheatsheet': 'Helping verbs cheat sheet',
+  ...TENSE_LABEL
+};
+export type GrammarGroup = 'foundations' | 'tenses';
+/** One lesson in the list, with my mastery (0–100) and how many of its drills I've answered. `lastAt` is ms since 1970. `drills` is 0 for reference lessons. */
 export interface GrammarTenseSummary {
-  id: Tense; name: string; vi: string; summary: string; drills: number;
+  id: LessonId; group: GrammarGroup; name: string; vi: string; summary: string; drills: number;
   mastery: number; attempts: number; lastAt: number | null;
 }
 export interface GrammarExample { en: string; vi: string }
 export type GrammarForm = 'affirmative' | 'negative' | 'question';
-/** A tense lesson: theory in Vietnamese, examples in English (with a Vietnamese translation). */
+/** A conjugation table: `cells` has one entry per column; a row's `link` opens another lesson. */
+export interface GrammarTable { title: string; columns: string[]; rows: { label: string; cells: string[]; link?: string }[]; note?: string }
+/** The helping verb by subject (tense lessons). */
+export interface GrammarPerson { subject: string; affirmative: string; negative: string; question: string }
+/**
+ * A lesson: theory in Vietnamese, examples in English (with a Vietnamese translation).
+ * Tenses have `formula`, `signals` and `compare`; Foundations have `tables` (the cheat sheet has only tables).
+ */
 export interface GrammarLesson {
-  id: Tense; name: string; vi: string; summary: string;
-  formula: Record<GrammarForm, { pattern: string; example: string; vi: string }>;
+  id: LessonId; group: GrammarGroup; name: string; vi: string; summary: string;
+  /** `foundation`: the Foundations lesson about this tense's helping verb. */
+  formula?: Record<GrammarForm, { pattern: string; example: string; vi: string }> & { persons?: GrammarPerson[]; foundation?: 'be' | 'do' | 'have' };
+  tables?: GrammarTable[];
   uses: { title: string; explain: string; examples: GrammarExample[] }[];
-  signals: string[];
+  signals?: string[];
   mistakes: { wrong: string; right: string; explain: string }[];
   /** The neighbouring tense it's most often confused with. */
-  compare: { with: Tense; explain: string; examples: (GrammarExample & { tense: Tense })[] };
-  /** Name of `compare.with`. */
+  compare?: { with: Tense; explain: string; examples: (GrammarExample & { tense: Tense })[] };
+  /** Name of `compare.with` ('' without a comparison). */
   compareName: string;
   drillCount: number; mastery: number; attempts: number;
 }
 /** 'tense': typed (the base verb is in brackets after the "___"); 'tenseChoice': 4 choices. No answers here. */
 export interface GrammarQuestion { id: string; kind: 'tense' | 'tenseChoice'; level: 'easy' | 'medium' | 'hard'; prompt: string; choices: string[] }
 export interface GrammarPractice { mode: string; questions: GrammarQuestion[] }
-/** `lesson` = the lesson the drill belongs to (its mastery changes); `tense` = the tense of the answer. `explain` is Vietnamese. */
+/**
+ * `lesson` = the lesson the drill belongs to (its mastery changes); `tense` = the lesson to review (the tense of the
+ * answer, or the Foundations lesson itself); `tenseLabel` names it (a tense, or a topic like "Be · past"). `explain` is Vietnamese.
+ */
 export interface GrammarResultItem {
-  id: string; lesson: Tense; tense: Tense; tenseLabel: string; prompt: string;
+  id: string; lesson: LessonId; tense: LessonId; tenseLabel: string; prompt: string;
   yourAnswer: string; answer: string; correct: boolean; explain: string;
 }
 /** `mastery`: the new mastery of each lesson in the set. */
-export interface GrammarResult { results: GrammarResultItem[]; correct: number; total: number; mastery: Partial<Record<Tense, number>> }
+export interface GrammarResult { results: GrammarResultItem[]; correct: number; total: number; mastery: Partial<Record<LessonId, number>> }
+
 
 export const api = {
   register: (name: string, email: string, password: string) => req<AuthResponse>('POST', '/auth/register', { name, email, password }),
@@ -411,11 +436,11 @@ export const api = {
   deleteNote: (id: string) => req<void>('DELETE', '/notifications/' + id),
 
   /* grammar */
-  /** The 7 tenses in lesson order, with my mastery. */
+  /** All lessons in lesson order (foundations first), with my mastery. */
   grammar: () => req<{ tenses: GrammarTenseSummary[] }>('GET', '/grammar'),
-  /** 404 for an unknown tense. */
+  /** 404 for an unknown lesson. */
   grammarLesson: (tense: string) => req<GrammarLesson>('GET', '/grammar/' + encodeURIComponent(tense)),
-  /** `mode`: a tense id, or 'mix' (weighted towards my weakest tenses). */
+  /** `mode`: a lesson id with drills, or 'mix' / 'mix-tenses' / 'mix-foundations' (weighted towards my weakest lessons). 400 for the cheat sheet. */
   grammarPractice: (mode: string, n = 10) => req<GrammarPractice>('GET', '/grammar/practice?mode=' + encodeURIComponent(mode) + '&n=' + n),
   /** Grades the answers and updates my mastery. */
   submitGrammar: (answers: { id: string; answer: string }[]) => req<GrammarResult>('POST', '/grammar/practice', { answers })

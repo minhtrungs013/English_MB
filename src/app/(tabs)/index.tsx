@@ -83,7 +83,7 @@ function CoursesCard() {
   );
 }
 
-/** Grammar: opens the lessons; "Practise" practises the weakest tense (mixed practice until the list loads). */
+/** Grammar: opens the lessons; "Practise" practises the weakest lesson that has drills (mixed practice until the list loads). */
 function GrammarCard() {
   const t = useTheme();
   const [tenses, setTenses] = useState<GrammarTenseSummary[] | null>(null);
@@ -92,9 +92,9 @@ function GrammarCard() {
     api.grammar().then((r) => { if (alive) setTenses(r.tenses); }).catch(() => { /* keep the last list */ });
     return () => { alive = false; };
   }, []));
-  // Lowest mastery; ties go to the earlier lesson.
-  const weakest = tenses?.reduce<GrammarTenseSummary | null>((w, x) => (!w || x.mastery < w.mastery ? x : w), null) ?? null;
-  const sub = weakest ? 'Weakest: ' + weakest.name + ' · ' + weakest.mastery + '% · ' + masteryLabel(weakest.mastery) : 'Lessons and practice for 7 English tenses.';
+  // Lowest mastery among lessons with drills (not the cheat sheet); ties go to the earlier lesson.
+  const weakest = tenses?.reduce<GrammarTenseSummary | null>((w, x) => (x.drills && (!w || x.mastery < w.mastery) ? x : w), null) ?? null;
+  const sub = weakest ? 'Weakest: ' + weakest.name + ' · ' + weakest.mastery + '% · ' + masteryLabel(weakest.mastery) : 'Lessons and practice: helping verbs and 7 English tenses.';
   return (
     <View style={{ borderRadius: 16, borderWidth: 1, borderColor: t.border, backgroundColor: t.surface, overflow: 'hidden' }}>
       <Pressable onPress={() => router.push('/grammar')} accessibilityRole="button" accessibilityLabel={'Grammar. ' + sub}

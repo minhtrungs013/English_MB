@@ -3,13 +3,15 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, BackHandler, KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ASK, Progress, scoreColors, TenseNote } from '../../components/course';
-import { isTense, LearnTenseLink, masteryColors } from '../../components/grammar';
+import { isLesson, LessonLink, masteryColors } from '../../components/grammar';
 import { BackBar, Button, Card, EmptyState, Icon, IconButton, Input, SectionTitle, T } from '../../components/ui';
-import { api, TENSE_LABEL, type GrammarQuestion, type GrammarResult, type Tense } from '../../lib/api';
+import { api, LESSON_LABEL, type GrammarQuestion, type GrammarResult, type LessonId } from '../../lib/api';
 import { errMsg, useStore, useTheme } from '../../state/store';
 
 type Phase = 'loading' | 'error' | 'quiz' | 'sending' | 'result';
 const N = 10;
+/** Titles of the mixed modes. */
+const MIX_TITLE: Record<string, string> = { mix: 'Mixed practice', 'mix-tenses': 'Mixed practice · Tenses', 'mix-foundations': 'Mixed practice · Foundations' };
 
 export default function GrammarPracticeScreen() {
   const { mode: modeParam } = useLocalSearchParams<{ mode?: string }>();
@@ -24,18 +26,18 @@ export default function GrammarPracticeScreen() {
   const [err, setErr] = useState('');
   const [result, setResult] = useState<GrammarResult | null>(null);
   /** Mastery and names before this set (for "40% → 55%"). */
-  const [before, setBefore] = useState<Partial<Record<Tense, { name: string; mastery: number }>>>({});
+  const [before, setBefore] = useState<Partial<Record<LessonId, { name: string; mastery: number }>>>({});
 
   const start = useCallback(async () => {
     setPhase('loading'); setErr(''); setResult(null);
     try {
       const [p, list] = await Promise.all([api.grammarPractice(mode, N), api.grammar().catch(() => null)]);
-      const b: Partial<Record<Tense, { name: string; mastery: number }>> = {};
+      const b: Partial<Record<LessonId, { name: string; mastery: number }>> = {};
       for (const x of list?.tenses ?? []) b[x.id] = { name: x.name, mastery: x.mastery };
       setBefore(b);
       setQs(p.questions); setAnswers(p.questions.map(() => '')); setI(0);
       if (p.questions.length) setPhase('quiz');
-      else { setErr('There are no questions for this tense yet.'); setPhase('error'); }
+      else { setErr('There are no questions for this lesson yet.'); setPhase('error'); }
     } catch (e) {
       setErr(errMsg(e)); setPhase('error');
     }
@@ -76,14 +78,14 @@ export default function GrammarPracticeScreen() {
     ]);
   };
 
-  const title = mode === 'mix' ? 'Mixed practice' : (isTense(mode) ? TENSE_LABEL[mode] : 'Grammar') + ' practice';
+  const title = MIX_TITLE[mode] ?? (isLesson(mode) ? LESSON_LABEL[mode] : 'Grammar') + ' practice';
 
   /* ---------- result ---------- */
   if (phase === 'result' && result) {
     const pct = result.total ? Math.round((result.correct / result.total) * 100) : 0;
     const [sBg, sFg] = scoreColors(pct, t);
-    const changes = (Object.entries(result.mastery) as [Tense, number][]).map(([id, now]) => ({
-      id, now, was: before[id]?.mastery, name: before[id]?.name ?? TENSE_LABEL[id] ?? id
+    const changes = (Object.entries(result.mastery) as [LessonId, number][]).map(([id, now]) => ({
+      id, now, was: before[id]?.mastery, name: before[id]?.name ?? LESSON_LABEL[id] ?? id
     }));
     return (
       <View style={{ flex: 1, backgroundColor: t.bg }}>
@@ -147,7 +149,7 @@ export default function GrammarPracticeScreen() {
                   ) : null}
                   <TenseNote label={r.tenseLabel} explain={r.explain} />
                 </View>
-                {!r.correct ? <LearnTenseLink tense={r.tense} title="Review the lesson" /> : null}
+                {!r.correct ? <LessonLink lesson={r.tense || r.lesson} title="Review the lesson" /> : null}
               </View>
             );
           })}
