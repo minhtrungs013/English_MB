@@ -118,7 +118,10 @@ export type CourseEnrollment = { startDay: string; currentDay: number; learned: 
 export type CourseVisibility = 'private' | 'public';
 export interface CourseSummary {
   id: string; title: string; description: string; ownerId: string; ownerName: string; isOwner: boolean;
-  visibility: CourseVisibility; wordsPerDay: number; totalDays: number; tag: string; readyDays: number; members: number;
+  visibility: CourseVisibility; wordsPerDay: number; totalDays: number;
+  /** Dictation questions in each day's homework, 0–3 (older servers leave it out: 2). */
+  dictationPerDay?: number;
+  tag: string; readyDays: number; members: number;
   /** '' = self-paced (each learner's day 1 is the day they join); 'YYYY-MM-DD' = day 1 for everyone (Vietnam time). */
   startDate: string;
   /** Only sent to the owner. */
@@ -134,7 +137,7 @@ export interface CourseDay {
 }
 export interface CourseDetail extends CourseSummary { days: CourseDay[] }
 /** `startDate`: 'YYYY-MM-DD', or '' for self-paced ('' on PATCH clears it). */
-export interface CourseInput { title: string; description?: string; wordsPerDay?: number; visibility?: CourseVisibility; startDate?: string }
+export interface CourseInput { title: string; description?: string; wordsPerDay?: number; dictationPerDay?: number; visibility?: CourseVisibility; startDate?: string }
 export interface AiWordResult { source: 'library' | 'ai' | 'online'; word: CourseWord; quota: Quota }
 export interface SaveWordsResult { added: Word[]; skipped: string[]; tag: string }
 export interface LearnResult extends SaveWordsResult { course: CourseDetail }
@@ -194,19 +197,24 @@ export interface GenerateDialogueResult { quota: Quota; items: BankItem[] }
 export interface GenerateResult { source: 'ai' | 'template'; added: number; quota: Quota; items: BankItem[] }
 
 /* ---------- homework & leaderboard ---------- */
-export type HomeworkType = 'meaning' | 'word' | 'type' | 'blank' | 'tense' | 'tenseChoice';
+/** 'dictation': hear a sentence (the device speaks `audio`) and type it. */
+export type HomeworkType = 'meaning' | 'word' | 'type' | 'blank' | 'tense' | 'tenseChoice' | 'dictation';
 export interface HomeworkQuestion {
   type: HomeworkType;
   /** A word from an earlier day. */
   review: boolean;
   prompt: string; hint: string;
-  /** Empty for typed answers ('type' / 'blank' / 'tense'). */
+  /** Empty for typed answers ('type' / 'blank' / 'tense' / 'dictation'). */
   choices: string[];
+  /** Dictation only (before handing in): the sentence, base64 of its UTF-8 — only for speak(), never shown. */
+  audio?: string;
 }
 export interface HomeworkReviewItem extends HomeworkQuestion {
   yourAnswer: string; answer: string; correct: boolean;
   /** Tense questions only. */
   tense?: string; tenseLabel?: string; explain?: string;
+  /** Dictation only: the word-by-word grade of yourAnswer against `answer` (the sentence). */
+  grade?: DictationGrade;
 }
 export interface HomeworkResult {
   /** Final score after the late penalty (0–100). */

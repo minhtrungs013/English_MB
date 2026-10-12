@@ -4,9 +4,34 @@ import { Pressable, View, type StyleProp, type ViewStyle } from 'react-native';
 import type { CourseDay, CourseDetail, CourseSummary, CourseWord, HomeworkType } from '../lib/api';
 import { speak } from '../lib/speech';
 import { useStore, useTheme } from '../state/store';
-import { Badge, Button, Icon, IconButton, LevelBadge, T } from './ui';
+import { Badge, Button, Field, Icon, IconButton, LevelBadge, T } from './ui';
 
 export const WORDS_PER_DAY = [3, 4, 5, 6, 7, 8, 9, 10];
+/** Dictation questions per day of homework (the server's default is 2). */
+export const DICTATION_PER_DAY = [0, 1, 2, 3];
+export const DEFAULT_DICTATION_PER_DAY = 2;
+
+/** Course setting: how many dictation sentences each day's homework has (segmented 0–3). */
+export function DictationPerDayField({ value, onChange }: { value: number; onChange: (n: number) => void }) {
+  const t = useTheme();
+  return (
+    <Field label="Dictation sentences per day" hint="Learners hear an example sentence of an earlier word and type it. Counted in the homework score.">
+      <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', borderRadius: 12, borderWidth: 1, borderColor: t.border, overflow: 'hidden', alignSelf: 'flex-start' }}>
+        {DICTATION_PER_DAY.map((n, k) => {
+          const on = value === n;
+          return (
+            <Pressable key={n} onPress={() => onChange(n)} accessibilityRole="radio" accessibilityState={{ checked: on }}
+              accessibilityLabel={n === 0 ? 'No dictation sentences' : n + (n === 1 ? ' dictation sentence' : ' dictation sentences') + ' per day'}
+              style={({ pressed }) => ({ minWidth: 56, minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12,
+                borderLeftWidth: k ? 1 : 0, borderLeftColor: t.border, backgroundColor: on ? t.primary : pressed ? t.surface2 : t.surface })}>
+              <T size={14} weight="bold" style={{ color: on ? '#fff' : t.muted }}>{n === 0 ? 'Off' : String(n)}</T>
+            </Pressable>
+          );
+        })}
+      </View>
+    </Field>
+  );
+}
 
 /** "45s", "3m 05s", "1h 02m" from milliseconds. */
 export function fmtDuration(ms: number): string {
@@ -369,9 +394,10 @@ export const ASK: Record<HomeworkType, string> = {
   type: 'Type the word that means',
   blank: 'Fill in the missing word',
   tense: 'Put the verb in brackets in the right tense',
-  tenseChoice: 'Choose the right verb form'
+  tenseChoice: 'Choose the right verb form',
+  dictation: 'Listen and type the sentence'
 };
 /** Answered by typing (the others have choices). */
-export const isTyped = (q: { type: HomeworkType; choices: string[] }) => q.type === 'type' || q.type === 'blank' || q.type === 'tense' || !q.choices.length;
+export const isTyped = (q: { type: HomeworkType; choices: string[] }) => q.type === 'type' || q.type === 'blank' || q.type === 'tense' || q.type === 'dictation' || !q.choices.length;
 /** The prompt is a whole sentence (shown smaller than a single word). */
 export const isSentence = (q: { type: HomeworkType }) => q.type === 'blank' || q.type === 'tense' || q.type === 'tenseChoice';

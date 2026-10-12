@@ -1,18 +1,19 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, BackHandler, KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ASK, fmtDuration, isSentence, isTyped, Progress, scoreColors, TenseNote } from '../../../../components/course';
 import { BackBar, Badge, Button, Card, EmptyState, Icon, IconButton, IconTile, Input, SectionTitle, T } from '../../../../components/ui';
 import { api, ApiError, type CourseDetail, type Homework, type HomeworkQuestion, type HomeworkResult } from '../../../../lib/api';
-import { speak } from '../../../../lib/speech';
+import { speak, stopSpeaking } from '../../../../lib/speech';
+import { decodeAudio, GradeLegend, GradeTokens, MAX_TYPED, PlayButtons } from '../../../../components/dictation';
 import { DayStepper, FlowNext, useDayFlow } from '../../../../components/day-flow';
 import { LearnTenseLink } from '../../../../components/grammar';
 import { errMsg, useStore, useTheme } from '../../../../state/store';
 
 type Phase = 'intro' | 'loading' | 'quiz' | 'sending' | 'result';
 
-const TYPE_LABEL: Record<HomeworkQuestion['type'], string> = { meaning: 'Meaning', word: 'Word', type: 'Spelling', blank: 'Sentence', tense: 'Tense', tenseChoice: 'Tense' };
+const TYPE_LABEL: Record<HomeworkQuestion['type'], string> = { meaning: 'Meaning', word: 'Word', type: 'Spelling', blank: 'Sentence', tense: 'Tense', tenseChoice: 'Tense', dictation: 'Dictation' };
 
 export default function HomeworkScreen() {
   const { id, day: dayParam, flow } = useLocalSearchParams<{ id: string; day: string; flow?: string }>();
@@ -25,11 +26,33 @@ export default function HomeworkScreen() {
   const [result, setResult] = useState<HomeworkResult | null>(null);
   const [answers, setAnswers] = useState<string[]>([]);
   const [i, setI] = useState(0);
+  /** Times each dictation question was played. */
+  const [plays, setPlays] = useState<number[]>([]);
+  /** Dictation questions that already played by themselves (so they do it only once). */
+  const autoPlayed = useRef(new Set<number>());
   const [phase, setPhase] = useState<Phase>('intro');
   const [err, setErr] = useState('');
   /** Opened from the Today plan: part of the guided day flow. */
   const inFlow = flow === '1';
   const dayFlow = useDayFlow(id, day, inFlow);
+  /** Dictation sentences, decoded only to be spoken (never shown before handing in). */
+  const sentences = useMemo(() => (hw ? hw.questions.map((q) => (q.type === 'dictation' ? decodeAudio(q.audio) : '')) : []), [hw]);
+  const playDictation = useCallback((k: number, factor = 1) => {
+    const text = sentences[k];
+    if (!text) return;
+    setPlays((prev) => prev.map((x, j) => (j === k ? x + 1 : x)));
+    speak(text, factor);
+  }, [sentences]);
+
+  // A dictation question plays once by itself the first time it appears.
+  const autoPlay = phase === 'quiz' && hw?.questions[i]?.type === 'dictation';
+  useEffect(() => {
+    if (!autoPlay || autoPlayed.current.has(i)) return;
+    autoPlayed.current.add(i);
+    playDictation(i);
+  }, [autoPlay, i, playDictation]);
+  // Stop the voice when leaving the screen.
+  useEffect(() => () => stopSpeaking(), []);
 
   /** Opens the homework (this starts the timer on the server, unless it was already handed in). */
   const start = useCallback(async () => {
@@ -38,7 +61,7 @@ export default function HomeworkScreen() {
       const h = await api.getHomework(id, day);
       setHw(h);
       if (h.submission) { setResult(h.submission); setPhase('result'); return; }
-      setAnswers(h.questions.map(() => '')); setI(0); setPhase(h.questions.length ? 'quiz' : 'intro');
+      setAnswers(h.questions.map(() => '')); setPlays(h.questions.map(() => 0)); autoPlayed.current.clear(); setI(0); setPhase(h.questions.length ? 'quiz' : 'intro');
     } catch (e) {
       setErr(errMsg(e)); setPhase('intro');
     }
@@ -73,6 +96,7 @@ export default function HomeworkScreen() {
 
   const send = async () => {
     if (!hw) return;
+    stopSpeaking();
     setPhase('sending');
     try {
       const res = await api.submitHomework(id, day, answers.map((a) => a.trim()));
@@ -143,6 +167,31 @@ export default function HomeworkScreen() {
           <SectionTitle style={{ marginTop: 4 }}>Answers</SectionTitle>
           {result.review.map((r, k) => {
             const fg = r.correct ? t.success : t.danger;
+            if (r.type === 'dictation') {
+              return (
+                <View key={k} style={{ backgroundColor: t.surface, borderColor: r.correct ? t.border : t.danger, borderWidth: 1, borderRadius: 16, padding: 14, gap: 8 }}>
+                  <View accessible style={{ gap: 6 }}
+                    accessibilityLabel={'Question ' + (k + 1) + ', dictation, ' + (r.correct ? 'correct' : 'wrong') + (r.grade ? ', score ' + r.grade.score + '%' : '') + '. Your answer: ' + (r.yourAnswer || 'empty')}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      <Icon name={r.correct ? 'checkc' : 'alert'} size={18} color={fg} />
+                      <T size={13} weight="extrabold" tone="muted" style={{ flex: 1 }}>{k + 1}. {TYPE_LABEL.dictation}</T>
+                      {r.review ? <Badge label="Review" bg={t.infoSoft} fg={t.info} /> : null}
+                      {r.grade ? <Badge label={r.grade.score + '%'} bg={r.correct ? t.successSoft : t.dangerSoft} fg={fg} /> : null}
+                    </View>
+                    {!r.grade ? (
+                      <View style={{ borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, backgroundColor: r.correct ? t.successSoft : t.dangerSoft }}>
+                        <T size={13.5} weight="semibold" style={{ color: fg }}>Your answer: {r.yourAnswer || '— (empty)'}</T>
+                      </View>
+                    ) : null}
+                  </View>
+                  {r.grade ? <GradeTokens g={r.grade} /> : null}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingLeft: 10, borderRadius: 10, backgroundColor: t.successSoft }}>
+                    <T size={13.5} weight="semibold" style={{ flex: 1, color: t.success, paddingVertical: 8 }}>Sentence: {r.answer}</T>
+                    <IconButton name="volume" label={'Play again: ' + r.answer} color={t.success} onPress={() => speak(r.answer)} />
+                  </View>
+                </View>
+              );
+            }
             return (
               <View key={k} style={{ backgroundColor: t.surface, borderColor: r.correct ? t.border : t.danger, borderWidth: 1, borderRadius: 16, padding: 14, gap: 6 }}>
                 <View accessible style={{ gap: 6 }}
@@ -169,6 +218,7 @@ export default function HomeworkScreen() {
               </View>
             );
           })}
+          {result.review.some((r) => r.type === 'dictation' && r.grade) ? <GradeLegend /> : null}
         </ScrollView>
       </View>
     );
@@ -184,6 +234,7 @@ export default function HomeworkScreen() {
     const setA = (v: string) => setAnswers((prev) => prev.map((x, k) => (k === i ? v : x)));
     const next = () => { if (!last) setI(i + 1); };
     const done = answers.filter((x) => x.trim()).length;
+    const dictation = q.type === 'dictation';
     return (
       <KeyboardAvoidingView style={{ flex: 1, backgroundColor: t.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={{ paddingTop: insets.top + 4, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 56 + insets.top }}>
@@ -204,13 +255,28 @@ export default function HomeworkScreen() {
               {q.review ? <Badge label="Review" bg={t.infoSoft} fg={t.info} /> : null}
             </View>
             <T size={14} weight="bold" tone="muted">{ASK[q.type] ?? ''}</T>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <T size={isSentence(q) ? 19 : 24} weight="extrabold" style={{ flex: 1, letterSpacing: isSentence(q) ? 0 : -0.4 }}>{q.prompt}</T>
-              {q.type === 'meaning' ? <IconButton name="volume" label={'Play ' + q.prompt} color={t.primaryInk} onPress={() => speak(q.prompt)} /> : null}
-            </View>
-            {q.hint ? <T size={13.5} tone="muted">{q.type === 'meaning' ? q.hint : 'Hint: ' + q.hint}</T> : null}
+            {dictation ? (
+              <View style={{ gap: 10 }}>
+                <PlayButtons big what="the sentence" onPlay={(f) => playDictation(i, f)} />
+                <View accessibilityLiveRegion="polite">
+                  <T size={12.5} tone="muted" center>{plays[i] ? 'Played ' + plays[i] + '×' : 'Tap play to listen'}{q.hint ? ' · ' + q.hint : ''}</T>
+                </View>
+                {!sentences[i] ? <T size={13} tone="danger" center>This sentence can’t be played. Hand in what you can.</T> : null}
+              </View>
+            ) : (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <T size={isSentence(q) ? 19 : 24} weight="extrabold" style={{ flex: 1, letterSpacing: isSentence(q) ? 0 : -0.4 }}>{q.prompt}</T>
+                {q.type === 'meaning' ? <IconButton name="volume" label={'Play ' + q.prompt} color={t.primaryInk} onPress={() => speak(q.prompt)} /> : null}
+              </View>
+            )}
+            {q.hint && !dictation ? <T size={13.5} tone="muted">{q.type === 'meaning' ? q.hint : 'Hint: ' + q.hint}</T> : null}
 
-            {isTyped(q) ? (
+            {dictation ? (
+              <Input key={i} value={a} onChangeText={setA} placeholder="Type what you hear…" multiline maxLength={MAX_TYPED}
+                autoCapitalize="none" autoCorrect={false} spellCheck={false} autoComplete="off"
+                returnKeyType={last ? 'done' : 'next'} submitBehavior="blurAndSubmit"
+                onSubmitEditing={() => (last ? handIn() : next())} editable={!sending} accessibilityLabel={'Your answer to question ' + (i + 1)} />
+            ) : isTyped(q) ? (
               <Input key={i} value={a} onChangeText={setA} placeholder="Type your answer…" autoFocus autoCapitalize="none" autoCorrect={false}
                 spellCheck={false} returnKeyType={last ? 'done' : 'next'} submitBehavior={last ? 'blurAndSubmit' : 'submit'}
                 onSubmitEditing={() => (last ? handIn() : next())} editable={!sending} accessibilityLabel={'Answer to question ' + (i + 1)} />

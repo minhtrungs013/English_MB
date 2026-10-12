@@ -1,10 +1,10 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, BackHandler, KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, BackHandler, KeyboardAvoidingView, Platform, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Progress, scoreColors } from '../../components/course';
 import {
-  DICTATION_N, GradeLegend, GradeTokens, HINT_TITLE, hintText, MAX_TYPED, MINE, myWordsItems
+  DICTATION_N, GradeLegend, GradeTokens, HINT_TITLE, hintText, MAX_TYPED, MINE, myWordsItems, PlayButtons
 } from '../../components/dictation';
 import { masteryColors } from '../../components/grammar';
 import { BackBar, Badge, Button, Card, EmptyState, Icon, IconButton, Input, SectionTitle, T } from '../../components/ui';
@@ -14,7 +14,6 @@ import { errMsg, useStore, useTheme } from '../../state/store';
 
 type Phase = 'loading' | 'error' | 'quiz' | 'summary';
 const MODE_TITLE: Record<string, string> = { [MINE]: 'From my words', daily: 'Today’s dictation', mix: 'Mixed dictation' };
-const SLOW = 0.6;
 
 /** One checked item, as shown in the feedback and the summary. */
 interface Checked { passed: boolean; score: number; sentences: DictationSentence[]; grades: DictationGrade[]; title?: string }
@@ -40,35 +39,6 @@ function useLeave(active: boolean, mine: boolean): () => void {
     return () => sub.remove();
   }, [active, leave]);
   return leave;
-}
-
-/** Round ▶ / slow buttons for one sentence. */
-function PlayButtons({ onPlay, big, what }: { onPlay: (factor: number) => void; big?: boolean; what: string }) {
-  const t = useTheme();
-  if (!big) {
-    return (
-      <View style={{ flexDirection: 'row', gap: 4 }}>
-        <IconButton name="volume" label={'Play ' + what} color={t.primaryInk} onPress={() => onPlay(1)} />
-        <Pressable onPress={() => onPlay(SLOW)} accessibilityRole="button" accessibilityLabel={'Play ' + what + ' slowly'} hitSlop={4}
-          style={({ pressed }) => ({ minWidth: 44, height: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6, backgroundColor: pressed ? t.surface2 : 'transparent' })}>
-          <T size={18}>🐢</T>
-        </Pressable>
-      </View>
-    );
-  }
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
-      <Pressable onPress={() => onPlay(1)} accessibilityRole="button" accessibilityLabel={'Play ' + what}
-        style={({ pressed }) => ({ width: 88, height: 88, borderRadius: 44, alignItems: 'center', justifyContent: 'center', backgroundColor: pressed ? t.primaryHover : t.primary })}>
-        <Icon name="volume" size={36} color="#fff" />
-      </Pressable>
-      <Pressable onPress={() => onPlay(SLOW)} accessibilityRole="button" accessibilityLabel={'Play ' + what + ' slowly'}
-        style={({ pressed }) => ({ minHeight: 56, paddingHorizontal: 18, borderRadius: 28, borderWidth: 1.5, borderColor: t.border, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: pressed ? t.surface2 : t.surface })}>
-        <T size={20}>🐢</T>
-        <T weight="bold">Slow</T>
-      </Pressable>
-    </View>
-  );
 }
 
 /** Feedback after Check: the colored words, the full sentence + Vietnamese, the score. */

@@ -4,7 +4,7 @@ import type { DictationGrade, DictationGroup, DictationQuestion, DictationSetSum
 import { shuffle, type Word } from '../lib/data';
 import { useTheme } from '../state/store';
 import { masteryLabel, MasteryBar } from './grammar';
-import { Icon, T } from './ui';
+import { Icon, IconButton, T } from './ui';
 
 /** Practice mode for "From my words" (built on the device, graded with POST /dictation/grade). */
 export const MINE = 'mine';
@@ -60,6 +60,63 @@ export function hintText(text: string, level: number): string {
   if (level === 2) return hintLetters(text);
   if (level === 1) return hintCount(text);
   return '';
+}
+
+/* ---------- playing ---------- */
+
+/**
+ * A course homework dictation sentence: `audio` is the sentence as base64 of its UTF-8 bytes.
+ * Only for speak() — never shown before handing in. '' when it can't be decoded.
+ */
+export function decodeAudio(audio: string | undefined): string {
+  if (!audio) return '';
+  const g = globalThis as { atob?: (s: string) => string; TextDecoder?: new () => { decode: (b: Uint8Array) => string } };
+  let bin: string;
+  try {
+    bin = g.atob ? g.atob(audio) : '';
+  } catch {
+    return '';
+  }
+  if (!bin) return '';
+  try {
+    if (g.TextDecoder) return new g.TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0)));
+    // No TextDecoder: decode the UTF-8 bytes via percent-encoding (plain ASCII comes out unchanged).
+    return decodeURIComponent(Array.from(bin, (c) => '%' + c.charCodeAt(0).toString(16).padStart(2, '0')).join(''));
+  } catch {
+    return bin;
+  }
+}
+
+/** Speed factor for "play slowly". */
+export const SLOW = 0.6;
+
+/** Round ▶ / slow buttons for one sentence. */
+export function PlayButtons({ onPlay, big, what }: { onPlay: (factor: number) => void; big?: boolean; what: string }) {
+  const t = useTheme();
+  if (!big) {
+    return (
+      <View style={{ flexDirection: 'row', gap: 4 }}>
+        <IconButton name="volume" label={'Play ' + what} color={t.primaryInk} onPress={() => onPlay(1)} />
+        <Pressable onPress={() => onPlay(SLOW)} accessibilityRole="button" accessibilityLabel={'Play ' + what + ' slowly'} hitSlop={4}
+          style={({ pressed }) => ({ minWidth: 44, height: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6, backgroundColor: pressed ? t.surface2 : 'transparent' })}>
+          <T size={18}>🐢</T>
+        </Pressable>
+      </View>
+    );
+  }
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+      <Pressable onPress={() => onPlay(1)} accessibilityRole="button" accessibilityLabel={'Play ' + what}
+        style={({ pressed }) => ({ width: 88, height: 88, borderRadius: 44, alignItems: 'center', justifyContent: 'center', backgroundColor: pressed ? t.primaryHover : t.primary })}>
+        <Icon name="volume" size={36} color="#fff" />
+      </Pressable>
+      <Pressable onPress={() => onPlay(SLOW)} accessibilityRole="button" accessibilityLabel={'Play ' + what + ' slowly'}
+        style={({ pressed }) => ({ minHeight: 56, paddingHorizontal: 18, borderRadius: 28, borderWidth: 1.5, borderColor: t.border, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: pressed ? t.surface2 : t.surface })}>
+        <T size={20}>🐢</T>
+        <T weight="bold">Slow</T>
+      </Pressable>
+    </View>
+  );
 }
 
 /* ---------- feedback ---------- */

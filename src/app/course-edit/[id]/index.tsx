@@ -1,7 +1,7 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
-import { CourseWordCard, WORDS_PER_DAY } from '../../../components/course';
+import { CourseWordCard, DEFAULT_DICTATION_PER_DAY, DictationPerDayField, WORDS_PER_DAY } from '../../../components/course';
 import { Sheet } from '../../../components/sheet';
 import { StartDateField, startDateError } from '../../../components/start-date';
 import { BackBar, Badge, Button, Card, Chip, ChipRow, EmptyState, Field, Icon, IconButton, IconTile, Input, LevelBadge, SectionTitle, T, TOPIC_LABEL } from '../../../components/ui';
@@ -37,13 +37,15 @@ function SettingsCard({ c, onSaved }: { c: CourseDetail; onSaved: (c: CourseDeta
   const [title, setTitle] = useState(c.title);
   const [description, setDescription] = useState(c.description);
   const [wordsPerDay, setWordsPerDay] = useState(c.wordsPerDay);
+  const savedDictation = c.dictationPerDay ?? DEFAULT_DICTATION_PER_DAY;
+  const [dictationPerDay, setDictationPerDay] = useState(savedDictation);
   const [visibility, setVisibility] = useState<CourseVisibility>(c.visibility);
   const [startDate, setStartDate] = useState(c.startDate ?? '');
   const [err, setErr] = useState('');
   const [startErr, setStartErr] = useState('');
   const [busy, setBusy] = useState(false);
   const startChanged = startDate !== (c.startDate ?? '');
-  const dirty = title.trim() !== c.title || description.trim() !== c.description || wordsPerDay !== c.wordsPerDay || visibility !== c.visibility || startChanged;
+  const dirty = title.trim() !== c.title || description.trim() !== c.description || wordsPerDay !== c.wordsPerDay || dictationPerDay !== savedDictation || visibility !== c.visibility || startChanged;
   const most = Math.max(0, ...c.days.map((d) => d.count));
   const save = async () => {
     if (!title.trim()) { setErr('Please enter a course title.'); return; }
@@ -52,7 +54,7 @@ function SettingsCard({ c, onSaved }: { c: CourseDetail; onSaved: (c: CourseDeta
     setBusy(true);
     try {
       // Only send the start date when it changed: changing it moves every learner's days.
-      const res = await api.updateCourse(c.id, { title: title.trim(), description: description.trim(), wordsPerDay, visibility, ...(startChanged ? { startDate } : {}) });
+      const res = await api.updateCourse(c.id, { title: title.trim(), description: description.trim(), wordsPerDay, dictationPerDay, visibility, ...(startChanged ? { startDate } : {}) });
       onSaved(res);
       setStartDate(res.startDate ?? '');
       actions.showToast('Course details saved.');
@@ -77,6 +79,7 @@ function SettingsCard({ c, onSaved }: { c: CourseDetail; onSaved: (c: CourseDeta
           {WORDS_PER_DAY.map((n) => <Chip key={n} label={String(n)} on={wordsPerDay === n} onPress={() => { if (n >= most) setWordsPerDay(n); else actions.showToast('Some days already have ' + most + ' words. Remove words first.', 'bad'); }} />)}
         </View>
       </Field>
+      <DictationPerDayField value={dictationPerDay} onChange={setDictationPerDay} />
       <Field label="Who can join" hint={visibility === 'private' ? 'Only people with the join code.' : 'Anyone can find it in Explore.'}>
         <View style={{ flexDirection: 'row', gap: 6 }}>
           <Chip soft label="Private" on={visibility === 'private'} onPress={() => setVisibility('private')} />

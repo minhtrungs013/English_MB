@@ -1,7 +1,7 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, View } from 'react-native';
-import { CourseCard, joinedMessage, WORDS_PER_DAY } from '../components/course';
+import { CourseCard, DEFAULT_DICTATION_PER_DAY, DictationPerDayField, joinedMessage, WORDS_PER_DAY } from '../components/course';
 import { Sheet } from '../components/sheet';
 import { StartDateField, startDateError } from '../components/start-date';
 import { BackBar, Button, Card, Chip, EmptyState, Field, IconButton, Input, SectionTitle, T } from '../components/ui';
@@ -16,6 +16,7 @@ function CreateSheet({ visible, onClose }: { visible: boolean; onClose: () => vo
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [wordsPerDay, setWordsPerDay] = useState(5);
+  const [dictationPerDay, setDictationPerDay] = useState(DEFAULT_DICTATION_PER_DAY);
   const [visibility, setVisibility] = useState<CourseVisibility>('private');
   const [startDate, setStartDate] = useState('');
   const [err, setErr] = useState('');
@@ -27,9 +28,9 @@ function CreateSheet({ visible, onClose }: { visible: boolean; onClose: () => vo
     if (se) { setStartErr(se); return; }
     setBusy(true);
     try {
-      const c = await api.createCourse({ title: title.trim(), description: description.trim(), wordsPerDay, visibility, startDate });
+      const c = await api.createCourse({ title: title.trim(), description: description.trim(), wordsPerDay, dictationPerDay, visibility, startDate });
       actions.showToast('Course “' + c.title + '” created. Add words to its days.');
-      setTitle(''); setDescription(''); setWordsPerDay(5); setVisibility('private'); setStartDate('');
+      setTitle(''); setDescription(''); setWordsPerDay(5); setDictationPerDay(DEFAULT_DICTATION_PER_DAY); setVisibility('private'); setStartDate('');
       onClose();
       router.push({ pathname: '/course-edit/[id]', params: { id: c.id } });
     } catch (e) {
@@ -53,6 +54,7 @@ function CreateSheet({ visible, onClose }: { visible: boolean; onClose: () => vo
           {WORDS_PER_DAY.map((n) => <Chip key={n} label={String(n)} on={wordsPerDay === n} onPress={() => setWordsPerDay(n)} />)}
         </View>
       </Field>
+      <DictationPerDayField value={dictationPerDay} onChange={setDictationPerDay} />
       <Field label="Who can join" hint={visibility === 'private' ? 'Only people with the join code.' : 'Anyone can find it in Explore.'}>
         <View style={{ flexDirection: 'row', gap: 6 }}>
           <Chip soft label="Private" on={visibility === 'private'} onPress={() => setVisibility('private')} />
