@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
-import { LESSON_IDS, LESSON_LABEL, MIXED_LESSON, TENSES, type GrammarTable, type GrammarTenseSummary, type LessonId, type Tense } from '../lib/api';
+import { IRREGULAR_LESSON, LESSON_IDS, LESSON_LABEL, MIXED_LESSON, TENSES, type GrammarTable, type GrammarTenseSummary, type LessonId, type Tense } from '../lib/api';
 import type { Palette } from '../lib/theme';
 import { useTheme } from '../state/store';
 import { Progress } from './course';
@@ -58,6 +58,24 @@ export function LessonLink({ lesson, title = 'Open the lesson' }: { lesson?: str
   );
 }
 
+/**
+ * "See V1 – V2 – V3 of “write”": opens the irregular verbs lesson with its search prefilled with the verb.
+ * `prefix` (e.g. a cloze blank's ①) goes before the text, `prefixLabel` ("Blank 1") before the screen-reader text. Renders nothing without a verb.
+ */
+export function VerbFormsLink({ verb, prefix, prefixLabel }: { verb?: string; prefix?: string; prefixLabel?: string }) {
+  const t = useTheme();
+  const v = verb?.trim();
+  if (!v) return null;
+  return (
+    <Pressable onPress={() => router.push({ pathname: '/grammar/[tense]', params: { tense: IRREGULAR_LESSON, verb: v } })} accessibilityRole="link"
+      accessibilityLabel={(prefixLabel ? prefixLabel + ': ' : '') + 'See V1, V2, V3 of ' + v + '. Opens the lesson ' + LESSON_LABEL[IRREGULAR_LESSON]}
+      style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 10, borderRadius: 10, alignSelf: 'flex-start', backgroundColor: pressed ? t.surface2 : 'transparent' })}>
+      <Icon name="layers" size={16} color={t.primaryInk} />
+      <T size={13.5} weight="bold" tone="primaryInk">{prefix ? prefix + ' ' : ''}See V1 – V2 – V3 of “{v}” ↗</T>
+    </Pressable>
+  );
+}
+
 /** "Learn this tense" link for course questions: only for the 7 tenses (renders nothing otherwise). */
 export function LearnTenseLink({ tense, title = 'Learn this tense' }: { tense?: string; title?: string }) {
   if (!isTense(tense)) return null;
@@ -96,7 +114,9 @@ export function GrammarTableView({ table: tb }: { table: GrammarTable }) {
   const avail = width - 32;
   const grid = cols > 0 && cols * COL_MIN <= avail;
   const colW = grid ? Math.max(COL_MIN, Math.floor((avail - 2) / cols)) : COL_MIN;
-  const open = (to: LessonId) => router.push({ pathname: '/grammar/[tense]', params: { tense: to } });
+  // A row of a short irregular verbs table opens the full one searched for that verb.
+  const open = (to: LessonId, label: string) =>
+    router.push({ pathname: '/grammar/[tense]', params: to === IRREGULAR_LESSON ? { tense: to, verb: label } : { tense: to } });
 
   const rowBody = (r: Row, link: LessonId | null) => grid ? (
     <View style={{ flexDirection: 'row', alignItems: 'stretch' }}>
@@ -130,7 +150,7 @@ export function GrammarTableView({ table: tb }: { table: GrammarTable }) {
     const link = isLesson(r.link) ? r.link : null;
     const border = { borderTopWidth: grid || i ? 1 : 0, borderTopColor: t.border };
     return link ? (
-      <Pressable key={i} onPress={() => open(link)} accessibilityRole="link" accessibilityLabel={rowLabel(tb, r, link)}
+      <Pressable key={i} onPress={() => open(link, r.label)} accessibilityRole="link" accessibilityLabel={rowLabel(tb, r, link)}
         style={({ pressed }) => [border, { minHeight: 44, backgroundColor: pressed ? t.primarySoft : 'transparent' }]}>
         {rowBody(r, link)}
       </Pressable>

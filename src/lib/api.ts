@@ -297,8 +297,10 @@ export interface NoteLink {
 export interface Note { id: string; type: string; title: string; body: string; link: NoteLink | null; count: number; read: boolean; at: number }
 export interface NotePage { items: Note[]; hasMore: boolean; unread: number }
 
-/** Foundations lessons (helping verbs), taught before the tenses. 'aux-cheatsheet' is reference only (no drills). */
-export const FOUNDATIONS = ['be', 'do', 'have', 'agreement', 'aux-cheatsheet'] as const;
+/** The irregular verbs lesson (V1 – V2 – V3 tables, one per pattern). Results link to it through `verb`. */
+export const IRREGULAR_LESSON = 'irregular-verbs';
+/** Foundations lessons (helping verbs, irregular verbs), taught before the tenses. 'aux-cheatsheet' is reference only (no drills). */
+export const FOUNDATIONS = ['be', 'do', 'have', 'agreement', IRREGULAR_LESSON, 'aux-cheatsheet'] as const;
 export type Foundation = (typeof FOUNDATIONS)[number];
 /** "Mixed practice: real-world English": the last lesson of the Tenses group. Not a tense (no formula, uses or mistakes). */
 export const MIXED_LESSON = 'mixed';
@@ -308,7 +310,7 @@ export type LessonId = Foundation | Tense | typeof MIXED_LESSON;
 export const LESSON_IDS: readonly LessonId[] = [...FOUNDATIONS, ...TENSES, MIXED_LESSON];
 /** Short lesson names (for links, before the server's name is loaded). */
 export const LESSON_LABEL: Record<LessonId, string> = {
-  be: 'Be', do: 'Do', have: 'Have', agreement: 'Subject–verb agreement', 'aux-cheatsheet': 'Helping verbs cheat sheet',
+  be: 'Be', do: 'Do', have: 'Have', agreement: 'Subject–verb agreement', 'irregular-verbs': 'Irregular verbs', 'aux-cheatsheet': 'Helping verbs cheat sheet',
   ...TENSE_LABEL,
   mixed: 'Mixed practice: real-world English'
 };
@@ -369,9 +371,11 @@ export interface GrammarAnswer { id: string; answer?: string; pick?: number; ans
 type ResultBase = {
   id: string; lesson: LessonId; tense: LessonId; tenseLabel: string; prompt: string;
   yourAnswer: string; answer: string; correct: boolean; explain: string;
+  /** Base form when the answer is a form of an irregular verb (never be / have / do): links to the irregular verbs lesson. */
+  verb?: string;
 };
-/** One cloze blank: `tense` / `tenseLabel` may be ''. */
-export interface GrammarClozeBlank { yourAnswer: string; answer: string; correct: boolean; tense: string; tenseLabel: string; explain: string }
+/** One cloze blank: `tense` / `tenseLabel` may be ''. `verb` as on a result. */
+export interface GrammarClozeBlank { yourAnswer: string; answer: string; correct: boolean; tense: string; tenseLabel: string; explain: string; verb?: string }
 /** `kind` is missing on older servers (treat as 'tense'). For identify, `prompt` has the brackets removed and `highlight` keeps them. */
 export type GrammarResultItem =
   | (ResultBase & { kind?: 'tense' | 'tenseChoice' })

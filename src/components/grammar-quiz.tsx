@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { GrammarAnswer, GrammarQuestion, GrammarResultItem } from '../lib/api';
 import { useTheme } from '../state/store';
 import { ASK, isCorrect, Progress, TenseNote } from './course';
-import { LessonLink } from './grammar';
+import { LessonLink, VerbFormsLink } from './grammar';
 import { Button, Card, Icon, IconButton, Input, T } from './ui';
 
 /* ---------- answers ---------- */
@@ -383,7 +383,19 @@ function ResultBody({ r }: { r: GrammarResultItem }) {
   );
 }
 
-/** One graded answer, with a link to the lesson when it's wrong. */
+/** Wrong cloze blanks with an irregular verb: one link per verb (the first blank that uses it). */
+function clozeVerbs(r: GrammarResultItem): { verb: string; k: number }[] {
+  if (r.kind !== 'cloze') return [];
+  const seen = new Set<string>();
+  return r.blanks.flatMap((b, k) => {
+    const v = b.verb?.trim();
+    if (b.correct || !v || seen.has(v.toLowerCase())) return [];
+    seen.add(v.toLowerCase());
+    return [{ verb: v, k }];
+  });
+}
+
+/** One graded answer; when it's wrong, links to the lesson and to the V1 – V2 – V3 of its irregular verb(s). */
 export function ResultCard({ r, k }: { r: GrammarResultItem; k: number }) {
   const t = useTheme();
   const fg = r.correct ? t.success : t.danger;
@@ -397,6 +409,8 @@ export function ResultCard({ r, k }: { r: GrammarResultItem; k: number }) {
         <ResultBody r={r} />
       </View>
       {!r.correct ? <LessonLink lesson={r.tense || r.lesson} title="Review the lesson" /> : null}
+      {!r.correct && r.kind !== 'cloze' ? <VerbFormsLink verb={r.verb} /> : null}
+      {clozeVerbs(r).map(({ verb, k: j }) => <VerbFormsLink key={verb} verb={verb} prefix={blankMark(j)} prefixLabel={'Blank ' + (j + 1)} />)}
     </View>
   );
 }

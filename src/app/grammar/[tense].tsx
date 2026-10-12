@@ -3,8 +3,9 @@ import { useCallback, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GrammarTableView, MasteryBadge } from '../../components/grammar';
+import { IrregularVerbsList } from '../../components/irregular-verbs';
 import { BackBar, Badge, Button, Card, EmptyState, Icon, IconButton, SectionTitle, T } from '../../components/ui';
-import { api, LESSON_IDS, LESSON_LABEL, MIXED_LESSON, TENSE_LABEL, type GrammarForm, type GrammarLesson, type GrammarTable } from '../../lib/api';
+import { api, IRREGULAR_LESSON, LESSON_IDS, LESSON_LABEL, MIXED_LESSON, TENSE_LABEL, type GrammarForm, type GrammarLesson, type GrammarTable } from '../../lib/api';
 import { speak } from '../../lib/speech';
 import { errMsg, useTheme } from '../../state/store';
 
@@ -52,7 +53,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 }
 
 export default function GrammarLessonScreen() {
-  const { tense } = useLocalSearchParams<{ tense: string }>();
+  const { tense, verb } = useLocalSearchParams<{ tense: string; verb?: string }>();
   const t = useTheme();
   const insets = useSafeAreaInsets();
   const [l, setL] = useState<GrammarLesson | null>(null);
@@ -83,6 +84,114 @@ export default function GrammarLessonScreen() {
   const foundation = formula?.foundation && formula.foundation in FOUNDATION_HINT ? formula.foundation : null;
   const practisable = !!lesson?.drillCount;
 
+  /** The lesson's parts: above its tables, its tables, and the rest (formula, uses, mistakes, previous / next). */
+  const view = lesson ? {
+    top: (
+      <>
+        <View style={{ gap: 4 }}>
+          <T size={26} weight="extrabold" style={{ letterSpacing: -0.5 }}>{lesson.name}</T>
+          <T weight="semibold" tone="muted">{lesson.vi}</T>
+        </View>
+        <Card style={{ gap: 6 }}><T>{lesson.summary}</T></Card>
+      </>
+    ),
+    tables: (
+      <>
+        {lesson.tables?.filter((tb) => tb.rows?.length).map((tb, i) => (
+          <Section key={'t' + i} title={tb.title}>
+            <GrammarTableView table={tb} />
+          </Section>
+        ))}
+      </>
+    ),
+    rest: (
+      <>
+        {formula && FORMS.some(([k]) => formula[k]) ? (
+          <Section title="Formula">
+            <Card pad={false}>
+              {FORMS.map(([k, label], i) => {
+                const f = formula[k];
+                if (!f) return null;
+                return (
+                  <View key={k} style={{ padding: 14, gap: 8, borderTopWidth: i ? 1 : 0, borderTopColor: t.border }}>
+                    <T size={12.5} weight="extrabold" tone="muted">{label}</T>
+                    <T weight="extrabold" tone="primaryInk">{f.pattern}</T>
+                    <Example en={f.example} vi={f.vi} />
+                  </View>
+                );
+              })}
+            </Card>
+          </Section>
+        ) : null}
+
+        {persons ? (
+          <Section title={persons.title}>
+            <GrammarTableView table={persons} />
+            {foundation ? <FoundationHint to={foundation} /> : null}
+          </Section>
+        ) : foundation ? <FoundationHint to={foundation} /> : null}
+
+        {lesson.uses?.length ? (
+          <Section title="How to use">
+            {lesson.uses.map((u, i) => (
+              <Card key={i} style={{ gap: 8, padding: 14 }}>
+                <T weight="extrabold">{i + 1}. {u.title}</T>
+                <T size={14}>{u.explain}</T>
+                {u.examples.slice(0, 2).map((e, k) => <Example key={k} en={e.en} vi={e.vi} />)}
+              </Card>
+            ))}
+          </Section>
+        ) : null}
+
+        {lesson.signals?.length ? (
+          <Section title="Signal words">
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+              {lesson.signals.map((s) => (
+                <View key={s} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 99, backgroundColor: t.primarySoft }}>
+                  <T size={13.5} weight="bold" tone="primaryInk">{s}</T>
+                </View>
+              ))}
+            </View>
+          </Section>
+        ) : null}
+
+        {lesson.mistakes?.length ? (
+          <Section title="Common mistakes">
+            {lesson.mistakes.map((m, i) => (
+              <Card key={i} style={{ gap: 6, padding: 14 }}>
+                <View accessible accessibilityLabel={'Wrong: ' + m.wrong + '. Right: ' + m.right} style={{ gap: 4 }}>
+                  <T weight="semibold" style={{ color: t.danger, textDecorationLine: 'line-through' }}>✗ {m.wrong}</T>
+                  <T weight="semibold" style={{ color: t.success }}>✓ {m.right}</T>
+                </View>
+                <T size={13.5} tone="muted">{m.explain}</T>
+              </Card>
+            ))}
+          </Section>
+        ) : null}
+
+        {lesson.compare?.explain ? (
+          <Section title={'vs ' + (lesson.compareName || TENSE_LABEL[lesson.compare.with] || 'a similar tense')}>
+            <Card style={{ gap: 8, padding: 14 }}>
+              <T size={14}>{lesson.compare.explain}</T>
+              {lesson.compare.examples.map((e, k) => (
+                <Example key={k} en={e.en} vi={e.vi}
+                  tag={<View style={{ alignSelf: 'flex-start', marginBottom: 2 }}>
+                    <Badge label={TENSE_LABEL[e.tense] ?? e.tense} bg={e.tense === lesson.id ? t.primarySoft : t.surface3} fg={e.tense === lesson.id ? t.primaryInk : t.muted} />
+                  </View>} />
+              ))}
+            </Card>
+          </Section>
+        ) : null}
+
+        <View style={{ flexDirection: 'row', gap: 10, marginTop: 6 }}>
+          {prev ? <Button title="Previous" icon="left" variant="secondary" onPress={() => go(prev)} accessibilityLabel={'Previous lesson: ' + LESSON_LABEL[prev]} style={{ flex: 1 }} /> : <View style={{ flex: 1 }} />}
+          {next ? <Button title="Next lesson" icon="right" variant="secondary" onPress={() => go(next)} accessibilityLabel={'Next lesson: ' + LESSON_LABEL[next]} style={{ flex: 1 }} /> : <View style={{ flex: 1 }} />}
+        </View>
+      </>
+    )
+  } : null;
+  const pad = { padding: 16, paddingTop: 0, paddingBottom: practisable ? 24 : insets.bottom + 24 };
+
   return (
     <View style={{ flex: 1, backgroundColor: t.bg }}>
       <BackBar title={lesson?.name ?? 'Grammar'} />
@@ -96,101 +205,17 @@ export default function GrammarLessonScreen() {
           </EmptyState>
         ) : (
           <>
-            <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 0, gap: 12, paddingBottom: practisable ? 24 : insets.bottom + 24 }}>
-              <View style={{ gap: 4 }}>
-                <T size={26} weight="extrabold" style={{ letterSpacing: -0.5 }}>{lesson.name}</T>
-                <T weight="semibold" tone="muted">{lesson.vi}</T>
-              </View>
-              <Card style={{ gap: 6 }}><T>{lesson.summary}</T></Card>
-
-              {lesson.tables?.filter((tb) => tb.rows?.length).map((tb, i) => (
-                <Section key={'t' + i} title={tb.title}>
-                  <GrammarTableView table={tb} />
-                </Section>
-              ))}
-
-              {formula && FORMS.some(([k]) => formula[k]) ? (
-                <Section title="Formula">
-                  <Card pad={false}>
-                    {FORMS.map(([k, label], i) => {
-                      const f = formula[k];
-                      if (!f) return null;
-                      return (
-                        <View key={k} style={{ padding: 14, gap: 8, borderTopWidth: i ? 1 : 0, borderTopColor: t.border }}>
-                          <T size={12.5} weight="extrabold" tone="muted">{label}</T>
-                          <T weight="extrabold" tone="primaryInk">{f.pattern}</T>
-                          <Example en={f.example} vi={f.vi} />
-                        </View>
-                      );
-                    })}
-                  </Card>
-                </Section>
-              ) : null}
-
-              {persons ? (
-                <Section title={persons.title}>
-                  <GrammarTableView table={persons} />
-                  {foundation ? <FoundationHint to={foundation} /> : null}
-                </Section>
-              ) : foundation ? <FoundationHint to={foundation} /> : null}
-
-              {lesson.uses?.length ? (
-                <Section title="How to use">
-                  {lesson.uses.map((u, i) => (
-                    <Card key={i} style={{ gap: 8, padding: 14 }}>
-                      <T weight="extrabold">{i + 1}. {u.title}</T>
-                      <T size={14}>{u.explain}</T>
-                      {u.examples.slice(0, 2).map((e, k) => <Example key={k} en={e.en} vi={e.vi} />)}
-                    </Card>
-                  ))}
-                </Section>
-              ) : null}
-
-              {lesson.signals?.length ? (
-                <Section title="Signal words">
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                    {lesson.signals.map((s) => (
-                      <View key={s} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 99, backgroundColor: t.primarySoft }}>
-                        <T size={13.5} weight="bold" tone="primaryInk">{s}</T>
-                      </View>
-                    ))}
-                  </View>
-                </Section>
-              ) : null}
-
-              {lesson.mistakes?.length ? (
-                <Section title="Common mistakes">
-                  {lesson.mistakes.map((m, i) => (
-                    <Card key={i} style={{ gap: 6, padding: 14 }}>
-                      <View accessible accessibilityLabel={'Wrong: ' + m.wrong + '. Right: ' + m.right} style={{ gap: 4 }}>
-                        <T weight="semibold" style={{ color: t.danger, textDecorationLine: 'line-through' }}>✗ {m.wrong}</T>
-                        <T weight="semibold" style={{ color: t.success }}>✓ {m.right}</T>
-                      </View>
-                      <T size={13.5} tone="muted">{m.explain}</T>
-                    </Card>
-                  ))}
-                </Section>
-              ) : null}
-
-              {lesson.compare?.explain ? (
-                <Section title={'vs ' + (lesson.compareName || TENSE_LABEL[lesson.compare.with] || 'a similar tense')}>
-                  <Card style={{ gap: 8, padding: 14 }}>
-                    <T size={14}>{lesson.compare.explain}</T>
-                    {lesson.compare.examples.map((e, k) => (
-                      <Example key={k} en={e.en} vi={e.vi}
-                        tag={<View style={{ alignSelf: 'flex-start', marginBottom: 2 }}>
-                          <Badge label={TENSE_LABEL[e.tense] ?? e.tense} bg={e.tense === lesson.id ? t.primarySoft : t.surface3} fg={e.tense === lesson.id ? t.primaryInk : t.muted} />
-                        </View>} />
-                    ))}
-                  </Card>
-                </Section>
-              ) : null}
-
-              <View style={{ flexDirection: 'row', gap: 10, marginTop: 6 }}>
-                {prev ? <Button title="Previous" icon="left" variant="secondary" onPress={() => go(prev)} accessibilityLabel={'Previous lesson: ' + LESSON_LABEL[prev]} style={{ flex: 1 }} /> : <View style={{ flex: 1 }} />}
-                {next ? <Button title="Next lesson" icon="right" variant="secondary" onPress={() => go(next)} accessibilityLabel={'Next lesson: ' + LESSON_LABEL[next]} style={{ flex: 1 }} /> : <View style={{ flex: 1 }} />}
-              </View>
-            </ScrollView>
+            {/* Irregular verbs: ~100 verb cards with search and pattern chips, so the whole lesson is one virtualized list. */}
+            {!view ? null : lesson.id === IRREGULAR_LESSON ? (
+              <IrregularVerbsList tables={lesson.tables ?? []} initialVerb={typeof verb === 'string' && verb ? verb : undefined} contentContainerStyle={pad}
+                header={<View style={{ gap: 12, paddingBottom: 4 }}>{view.top}</View>} footer={<View style={{ gap: 12, paddingTop: 8 }}>{view.rest}</View>} />
+            ) : (
+              <ScrollView contentContainerStyle={[pad, { gap: 12 }]}>
+                {view.top}
+                {view.tables}
+                {view.rest}
+              </ScrollView>
+            )}
             {practisable ? (
               <View style={{ gap: 8, padding: 12, paddingBottom: insets.bottom + 12, backgroundColor: t.surface, borderTopWidth: 1, borderTopColor: t.border }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
