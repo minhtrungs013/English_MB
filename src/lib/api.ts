@@ -138,6 +138,11 @@ export interface CourseDay {
 export interface CourseDetail extends CourseSummary { days: CourseDay[] }
 /** `startDate`: 'YYYY-MM-DD', or '' for self-paced ('' on PATCH clears it). */
 export interface CourseInput { title: string; description?: string; wordsPerDay?: number; dictationPerDay?: number; visibility?: CourseVisibility; startDate?: string }
+export const CEFR_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as const;
+export type CefrLevel = (typeof CEFR_LEVELS)[number];
+/** `empty` keeps existing words and fills free places; `replace` re-chooses all (409 once anyone joined). */
+export interface AutoFillInput { levels?: CefrLevel[]; topics?: Topic[]; mode?: 'empty' | 'replace' }
+export interface AutoFillResult { added: number; missing: number; course: CourseDetail }
 export interface AiWordResult { source: 'library' | 'ai' | 'online'; word: CourseWord; quota: Quota }
 export interface SaveWordsResult { added: Word[]; skipped: string[]; tag: string }
 export interface LearnResult extends SaveWordsResult { course: CourseDetail }
@@ -462,6 +467,8 @@ export const api = {
   course: (id: string) => req<CourseDetail>('GET', '/courses/' + id),
   updateCourse: (id: string, c: Partial<CourseInput>) => req<CourseDetail>('PATCH', '/courses/' + id, c),
   deleteCourse: (id: string) => req<void>('DELETE', '/courses/' + id),
+  /** Fills the days with random built-in library words (owner only, no AI). */
+  autoFillCourse: (id: string, body: AutoFillInput) => req<AutoFillResult>('POST', '/courses/' + id + '/auto-fill', body),
   /** Replaces the words of one day (owner only). */
   setCourseDay: (id: string, day: number, words: CourseWord[]) => req<CourseDetail>('PUT', '/courses/' + id + '/days/' + day, { words }),
   /** Word details for a course: the library's entry, or generated (daily limit). Not saved until the day is PUT. */

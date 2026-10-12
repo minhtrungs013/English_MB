@@ -1,6 +1,6 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, RefreshControl, ScrollView, View } from 'react-native';
+import { ActivityIndicator, RefreshControl, ScrollView, Switch, View } from 'react-native';
 import { CourseCard, DEFAULT_DICTATION_PER_DAY, DictationPerDayField, joinedMessage, WORDS_PER_DAY } from '../components/course';
 import { Sheet } from '../components/sheet';
 import { StartDateField, startDateError } from '../components/start-date';
@@ -22,6 +22,7 @@ function CreateSheet({ visible, onClose }: { visible: boolean; onClose: () => vo
   const [err, setErr] = useState('');
   const [startErr, setStartErr] = useState('');
   const [busy, setBusy] = useState(false);
+  const [autoFill, setAutoFill] = useState(false);
   const create = async () => {
     if (!title.trim()) { setErr('Please enter a course title.'); return; }
     const se = startDateError(startDate);
@@ -29,7 +30,17 @@ function CreateSheet({ visible, onClose }: { visible: boolean; onClose: () => vo
     setBusy(true);
     try {
       const c = await api.createCourse({ title: title.trim(), description: description.trim(), wordsPerDay, dictationPerDay, visibility, startDate });
-      actions.showToast('Course “' + c.title + '” created. Add words to its days.');
+      let msg = 'Course “' + c.title + '” created. Add words to its days.';
+      if (autoFill) {
+        try {
+          const r = await api.autoFillCourse(c.id, { mode: 'empty' });
+          msg = 'Course “' + c.title + '” created · added ' + r.added + (r.added === 1 ? ' word' : ' words') + (r.missing > 0 ? ' (' + r.missing + ' places left empty).' : '.');
+        } catch (fe) {
+          msg = 'Course created, but auto-fill failed: ' + errMsg(fe);
+        }
+      }
+      actions.showToast(msg);
+      setAutoFill(false);
       setTitle(''); setDescription(''); setWordsPerDay(5); setDictationPerDay(DEFAULT_DICTATION_PER_DAY); setVisibility('private'); setStartDate('');
       onClose();
       router.push({ pathname: '/course-edit/[id]', params: { id: c.id } });
@@ -62,6 +73,10 @@ function CreateSheet({ visible, onClose }: { visible: boolean; onClose: () => vo
         </View>
       </Field>
       <StartDateField value={startDate} onChange={(v) => { setStartDate(v); setStartErr(''); }} error={startErr} />
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44 }}>
+        <T style={{ flex: 1 }}>Fill the 30 days with library words now</T>
+        <Switch value={autoFill} onValueChange={setAutoFill} accessibilityRole="switch" accessibilityLabel="Fill the 30 days with library words now" />
+      </View>
       <View style={{ flexDirection: 'row', gap: 10 }}>
         <Button title="Cancel" variant="secondary" onPress={onClose} style={{ flex: 1 }} />
         <Button title="Create" loading={busy} onPress={create} style={{ flex: 1 }} />

@@ -5,7 +5,7 @@ import { CourseWordCard, DEFAULT_DICTATION_PER_DAY, DictationPerDayField, WORDS_
 import { Sheet } from '../../../components/sheet';
 import { StartDateField, startDateError } from '../../../components/start-date';
 import { BackBar, Badge, Button, Card, Chip, ChipRow, EmptyState, Field, Icon, IconButton, IconTile, Input, LevelBadge, SectionTitle, T, TOPIC_LABEL } from '../../../components/ui';
-import { api, ApiError, type AiWordResult, type CourseDetail, type CourseVisibility, type CourseWord, type LibraryWord, type Quota, type Topic } from '../../../lib/api';
+import { api, ApiError, type AiWordResult, CEFR_LEVELS, type CefrLevel, type CourseDetail, type CourseVisibility, type CourseWord, type LibraryWord, type Quota, type Topic } from '../../../lib/api';
 import { errMsg, useStore, useTheme } from '../../../state/store';
 
 const TOPICS: Topic[] = ['it', 'interview', 'customer', 'leader', 'toeic', 'other'];
@@ -93,6 +93,63 @@ function SettingsCard({ c, onSaved }: { c: CourseDetail; onSaved: (c: CourseDeta
   );
 }
 
+const FILL_TOPIC_LABEL: Record<Topic, string> = { it: 'IT', interview: 'Interviews', customer: 'Customers', leader: 'Leadership', toeic: 'TOEIC/office', other: 'Everyday' };
+const toggle = <X,>(list: X[], x: X): X[] => (list.includes(x) ? list.filter((y) => y !== x) : [...list, x]);
+
+/** Fills the course days with random built-in library words (POST /courses/:id/auto-fill). */
+function AutoFillSheet({ c, visible, onClose, onDone }: { c: CourseDetail; visible: boolean; onClose: () => void; onDone: (c: CourseDetail) => void }) {
+  const { actions } = useStore();
+  const [levels, setLevels] = useState<CefrLevel[]>([]);
+  const [topics, setTopics] = useState<Topic[]>([]);
+  const [mode, setMode] = useState<'empty' | 'replace'>('empty');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const total = c.totalDays * c.wordsPerDay;
+  const used = c.days.reduce((n, d) => n + Math.min(d.count, c.wordsPerDay), 0);
+  const upTo = mode === 'replace' ? total : Math.max(0, total - used);
+  const fill = async () => {
+    setBusy(true);
+    setErr('');
+    try {
+      const res = await api.autoFillCourse(c.id, { mode, ...(levels.length ? { levels } : {}), ...(topics.length ? { topics } : {}) });
+      onDone(res.course);
+      onClose();
+      actions.showToast('Added ' + res.added + (res.added === 1 ? ' word' : ' words') + (res.missing > 0 ? ' · ' + res.missing + ' places left empty (not enough matching words).' : '.'));
+    } catch (e) {
+      setErr(errMsg(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Sheet visible={visible} onClose={onClose} title="Auto-fill days" scroll>
+      <T tone="muted">Pick random words from the built-in library, easier ones first. No word is used twice.</T>
+      <Field label="Levels" hint={levels.length ? undefined : 'Any level'}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+          {CEFR_LEVELS.map((l) => <Chip key={l} soft label={l} on={levels.includes(l)} onPress={() => setLevels((v) => toggle(v, l))} />)}
+        </View>
+      </Field>
+      <Field label="Topics" hint={topics.length ? undefined : 'Any topic'}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+          {TOPICS.map((x) => <Chip key={x} soft label={FILL_TOPIC_LABEL[x]} on={topics.includes(x)} onPress={() => setTopics((v) => toggle(v, x))} />)}
+        </View>
+      </Field>
+      <Field label="Words already in the course" hint={mode === 'replace' && c.members > 0 ? 'People have joined, so words can’t be replaced.' : undefined}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+          <Chip soft label="Fill empty places (keep my words)" on={mode === 'empty'} onPress={() => setMode('empty')} />
+          <Chip soft label="Replace all words" on={mode === 'replace'} onPress={() => setMode('replace')} />
+        </View>
+      </Field>
+      <View accessibilityLiveRegion="polite"><T weight="bold">Will add up to {upTo} {upTo === 1 ? 'word' : 'words'}.</T></View>
+      {err ? <View accessibilityLiveRegion="polite"><T tone="danger">{err}</T></View> : null}
+      <View style={{ flexDirection: 'row', gap: 10 }}>
+        <Button title="Cancel" variant="secondary" onPress={onClose} style={{ flex: 1 }} />
+        <Button title="Fill" icon="sparkle" loading={busy} disabled={upTo === 0} onPress={fill} style={{ flex: 1 }} />
+      </View>
+    </Sheet>
+  );
+}
+
 export default function CourseEdit() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { actions } = useStore();
@@ -108,6 +165,7 @@ export default function CourseEdit() {
   const [sharing, setSharing] = useState<number | null>(null);
   const [topic, setTopic] = useState<Topic>('other');
   const [sharingBusy, setSharingBusy] = useState(false);
+  const [filling, setFilling] = useState(false);
   const lib = useLibrarySearch(q);
 
   const first = useRef(true);
@@ -234,7 +292,11 @@ export default function CourseEdit() {
           </Card>
         ) : null}
 
-        <SectionTitle style={{ marginTop: 4 }}>Days</SectionTitle>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+          <SectionTitle style={{ flex: 1 }}>Days</SectionTitle>
+          <Button title="Auto-fill days" icon="sparkle" variant="secondary" size="sm" style={{ minHeight: 44 }}
+            accessibilityLabel="Auto-fill days with library words" onPress={() => setFilling(true)} />
+        </View>
         <ChipRow>
           {c.days.map((d) => (
             <Chip key={d.day} label={d.day + ' · ' + d.count + '/' + c.wordsPerDay + (d.bank?.pending ? ' · ' + d.bank.pending + ' to review' : '')} on={d.day === sel} soft={d.count >= c.wordsPerDay}
@@ -328,6 +390,8 @@ export default function CourseEdit() {
 
         <Button title="Delete course" icon="trash" variant="dangerSoft" onPress={removeCourse} style={{ marginTop: 12 }} />
       </ScrollView>
+
+      <AutoFillSheet c={c} visible={filling} onClose={() => setFilling(false)} onDone={setC} />
 
       <Sheet visible={sharing !== null} onClose={() => setSharing(null)} title="Add to library">
         <T tone="muted">Share “{sharing !== null ? words[sharing]?.word : ''}” so everyone can find it in the library. Pick a topic (optional).</T>
