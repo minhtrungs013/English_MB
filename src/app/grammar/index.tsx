@@ -1,11 +1,11 @@
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { isTense, masteryLabel, MasteryBar } from '../../components/grammar';
-import { BackBar, Badge, Button, EmptyState, Icon, SectionTitle, T } from '../../components/ui';
-import { api, type GrammarGroup, type GrammarTenseSummary } from '../../lib/api';
-import { errMsg, useTheme } from '../../state/store';
+import { isTense, masteryLabel, MasteryBar, RecommendedLessons } from '../../components/grammar';
+import { BackBar, Badge, Button, Card, EmptyState, Icon, SectionTitle, T } from '../../components/ui';
+import { api, getUserFlag, MIXED_LESSON, PLACEMENT_SKIPPED, setUserFlag, type GrammarGroup, type GrammarPlacement, type GrammarTenseSummary } from '../../lib/api';
+import { errMsg, useStore, useTheme } from '../../state/store';
 
 type Sort = 'lesson' | 'weakest';
 type Mix = 'mix' | 'mix-tenses' | 'mix-foundations';
@@ -29,11 +29,13 @@ function TenseCard({ x, n }: { x: GrammarTenseSummary; n: number }) {
   const state = reference ? 'Reference, no practice' : masteryLabel(x.mastery) + ', ' + x.mastery + '% mastery. ' + tried;
   return (
     <Pressable onPress={() => router.push({ pathname: '/grammar/[tense]', params: { tense: x.id } })} accessibilityRole="button"
-      accessibilityLabel={'Lesson ' + n + ': ' + x.name + ', ' + x.vi + '. ' + state}
+      accessibilityLabel={(x.id === MIXED_LESSON ? 'Lesson: ' : 'Lesson ' + n + ': ') + x.name + ', ' + x.vi + '. ' + state}
       style={({ pressed }) => ({ backgroundColor: pressed ? t.surface2 : t.surface, borderColor: t.border, borderWidth: 1, borderRadius: 16, padding: 16, gap: 10 })}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: reference ? t.surface2 : t.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
-          {reference ? <Icon name="book" size={18} color={t.muted} /> : <T size={16} weight="extrabold" tone="primaryInk">{n}</T>}
+          {reference ? <Icon name="book" size={18} color={t.muted} />
+            : x.id === MIXED_LESSON ? <Icon name="sparkle" size={18} color={t.primaryInk} />
+            : <T size={16} weight="extrabold" tone="primaryInk">{n}</T>}
         </View>
         <View style={{ flex: 1 }}>
           <T size={16.5} weight="extrabold" numberOfLines={2}>{x.name}</T>
@@ -88,7 +90,13 @@ function MixChoice({ value, onChange }: { value: Mix; onChange: (m: Mix) => void
 export default function GrammarScreen() {
   const t = useTheme();
   const insets = useSafeAreaInsets();
+  const { data } = useStore();
   const [tenses, setTenses] = useState<GrammarTenseSummary[] | null>(null);
+  const [practisedToday, setPractisedToday] = useState(false);
+  /** undefined: the server doesn't send it (older version), so no placement card. */
+  const [placement, setPlacement] = useState<GrammarPlacement | null | undefined>(undefined);
+  /** null until read from the device. */
+  const [skipped, setSkipped] = useState<boolean | null>(null);
   const [err, setErr] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [sort, setSort] = useState<Sort>('lesson');
@@ -97,13 +105,20 @@ export default function GrammarScreen() {
   const load = useCallback(async () => {
     try {
       const res = await api.grammar();
-      setTenses(res.tenses); setErr('');
+      setTenses(res.tenses); setPractisedToday(!!res.practisedToday); setPlacement(res.placement); setErr('');
     } catch (e) {
       setErr(errMsg(e));
     }
   }, []);
   // Reload on focus: mastery changes after a practice.
   useFocusEffect(useCallback(() => { void load(); }, [load]));
+  useEffect(() => {
+    let alive = true;
+    void getUserFlag(PLACEMENT_SKIPPED, data.userId).then((v) => { if (alive) setSkipped(v); });
+    return () => { alive = false; };
+  }, [data.userId]);
+  const skipPlacement = () => { setSkipped(true); void setUserFlag(PLACEMENT_SKIPPED, data.userId, true); };
+  const takePlacement = () => router.push('/grammar/placement');
   const refresh = async () => { setRefreshing(true); await load(); setRefreshing(false); };
 
   const order = new Map((tenses ?? []).map((x, k) => [x.id, k]));
@@ -129,6 +144,47 @@ export default function GrammarScreen() {
           <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 0, gap: 12, paddingBottom: insets.bottom + 24 }}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={t.primary} colors={[t.primary]} />}>
             <T tone="muted">Start with the helping verbs (be, do, have), then the 7 most useful English tenses: short lessons with examples, then practice to build your mastery.</T>
+
+            <View style={{ backgroundColor: t.primarySoft, borderColor: t.primary, borderWidth: 1.5, borderRadius: 18, padding: 20, gap: 10 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Icon name="zap" size={18} color={t.primaryInk} />
+                <T size={13} weight="bold" tone="primaryInk" style={{ flex: 1, letterSpacing: 0.8, textTransform: 'uppercase' }}>Today’s practice</T>
+                {practisedToday ? <Badge label="Done today ✓" bg={t.successSoft} fg={t.success} /> : null}
+              </View>
+              <T size={17} weight="extrabold" style={{ letterSpacing: -0.3 }}>
+                {practisedToday ? 'Nice — you’ve practised today. Want another round?' : '10 questions picked for you'}
+              </T>
+              <T size={13.5} tone="muted">Your recent mistakes first, then your weaker lessons.</T>
+              <Button title={practisedToday ? 'Practise again' : 'Start today’s practice'} icon="right" size="lg" block
+                variant={practisedToday ? 'secondary' : 'primary'}
+                onPress={() => router.push({ pathname: '/grammar/practice', params: { mode: 'daily' } })} />
+            </View>
+
+            {placement === null && skipped === false ? (
+              <Card style={{ gap: 10 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Icon name="listcheck" size={18} color={t.info} />
+                  <T weight="extrabold" style={{ flex: 1 }}>Not sure where to start?</T>
+                </View>
+                <T size={14} tone="muted">Take a 5-minute placement test (≈19 questions). We’ll set your starting level and recommend 3 lessons.</T>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <Button title="Skip" variant="ghost" onPress={skipPlacement} accessibilityLabel="Skip the placement test" style={{ flex: 1, minHeight: 44 }} />
+                  <Button title="Take the test" icon="right" onPress={takePlacement} accessibilityLabel="Take the placement test" style={{ flex: 1.6, minHeight: 44 }} />
+                </View>
+              </Card>
+            ) : null}
+
+            {placement ? (
+              <View style={{ gap: 8 }}>
+                <SectionTitle style={{ marginTop: 4 }}>Recommended for you</SectionTitle>
+                <RecommendedLessons ids={placement.recommended} lessons={tenses} />
+                <Pressable onPress={takePlacement} accessibilityRole="link" accessibilityLabel="Retake the placement test"
+                  style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, paddingHorizontal: 10, borderRadius: 10, alignSelf: 'flex-start', backgroundColor: pressed ? t.surface2 : 'transparent' })}>
+                  <Icon name="refresh" size={16} color={t.primaryInk} />
+                  <T size={13.5} weight="bold" tone="primaryInk">Retake placement test</T>
+                </Pressable>
+              </View>
+            ) : null}
 
             <View style={{ backgroundColor: t.primary, borderRadius: 18, padding: 20, gap: 12 }}>
               <T size={13} weight="bold" style={{ color: 'rgba(255,255,255,0.85)', letterSpacing: 0.8, textTransform: 'uppercase' }}>Mixed practice</T>

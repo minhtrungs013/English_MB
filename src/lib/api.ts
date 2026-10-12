@@ -26,6 +26,30 @@ export async function setToken(t: string | null): Promise<void> {
   } catch { /* secure storage unavailable: keep the token in memory */ }
 }
 export function getToken(): string | null { return token; }
+
+/* ---------- small per-user flags on this device (secure storage, like the token) ---------- */
+const flagKey = (name: string, userId: string) => ('wordbook_' + name + '_' + (userId || 'anon')).replace(/[^A-Za-z0-9._-]/g, '_');
+const flagCache = new Map<string, boolean>();
+/** A per-user yes/no flag saved on this device (false when unset or storage is unavailable). */
+export async function getUserFlag(name: string, userId: string): Promise<boolean> {
+  const key = flagKey(name, userId);
+  const cached = flagCache.get(key);
+  if (cached !== undefined) return cached;
+  let on = false;
+  try { on = (await SecureStore.getItemAsync(key)) === '1'; } catch { /* keep false */ }
+  flagCache.set(key, on);
+  return on;
+}
+export async function setUserFlag(name: string, userId: string, on: boolean): Promise<void> {
+  const key = flagKey(name, userId);
+  flagCache.set(key, on);
+  try {
+    if (on) await SecureStore.setItemAsync(key, '1');
+    else await SecureStore.deleteItemAsync(key);
+  } catch { /* storage unavailable: remembered until the app restarts */ }
+}
+/** Flag name: the learner skipped the grammar placement test. */
+export const PLACEMENT_SKIPPED = 'grammar_placement_skipped';
 /** Called when a signed-in request comes back 401 (expired token, deleted account). */
 export function setUnauthorizedHandler(fn: (msg: string) => void): void { onUnauthorized = fn; }
 
@@ -276,14 +300,17 @@ export interface NotePage { items: Note[]; hasMore: boolean; unread: number }
 /** Foundations lessons (helping verbs), taught before the tenses. 'aux-cheatsheet' is reference only (no drills). */
 export const FOUNDATIONS = ['be', 'do', 'have', 'agreement', 'aux-cheatsheet'] as const;
 export type Foundation = (typeof FOUNDATIONS)[number];
+/** "Mixed practice: real-world English": the last lesson of the Tenses group. Not a tense (no formula, uses or mistakes). */
+export const MIXED_LESSON = 'mixed';
 /** Any grammar lesson id. */
-export type LessonId = Foundation | Tense;
-/** All lessons in the order they're taught: foundations first. */
-export const LESSON_IDS: readonly LessonId[] = [...FOUNDATIONS, ...TENSES];
+export type LessonId = Foundation | Tense | typeof MIXED_LESSON;
+/** All lessons in the order they're taught: foundations first, the mixed lesson last. */
+export const LESSON_IDS: readonly LessonId[] = [...FOUNDATIONS, ...TENSES, MIXED_LESSON];
 /** Short lesson names (for links, before the server's name is loaded). */
 export const LESSON_LABEL: Record<LessonId, string> = {
   be: 'Be', do: 'Do', have: 'Have', agreement: 'Subject–verb agreement', 'aux-cheatsheet': 'Helping verbs cheat sheet',
-  ...TENSE_LABEL
+  ...TENSE_LABEL,
+  mixed: 'Mixed practice: real-world English'
 };
 export type GrammarGroup = 'foundations' | 'tenses';
 /** One lesson in the list, with my mastery (0–100) and how many of its drills I've answered. `lastAt` is ms since 1970. `drills` is 0 for reference lessons. */
@@ -315,19 +342,46 @@ export interface GrammarLesson {
   compareName: string;
   drillCount: number; mastery: number; attempts: number;
 }
-/** 'tense': typed (the base verb is in brackets after the "___"); 'tenseChoice': 4 choices. No answers here. */
-export interface GrammarQuestion { id: string; kind: 'tense' | 'tenseChoice'; level: 'easy' | 'medium' | 'hard'; prompt: string; choices: string[] }
+/** A learner's latest placement test: `recommended` = the 3 weakest lessons; `at` is ms since 1970. */
+export interface GrammarPlacement { at: number | null; recommended: string[]; scores: Partial<Record<string, { correct: number; total: number }>> }
+/** GET /grammar: `practisedToday` and `placement` are missing on older servers. */
+export interface GrammarList { tenses: GrammarTenseSummary[]; practisedToday?: boolean; placement?: GrammarPlacement | null }
+type QuestionBase = { id: string; level: 'easy' | 'medium' | 'hard'; prompt: string; choices: string[] };
+/**
+ * No answers here.
+ * - 'tense': typed (the base verb is in brackets after the "___"); 'tenseChoice': 4 choices.
+ * - 'identify': which tense is the [[highlighted]] part? `choices` are tense ids, `labels` their names (same order).
+ * - 'fixError': tap the wrong word (`tokens` = the prompt split on spaces) and type the correction.
+ * - 'cloze': a paragraph with `blanks` "___ (verb)" gaps, answered in order.
+ */
+export type GrammarQuestion =
+  | (QuestionBase & { kind: 'tense' | 'tenseChoice' })
+  | (QuestionBase & { kind: 'identify'; labels: string[] })
+  | (QuestionBase & { kind: 'fixError'; tokens: string[] })
+  | (QuestionBase & { kind: 'cloze'; title: string; blanks: number });
 export interface GrammarPractice { mode: string; questions: GrammarQuestion[] }
+/** One answer: `answer` (typed / chosen / the correction), `pick` (fixError: the token index), `answers` (cloze: one per blank). */
+export interface GrammarAnswer { id: string; answer?: string; pick?: number; answers?: string[] }
 /**
  * `lesson` = the lesson the drill belongs to (its mastery changes); `tense` = the lesson to review (the tense of the
  * answer, or the Foundations lesson itself); `tenseLabel` names it (a tense, or a topic like "Be · past"). `explain` is Vietnamese.
  */
-export interface GrammarResultItem {
+type ResultBase = {
   id: string; lesson: LessonId; tense: LessonId; tenseLabel: string; prompt: string;
   yourAnswer: string; answer: string; correct: boolean; explain: string;
-}
+};
+/** One cloze blank: `tense` / `tenseLabel` may be ''. */
+export interface GrammarClozeBlank { yourAnswer: string; answer: string; correct: boolean; tense: string; tenseLabel: string; explain: string }
+/** `kind` is missing on older servers (treat as 'tense'). For identify, `prompt` has the brackets removed and `highlight` keeps them. */
+export type GrammarResultItem =
+  | (ResultBase & { kind?: 'tense' | 'tenseChoice' })
+  | (ResultBase & { kind: 'identify'; highlight: string; yourLabel: string; answerLabel: string })
+  | (ResultBase & { kind: 'fixError'; tokens: string[]; wrongTokens: number[]; wrong: string; pick: number | null; pickRight: boolean; fixRight?: boolean })
+  | (ResultBase & { kind: 'cloze'; title: string; score: { correct: number; total: number }; blanks: GrammarClozeBlank[] });
 /** `mastery`: the new mastery of each lesson in the set. */
 export interface GrammarResult { results: GrammarResultItem[]; correct: number; total: number; mastery: Partial<Record<LessonId, number>> }
+/** The graded placement test: score per lesson and the 3 weakest lessons. */
+export interface GrammarPlacementResult extends GrammarResult { scores: Partial<Record<string, { correct: number; total: number }>>; recommended: string[] }
 
 
 export const api = {
@@ -437,11 +491,18 @@ export const api = {
 
   /* grammar */
   /** All lessons in lesson order (foundations first), with my mastery. */
-  grammar: () => req<{ tenses: GrammarTenseSummary[] }>('GET', '/grammar'),
+  grammar: () => req<GrammarList>('GET', '/grammar'),
   /** 404 for an unknown lesson. */
   grammarLesson: (tense: string) => req<GrammarLesson>('GET', '/grammar/' + encodeURIComponent(tense)),
-  /** `mode`: a lesson id with drills, or 'mix' / 'mix-tenses' / 'mix-foundations' (weighted towards my weakest lessons). 400 for the cheat sheet. */
+  /**
+   * `mode`: a lesson id with drills, 'mix' / 'mix-tenses' / 'mix-foundations' (weighted towards my weakest lessons),
+   * or 'daily' (today's practice: drills I got wrong lately first, then weak lessons). 400 for the cheat sheet.
+   */
   grammarPractice: (mode: string, n = 10) => req<GrammarPractice>('GET', '/grammar/practice?mode=' + encodeURIComponent(mode) + '&n=' + n),
   /** Grades the answers and updates my mastery. */
-  submitGrammar: (answers: { id: string; answer: string }[]) => req<GrammarResult>('POST', '/grammar/practice', { answers })
+  submitGrammar: (answers: GrammarAnswer[]) => req<GrammarResult>('POST', '/grammar/practice', { answers }),
+  /** The placement test (about 19 typed / multiple-choice questions) and my last result. */
+  grammarPlacement: () => req<{ questions: GrammarQuestion[]; last: GrammarPlacement | null }>('GET', '/grammar/placement'),
+  /** Grades the placement test, sets each lesson's starting mastery and recommends 3 lessons. */
+  submitPlacement: (answers: GrammarAnswer[]) => req<GrammarPlacementResult>('POST', '/grammar/placement', { answers })
 };

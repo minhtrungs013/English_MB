@@ -5,8 +5,8 @@ import { coursePlan, fmtDateKey, planNextLabel, type CoursePlan } from '../../co
 import { HomeSearch } from '../../components/home-search';
 import { Sheet, SheetItem } from '../../components/sheet';
 import { Button, Card, EmptyState, Icon, IconTile, LevelBadge, Screen, T } from '../../components/ui';
-import { masteryLabel } from '../../components/grammar';
-import { api, type CourseSummary, type GrammarTenseSummary } from '../../lib/api';
+import { masteryLabel, weakestTense } from '../../components/grammar';
+import { api, getUserFlag, PLACEMENT_SKIPPED, type CourseSummary, type GrammarList } from '../../lib/api';
 import { DAY, dayKey, fmtAgo, isDue } from '../../lib/data';
 import { useNow } from '../../hooks/use-now';
 import { useStore, useTheme } from '../../state/store';
@@ -83,18 +83,28 @@ function CoursesCard() {
   );
 }
 
-/** Grammar: opens the lessons; "Practise" practises the weakest lesson that has drills (mixed practice until the list loads). */
+/**
+ * Grammar: opens the lessons. With a practised tense it shows the weakest one ([Review lesson] [Practise]);
+ * otherwise it invites to the placement test (or plain mixed practice once the test was skipped or taken).
+ * Fetched when Home comes into view; fails silently.
+ */
 function GrammarCard() {
   const t = useTheme();
-  const [tenses, setTenses] = useState<GrammarTenseSummary[] | null>(null);
+  const { data } = useStore();
+  const [list, setList] = useState<GrammarList | null>(null);
+  const [skipped, setSkipped] = useState(false);
   useFocusEffect(useCallback(() => {
     let alive = true;
-    api.grammar().then((r) => { if (alive) setTenses(r.tenses); }).catch(() => { /* keep the last list */ });
+    api.grammar().then((r) => { if (alive) setList(r); }).catch(() => { /* keep the last list */ });
+    void getUserFlag(PLACEMENT_SKIPPED, data.userId).then((v) => { if (alive) setSkipped(v); });
     return () => { alive = false; };
-  }, []));
-  // Lowest mastery among lessons with drills (not the cheat sheet); ties go to the earlier lesson.
-  const weakest = tenses?.reduce<GrammarTenseSummary | null>((w, x) => (x.drills && (!w || x.mastery < w.mastery) ? x : w), null) ?? null;
-  const sub = weakest ? 'Weakest: ' + weakest.name + ' · ' + weakest.mastery + '% · ' + masteryLabel(weakest.mastery) : 'Lessons and practice: helping verbs and 7 English tenses.';
+  }, [data.userId]));
+  const weakest = weakestTense(list?.tenses);
+  // No tense practised yet: suggest the placement test, unless it was skipped or taken (or the server doesn't have it).
+  const findLevel = !weakest && !!list && list.placement === null && !skipped;
+  const sub = weakest
+    ? 'Weakest tense: ' + weakest.name + ' · ' + weakest.mastery + '% · ' + masteryLabel(weakest.mastery)
+    : findLevel ? 'Find your level in grammar: a 5-minute placement test.' : 'Lessons and practice: helping verbs and 7 English tenses.';
   return (
     <View style={{ borderRadius: 16, borderWidth: 1, borderColor: t.border, backgroundColor: t.surface, overflow: 'hidden' }}>
       <Pressable onPress={() => router.push('/grammar')} accessibilityRole="button" accessibilityLabel={'Grammar. ' + sub}
@@ -106,10 +116,24 @@ function GrammarCard() {
         </View>
         <Icon name="right" size={16} color={t.faint} />
       </Pressable>
-      <View style={{ paddingHorizontal: 14, paddingBottom: 14 }}>
-        <Button title="Practise" icon="right" variant="secondary" size="sm" style={{ minHeight: 44 }} block
-          accessibilityLabel={weakest ? 'Practise ' + weakest.name : 'Practise grammar'}
-          onPress={() => router.push({ pathname: '/grammar/practice', params: { mode: weakest?.id ?? 'mix' } })} />
+      <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 14, paddingBottom: 14 }}>
+        {weakest ? (
+          <>
+            <Button title="Review lesson" icon="book" variant="secondary" size="sm" style={{ flex: 1, minHeight: 44 }}
+              accessibilityLabel={'Review the lesson ' + weakest.name}
+              onPress={() => router.push({ pathname: '/grammar/[tense]', params: { tense: weakest.id } })} />
+            <Button title="Practise" icon="right" size="sm" style={{ flex: 1, minHeight: 44 }}
+              accessibilityLabel={'Practise ' + weakest.name}
+              onPress={() => router.push({ pathname: '/grammar/practice', params: { mode: weakest.id } })} />
+          </>
+        ) : findLevel ? (
+          <Button title="Take the placement test" icon="right" variant="secondary" size="sm" style={{ flex: 1, minHeight: 44 }}
+            onPress={() => router.push('/grammar/placement')} />
+        ) : (
+          <Button title="Practise" icon="right" variant="secondary" size="sm" style={{ flex: 1, minHeight: 44 }}
+            accessibilityLabel="Practise grammar: today’s practice"
+            onPress={() => router.push({ pathname: '/grammar/practice', params: { mode: 'daily' } })} />
+        )}
       </View>
     </View>
   );

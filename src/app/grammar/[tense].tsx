@@ -4,7 +4,7 @@ import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GrammarTableView, MasteryBadge } from '../../components/grammar';
 import { BackBar, Badge, Button, Card, EmptyState, Icon, IconButton, SectionTitle, T } from '../../components/ui';
-import { api, LESSON_IDS, LESSON_LABEL, TENSE_LABEL, type GrammarForm, type GrammarLesson, type GrammarTable } from '../../lib/api';
+import { api, LESSON_IDS, LESSON_LABEL, MIXED_LESSON, TENSE_LABEL, type GrammarForm, type GrammarLesson, type GrammarTable } from '../../lib/api';
 import { speak } from '../../lib/speech';
 import { errMsg, useTheme } from '../../state/store';
 
@@ -103,13 +103,13 @@ export default function GrammarLessonScreen() {
               </View>
               <Card style={{ gap: 6 }}><T>{lesson.summary}</T></Card>
 
-              {lesson.tables?.map((tb, i) => (
+              {lesson.tables?.filter((tb) => tb.rows?.length).map((tb, i) => (
                 <Section key={'t' + i} title={tb.title}>
                   <GrammarTableView table={tb} />
                 </Section>
               ))}
 
-              {formula ? (
+              {formula && FORMS.some(([k]) => formula[k]) ? (
                 <Section title="Formula">
                   <Card pad={false}>
                     {FORMS.map(([k, label], i) => {
@@ -199,7 +199,7 @@ export default function GrammarLessonScreen() {
                   </T>
                   <MasteryBadge mastery={lesson.mastery} />
                 </View>
-                <Button title={'Practise this ' + (lesson.group === 'foundations' ? 'lesson' : 'tense') + ' (10 questions)'} icon="right" size="lg" block
+                <Button title={'Practise this ' + (lesson.group === 'foundations' || lesson.id === MIXED_LESSON ? 'lesson' : 'tense') + ' (10 questions)'} icon="right" size="lg" block
                   onPress={() => router.push({ pathname: '/grammar/practice', params: { mode: lesson.id } })} />
               </View>
             ) : null}

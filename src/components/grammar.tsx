@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
-import { LESSON_IDS, LESSON_LABEL, TENSES, type GrammarTable, type LessonId, type Tense } from '../lib/api';
+import { LESSON_IDS, LESSON_LABEL, MIXED_LESSON, TENSES, type GrammarTable, type GrammarTenseSummary, type LessonId, type Tense } from '../lib/api';
 import type { Palette } from '../lib/theme';
 import { useTheme } from '../state/store';
 import { Progress } from './course';
@@ -11,7 +11,7 @@ export function isTense(s: string | undefined | null): s is Tense {
   return !!s && (TENSES as readonly string[]).includes(s);
 }
 
-/** True for any of the 12 grammar lesson ids (Foundations and tenses). */
+/** True for any grammar lesson id (Foundations, tenses and the mixed lesson). */
 export function isLesson(s: string | undefined | null): s is LessonId {
   return !!s && (LESSON_IDS as readonly string[]).includes(s);
 }
@@ -158,6 +158,42 @@ export function GrammarTableView({ table: tb }: { table: GrammarTable }) {
         ) : rows}
       </View>
       {tb.note ? <T size={13.5} tone="muted">{tb.note}</T> : null}
+    </View>
+  );
+}
+
+/** The weakest tense I've practised: lowest mastery among the 7 tenses (not the mixed lesson) with answers; ties go to the earlier lesson. */
+export function weakestTense<X extends { id: string; group?: string; mastery: number; attempts: number }>(list: X[] | null | undefined): X | null {
+  return (list ?? []).reduce<X | null>((w, x) => (x.group === 'tenses' && x.id !== MIXED_LESSON && x.attempts > 0 && (!w || x.mastery < w.mastery) ? x : w), null);
+}
+
+/** "Recommended for you": one card per lesson (name, Vietnamese name, mastery), each opens the lesson. Unknown ids are left out. */
+export function RecommendedLessons({ ids, lessons }: { ids: string[]; lessons: GrammarTenseSummary[] | null }) {
+  const t = useTheme();
+  const byId = new Map((lessons ?? []).map((x) => [x.id as string, x]));
+  const items = ids.filter(isLesson).map((id) => ({ id, x: byId.get(id) }));
+  if (!items.length) return null;
+  return (
+    <View style={{ gap: 8 }}>
+      {items.map(({ id, x }, k) => {
+        const name = x?.name ?? LESSON_LABEL[id];
+        return (
+          <Pressable key={id} onPress={() => router.push({ pathname: '/grammar/[tense]', params: { tense: id } })} accessibilityRole="button"
+            accessibilityLabel={'Recommended lesson ' + (k + 1) + ': ' + name + (x ? ', ' + x.mastery + '% mastery' : '')}
+            style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 60, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: t.border,
+              backgroundColor: pressed ? t.surface2 : t.surface })}>
+            <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: t.warningSoft, alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="zap" size={17} color={t.warning} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <T weight="extrabold" numberOfLines={1}>{name}</T>
+              {x ? <T size={12.5} tone="muted" numberOfLines={1}>{x.vi}</T> : null}
+            </View>
+            {x && x.drills ? <MasteryBadge mastery={x.mastery} /> : null}
+            <Icon name="right" size={16} color={t.faint} />
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
