@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useState, type ReactNode, type Ref } from 'react';
 import {
   ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
   type StyleProp, type TextInputProps, type TextStyle, type ViewStyle
@@ -187,7 +187,8 @@ export function Field({ label, children, hint, error }: { label?: string; childr
   );
 }
 
-export function Input(props: TextInputProps & { invalid?: boolean; big?: boolean; leftIcon?: IconName; ipa?: boolean }) {
+/** `ref` reaches the TextInput (React 19 passes it as a prop). */
+export function Input(props: TextInputProps & { invalid?: boolean; big?: boolean; leftIcon?: IconName; ipa?: boolean; ref?: Ref<TextInput> }) {
   const t = useTheme();
   const [focus, setFocus] = useState(false);
   const { invalid, big, leftIcon, ipa, style, multiline, ...rest } = props;

@@ -72,6 +72,8 @@ function Root({ fontsReady }: { fontsReady: boolean }) {
           <Stack.Screen name="grammar/[tense]" />
           <Stack.Screen name="grammar/practice" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
           <Stack.Screen name="grammar/placement" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
+          <Stack.Screen name="dictation/[set]" />
+          <Stack.Screen name="dictation/practice" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
         </Stack.Protected>
       </Stack>
     );

@@ -387,6 +387,32 @@ export interface GrammarResult { results: GrammarResultItem[]; correct: number; 
 /** The graded placement test: score per lesson and the 3 weakest lessons. */
 export interface GrammarPlacementResult extends GrammarResult { scores: Partial<Record<string, { correct: number; total: number }>>; recommended: string[] }
 
+/* ---------- dictation ("Nghe – chép") ---------- */
+export type DictationGroup = 'basics' | 'sentences' | 'passages';
+export type DictationLevel = 'easy' | 'medium' | 'hard';
+/** One set in the list, with my mastery (0–100). `lastAt` is ms since 1970 (null when never practised). */
+export interface DictationSetSummary { id: string; group: DictationGroup; name: string; vi: string; summary: string; items: number; mastery: number; attempts: number; lastAt: number | null }
+export interface DictationList { practisedToday: boolean; sets: DictationSetSummary[] }
+/** GET /dictation/:set: the set without its items. */
+export interface DictationSetDetail { id: string; group: DictationGroup; name: string; vi: string; summary: string; tips: string[]; itemCount: number; mastery: number; attempts: number }
+export interface DictationSentence { text: string; vi: string }
+/** `text` is sent so the device can speak it; the UI must not show it (or `vi`) before checking. */
+export type DictationQuestion =
+  | { id: string; kind: 'line'; level: DictationLevel; text: string; vi: string; focus?: string }
+  | { id: string; kind: 'passage'; level: DictationLevel; title: string; sentences: DictationSentence[] };
+export interface DictationPractice { mode: string; items: DictationQuestion[] }
+export type DictationTokenStatus = 'ok' | 'near' | 'wrong' | 'missing' | 'extra';
+export interface DictationToken { status: DictationTokenStatus; expected?: string; typed?: string }
+/** The server's word-by-word grading of one sentence. */
+export interface DictationGrade { tokens: DictationToken[]; correct: number; total: number; score: number; passed: boolean }
+export interface DictationAnswer { id: string; typed?: string; typedSentences?: string[]; plays?: number; hints?: number }
+export interface DictationResultItem {
+  id: string; set: string; kind: 'line' | 'passage'; passed: boolean; score: number;
+  text?: string; vi?: string; title?: string; grade?: DictationGrade; sentences?: (DictationSentence & { grade: DictationGrade })[];
+  plays: number; hints: number;
+}
+/** `mastery`: the new mastery of each set in the answers. */
+export interface DictationSubmitResult { results: DictationResultItem[]; passed: number; total: number; mastery: Record<string, number> }
 
 export const api = {
   register: (name: string, email: string, password: string) => req<AuthResponse>('POST', '/auth/register', { name, email, password }),
@@ -508,5 +534,17 @@ export const api = {
   /** The placement test (about 19 typed / multiple-choice questions) and my last result. */
   grammarPlacement: () => req<{ questions: GrammarQuestion[]; last: GrammarPlacement | null }>('GET', '/grammar/placement'),
   /** Grades the placement test, sets each lesson's starting mastery and recommends 3 lessons. */
-  submitPlacement: (answers: GrammarAnswer[]) => req<GrammarPlacementResult>('POST', '/grammar/placement', { answers })
+  submitPlacement: (answers: GrammarAnswer[]) => req<GrammarPlacementResult>('POST', '/grammar/placement', { answers }),
+
+  /* dictation */
+  /** All sets with my mastery, and whether I've practised today. */
+  dictation: () => req<DictationList>('GET', '/dictation'),
+  /** 404 for an unknown set. */
+  dictationSet: (id: string) => req<DictationSetDetail>('GET', '/dictation/' + encodeURIComponent(id)),
+  /** `mode`: a set id, 'mix' (weakest sets first) or 'daily' (recent mistakes first). `n` 5–20 (for passages it counts passages, max 3). */
+  dictationPractice: (mode: string, n = 10) => req<DictationPractice>('GET', '/dictation/practice?mode=' + encodeURIComponent(mode) + '&n=' + n),
+  /** Grades answers (the app sends one per Check) and updates my mastery. */
+  submitDictation: (answers: DictationAnswer[]) => req<DictationSubmitResult>('POST', '/dictation/practice', { answers }),
+  /** Stateless grading of any sentences (used by "From my words"). */
+  gradeDictation: (items: { text: string; typed: string }[]) => req<{ results: DictationGrade[] }>('POST', '/dictation/grade', { items })
 };
