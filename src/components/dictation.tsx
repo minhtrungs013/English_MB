@@ -3,7 +3,8 @@ import { Pressable, View } from 'react-native';
 import type { DictationGrade, DictationGroup, DictationQuestion, DictationSetSummary, DictationToken } from '../lib/api';
 import { shuffle, type Word } from '../lib/data';
 import { useTheme } from '../state/store';
-import { masteryLabel, MasteryBar } from './grammar';
+import { Progress } from './course';
+import { masteryColors, masteryLabel } from './grammar';
 import { Icon, IconButton, T } from './ui';
 
 /** Practice mode for "From my words" (built on the device, graded with POST /dictation/grade). */
@@ -195,25 +196,31 @@ export function GradeLegend() {
 
 /* ---------- sets ---------- */
 
-/** One set in the list; opens its page. */
+/** One set in the list (compact: name, Vietnamese name, 2-line summary, mastery bar, "New · 0% · 35 items"); opens its page. */
 export function DictationSetCard({ x }: { x: DictationSetSummary }) {
   const t = useTheme();
   const tried = x.attempts ? x.attempts + (x.attempts === 1 ? ' answer' : ' answers') : 'Not practised yet';
+  const [, fg] = masteryColors(x.mastery, t);
+  const count = x.items + (x.items === 1 ? ' item' : ' items');
   return (
     <Pressable onPress={() => router.push({ pathname: '/dictation/[set]', params: { set: x.id } })} accessibilityRole="button"
-      accessibilityLabel={'Dictation set: ' + x.name + ', ' + x.vi + '. ' + x.items + (x.items === 1 ? ' item. ' : ' items. ') + masteryLabel(x.mastery) + ', ' + x.mastery + '% mastery. ' + tried}
-      style={({ pressed }) => ({ backgroundColor: pressed ? t.surface2 : t.surface, borderColor: t.border, borderWidth: 1, borderRadius: 16, padding: 16, gap: 10, minHeight: 44 })}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: t.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
-          <Icon name={x.group === 'passages' ? 'book' : x.group === 'sentences' ? 'chat' : 'type'} size={18} color={t.primaryInk} />
+      accessibilityLabel={'Dictation set: ' + x.name + ', ' + x.vi + '. ' + (x.summary ? x.summary + '. ' : '') + count + '. ' + masteryLabel(x.mastery) + ', ' + x.mastery + '% mastery. ' + tried}
+      style={({ pressed }) => ({ backgroundColor: pressed ? t.surface2 : t.surface, borderColor: t.border, borderWidth: 1, borderRadius: 16, padding: 14, gap: 8, minHeight: 44 })}>
+      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+        <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: t.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
+          <Icon name={x.group === 'passages' ? 'book' : x.group === 'sentences' ? 'chat' : 'type'} size={17} color={t.primaryInk} />
         </View>
-        <View style={{ flex: 1 }}>
-          <T size={16} weight="extrabold" numberOfLines={2}>{x.name}</T>
-          <T size={13} tone="muted" numberOfLines={1}>{x.vi} · {x.items} {x.items === 1 ? 'item' : 'items'}</T>
+        <View style={{ flex: 1, gap: 1 }}>
+          <T size={15.5} weight="extrabold" numberOfLines={1}>{x.name}</T>
+          <T size={13} tone="muted" numberOfLines={1}>{x.vi}</T>
+          {x.summary ? <T size={13} numberOfLines={2} style={{ marginTop: 3 }}>{x.summary}</T> : null}
         </View>
         <Icon name="right" size={16} color={t.faint} />
       </View>
-      <MasteryBar mastery={x.mastery} />
+      <Progress pct={x.mastery} color={x.mastery ? fg : t.surface3} />
+      <T size={12.5} weight="bold" style={{ color: fg }}>
+        {masteryLabel(x.mastery)} · {x.mastery}% · <T size={12.5} tone="muted">{count}</T>
+      </T>
     </Pressable>
   );
 }
