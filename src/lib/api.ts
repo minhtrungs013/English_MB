@@ -533,6 +533,10 @@ export const api = {
   markNotesRead: (ids: string[]) => req<{ unread: number }>('POST', '/notifications/read', { ids }),
   markAllNotesRead: () => req<{ unread: number }>('POST', '/notifications/read', { all: true }),
   deleteNote: (id: string) => req<void>('DELETE', '/notifications/' + id),
+  /** Registers this phone's Expo push token for the signed-in user. */
+  registerPushToken: (token: string, platform: 'ios' | 'android') => req<unknown>('POST', '/notifications/push-token', { token, platform }),
+  /** Stops pushes to this phone (on logout). */
+  unregisterPushToken: (token: string) => req<unknown>('DELETE', '/notifications/push-token', { token }),
 
   /* grammar */
   /** All lessons in lesson order (foundations first), with my mastery. */

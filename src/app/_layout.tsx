@@ -5,18 +5,54 @@ import {
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import * as Notifications from 'expo-notifications';
+import { useEffect, useRef } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Button, EmptyState, ToastHost } from '../components/ui';
+import { openNoteLink } from '../components/note-link';
+import type { NoteLink } from '../lib/api';
 import { StoreProvider, useStore, useTheme } from '../state/store';
 
 SplashScreen.preventAutoHideAsync();
+
+/** Taps on push notifications (also the one that cold-started the app): open its link like the in-app list does. */
+function usePushTaps(ready: boolean) {
+  const { actions } = useStore();
+  const actionsRef = useRef(actions);
+  useEffect(() => { actionsRef.current = actions; });
+  const handled = useRef(new Set<string>());
+  useEffect(() => {
+    if (!ready) return;
+    const handle = (res: Notifications.NotificationResponse | null) => {
+      if (!res) return;
+      const key = res.notification.request.identifier;
+      if (handled.current.has(key)) return;
+      handled.current.add(key);
+      const data = (res.notification.request.content.data ?? {}) as { id?: unknown; link?: unknown };
+      const a = actionsRef.current;
+      if (typeof data.id === 'string') void a.markNotesRead([data.id]);
+      else void a.refreshUnread();
+      const link = data.link as NoteLink | null | undefined;
+      if (link && typeof link === 'object' && typeof link.to === 'string') {
+        // Let the signed-in stack mount first (cold start).
+        setTimeout(() => { try { openNoteLink(link, actionsRef.current); } catch (e) { console.warn('Push link failed:', e); } }, 300);
+      }
+    };
+    let alive = true;
+    Notifications.getLastNotificationResponseAsync().then((r) => { if (alive) handle(r); }).catch(() => {});
+    const sub = Notifications.addNotificationResponseReceivedListener(handle);
+    // A push arriving while the app is open: bump the bell's count.
+    const recv = Notifications.addNotificationReceivedListener(() => { void actionsRef.current.refreshUnread(); });
+    return () => { alive = false; sub.remove(); recv.remove(); };
+  }, [ready]);
+}
 
 function Root({ fontsReady }: { fontsReady: boolean }) {
   const { status, loadError, actions } = useStore();
   const t = useTheme();
   const ready = fontsReady && status !== 'booting';
+  usePushTaps(ready && status === 'ready');
 
   useEffect(() => { if (ready) void SplashScreen.hideAsync(); }, [ready]);
   if (!ready) return null;

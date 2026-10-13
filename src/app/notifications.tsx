@@ -1,7 +1,6 @@
-import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, View } from 'react-native';
-import { openStep } from '../components/day-flow';
+import { openNoteLink } from '../components/note-link';
 import { BackBar, Button, Chip, EmptyState, IconButton, IconTile, T } from '../components/ui';
 import { api, type Note, type NoteLink } from '../lib/api';
 import { fmtAgo } from '../lib/data';
@@ -24,8 +23,6 @@ const NOTE_ICON: Record<string, [IconName, Tone]> = {
   owner_empty_day: ['edit', 'orange'],
   library_saved: ['heart', 'green']
 };
-/** The link's step names → the day flow's step screens. */
-const STEP = { review: 'review', learn: 'learn', listen: 'listening', homework: 'homework' } as const;
 
 type Filter = 'all' | 'unread';
 
@@ -103,17 +100,7 @@ export default function NotificationsScreen() {
     if (await actions.deleteNote(n.id, !n.read)) setItems((l) => l?.filter((x) => x.id !== n.id) ?? l);
   };
 
-  const go = (link: NoteLink) => {
-    if (link.to === 'review') {
-      if (!actions.dueIds().length) { actions.showToast('No words are due right now.'); return; }
-      router.push({ pathname: '/review', params: { mode: 'due' } });
-    } else if (link.to === 'library') {
-      router.push('/library');
-    } else if (link.to === 'course' && link.courseId) {
-      if (link.day && link.step && STEP[link.step]) openStep(link.courseId, link.day, STEP[link.step]);
-      else router.push({ pathname: '/course/[id]', params: { id: link.courseId, ...(link.tab ? { tab: link.tab } : {}) } });
-    }
-  };
+  const go = (link: NoteLink) => openNoteLink(link, actions);
   const open = (n: Note) => {
     if (!n.read) {
       setItems((l) => l?.map((x) => (x.id === n.id ? { ...x, read: true } : x)) ?? l);

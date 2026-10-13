@@ -5,6 +5,7 @@ import {
   type AuthResponse, type CourseDetail, type LibraryWord, type SaveWordsResult, type Topic, type WordInput
 } from '../lib/api';
 import { DAY, MIN, dayKey, isDue, type Category, type Data, type Rating, type Settings, type Word } from '../lib/data';
+import { registerForPush, unregisterPush } from '../lib/push';
 import { setVoicePrefs, stopSpeaking } from '../lib/speech';
 import { makePalette, type Palette } from '../lib/theme';
 
@@ -61,7 +62,12 @@ function useStoreState() {
     }
   };
 
+  const loggingOut = useRef(false);
   const logout = async (msg?: string) => {
+    if (loggingOut.current) return; // a 401 from the push unregister call below
+    loggingOut.current = true;
+    // Stop pushes to this phone (while the session token still works); never waits long.
+    await Promise.race([unregisterPush(), new Promise((r) => setTimeout(r, 5000))]);
     await setToken(null);
     stopSpeaking();
     clearTimeout(settingsTimer.current);
@@ -70,6 +76,7 @@ function useStoreState() {
     setUnread(0);
     setStatus('auth');
     if (msg) showToast(msg, 'bad');
+    loggingOut.current = false;
   };
 
   useEffect(() => {
@@ -262,6 +269,7 @@ function useStoreState() {
   // On start (once signed in) and whenever the app comes back to the foreground.
   useEffect(() => {
     if (status !== 'ready') return;
+    void registerForPush(); // asks for permission only once signed in
     void refreshUnread();
     const sub = AppState.addEventListener('change', (s) => { if (s === 'active') void refreshUnread(); });
     return () => sub.remove();

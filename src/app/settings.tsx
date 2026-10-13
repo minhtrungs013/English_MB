@@ -1,8 +1,9 @@
-import { useState } from 'react';
-import { Alert, Pressable, ScrollView, Switch, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Alert, AppState, Pressable, ScrollView, Switch, View } from 'react-native';
 import { BackBar, Button, Card, Chip, Field, Icon, Input, SectionTitle, T } from '../components/ui';
 import { api, API_URL, type NoteType } from '../lib/api';
 import type { Theme } from '../lib/data';
+import { openPushSettings, pushStatus, registerForPush, type PushStatus } from '../lib/push';
 import { speak, useEnglishVoices } from '../lib/speech';
 import { ACCENT_SWATCH } from '../lib/theme';
 import { errMsg, useStore, useTheme } from '../state/store';
@@ -79,6 +80,15 @@ export default function Settings() {
   const t = useTheme();
   const st = data.settings;
   const mute = st.mute ?? [];
+  const [push, setPush] = useState<PushStatus | null>(null);
+  // Re-check when coming back from the system settings.
+  useEffect(() => {
+    const check = () => { void pushStatus().then(setPush); };
+    check();
+    const sub = AppState.addEventListener('change', (s) => { if (s === 'active') check(); });
+    return () => sub.remove();
+  }, []);
+  const turnOnPush = async () => setPush(await registerForPush(true));
   const voices = useEnglishVoices();
   const [showVoices, setShowVoices] = useState(false);
   const voiceName = voices.find((v) => v.identifier === st.voice)?.name ?? 'Default English voice';
@@ -123,6 +133,15 @@ export default function Settings() {
         <Card>
           <SectionTitle>Notifications</SectionTitle>
           <T size={13.5} tone="muted" style={{ marginTop: 4 }}>Choose what shows up under the bell on Home.</T>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, marginTop: 10, borderTopWidth: 1, borderTopColor: t.border }}>
+            <View style={{ flex: 1 }}>
+              <T weight="bold">Push notifications</T>
+              <T size={13.5} tone="muted">{push === null ? 'Checking…' : push === 'on' ? 'On: reminders also pop up on this phone' : push === 'unavailable' ? 'Not available on this device' : push === 'undetermined' ? 'Off: allow them to get reminders on this phone' : 'Off in your phone’s settings'}</T>
+            </View>
+            {push === 'undetermined' ? <Button title="Turn on" size="sm" onPress={turnOnPush} accessibilityLabel="Turn on push notifications" /> : null}
+            {push === 'off' ? <Button title="Open settings" size="sm" variant="secondary" onPress={openPushSettings} accessibilityLabel="Open phone settings to allow push notifications" /> : null}
+          </View>
+          <T size={13.5} tone="muted">The switches below apply to both the bell and push notifications.</T>
           {NOTE_GROUPS.map((g) => (
             <View key={g.title} style={{ marginTop: 14 }}>
               <T size={13.5} weight="extrabold" tone="primaryInk" style={{ marginBottom: 2 }}>{g.title}</T>
