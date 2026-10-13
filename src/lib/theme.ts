@@ -1,4 +1,4 @@
-import type { Accent, Level } from './data';
+import type { Accent, Level, Style } from './data';
 
 /** Color tokens from the Wordbook design (same names as the web CSS variables). */
 export interface Palette {
@@ -9,6 +9,11 @@ export interface Palette {
   danger: string; dangerSoft: string; info: string; infoSoft: string; orange: string; orangeSoft: string;
   dark: boolean;
 }
+
+/** Font family per weight (undefined = system font) and the corner radius scale. */
+export type FontSet = Record<'regular' | 'medium' | 'semibold' | 'bold' | 'extrabold', string | undefined>;
+export interface Radius { sm: number; md: number; lg: number }
+export interface Theme extends Palette { style: Style; font: FontSet; radius: Radius }
 
 const LIGHT: Palette = {
   bg: '#F5F6F8', surface: '#FFFFFF', surface2: '#F0F1F4', surface3: '#E6E8ED', border: '#E3E5EA',
@@ -56,6 +61,102 @@ export function levelColors(level: Level, dark: boolean): { bg: string; fg: stri
   };
   const c = L[level] ?? L.B1;
   return dark ? { bg: c[2], fg: c[3] } : { bg: c[0], fg: c[1] };
+}
+
+/* ---------- app styles (level S) ---------- */
+type P = Omit<Palette, 'dark'>;
+const STYLE_COLORS: Record<Exclude<Style, 'classic'>, { light: P; dark: P }> = {
+  warm: {
+    light: { bg: '#FBF5EE', surface: '#FFFDF9', surface2: '#F5ECE1', surface3: '#EADCCB', border: '#E8D9C7', text: '#3B2A1F', muted: '#6E5544', faint: '#7A604E',
+      primary: '#C2410C', primaryHover: '#A3360A', primarySoft: '#FCE9DC', primaryInk: '#9A3209', bar: '#F4C9AE',
+      success: '#2F7A3A', successSoft: '#E6F2E3', warning: '#8F5207', warningSoft: '#FBEFD9', danger: '#B42318', dangerSoft: '#FBE6E2', info: '#2B5FA8', infoSoft: '#E5EDF8', orange: '#A8460B', orangeSoft: '#FBE8D8' },
+    dark: { bg: '#1C1410', surface: '#261B15', surface2: '#30231B', surface3: '#3B2C22', border: '#3F2F24', text: '#F5EBDF', muted: '#C9B5A3', faint: '#A8927F',
+      primary: '#B8460F', primaryHover: '#A83F0D', primarySoft: '#3D2416', primaryInk: '#FDBA8C', bar: '#6A3A1E',
+      success: '#6FCF8E', successSoft: '#1B2E1F', warning: '#EDB25A', warningSoft: '#3A2A12', danger: '#F58A7A', dangerSoft: '#3E1E19', info: '#8DB4F5', infoSoft: '#1D2738', orange: '#F59A55', orangeSoft: '#3A2414' }
+  },
+  ocean: {
+    light: { bg: '#EEF3F7', surface: '#FFFFFF', surface2: '#E6EDF3', surface3: '#D8E2EB', border: '#D5DFE8', text: '#0F2233', muted: '#4A5D70', faint: '#56697C',
+      primary: '#0B5E86', primaryHover: '#094C6D', primarySoft: '#E0EFF6', primaryInk: '#08496A', bar: '#B6D7E6',
+      success: '#11734A', successSoft: '#E2F3EA', warning: '#8A5300', warningSoft: '#FBF0DC', danger: '#B42F2F', dangerSoft: '#FBE7E7', info: '#1D5BC4', infoSoft: '#E5EEFC', orange: '#A84B0B', orangeSoft: '#FCEBDD' },
+    dark: { bg: '#0B1620', surface: '#12202C', surface2: '#1A2A38', surface3: '#233545', border: '#243747', text: '#E6EFF6', muted: '#A3B4C3', faint: '#8597A8',
+      primary: '#157EA6', primaryHover: '#126F93', primarySoft: '#10303F', primaryInk: '#8FD3EE', bar: '#1F5670',
+      success: '#5CCB97', successSoft: '#123026', warning: '#EDB04F', warningSoft: '#352911', danger: '#F48080', dangerSoft: '#3A1C1F', info: '#84ADFF', infoSoft: '#18263F', orange: '#F59A55', orangeSoft: '#3A2414' }
+  },
+  sakura: {
+    light: { bg: '#FFF5F8', surface: '#FFFFFF', surface2: '#FCEBF1', surface3: '#F6DCE6', border: '#F2D9E3', text: '#3A1F33', muted: '#6E4A62', faint: '#825E75',
+      primary: '#C2185B', primaryHover: '#A3134C', primarySoft: '#FDE4EE', primaryInk: '#9C1450', bar: '#F6C0D5',
+      success: '#2C7A4B', successSoft: '#E5F3EA', warning: '#8F5207', warningSoft: '#FBEFD9', danger: '#B3261E', dangerSoft: '#FBE6E4', info: '#3D5BC4', infoSoft: '#E8ECFB', orange: '#A84B0B', orangeSoft: '#FCEBDD' },
+    dark: { bg: '#1C1219', surface: '#261A22', surface2: '#31222C', surface3: '#3C2B37', border: '#42303C', text: '#F8E8F0', muted: '#D0B3C4', faint: '#AD91A2',
+      primary: '#C72A6A', primaryHover: '#B52460', primarySoft: '#3B1A2B', primaryInk: '#FDA4C4', bar: '#6A2943',
+      success: '#6FCF97', successSoft: '#18301F', warning: '#EDB25A', warningSoft: '#3A2A12', danger: '#F58A8A', dangerSoft: '#3E1E1F', info: '#9AB0FF', infoSoft: '#1E2442', orange: '#F59A55', orangeSoft: '#3A2414' }
+  },
+  midnight: {
+    light: { bg: '#EEEDF6', surface: '#FAFAFF', surface2: '#E6E4F2', surface3: '#DAD7EC', border: '#D4D1E8', text: '#1A1833', muted: '#545172', faint: '#625F84',
+      primary: '#5B3FE0', primaryHover: '#4B30CC', primarySoft: '#E8E3FC', primaryInk: '#4325C2', bar: '#CBC0F7',
+      success: '#177A45', successSoft: '#E2F2E9', warning: '#8F5207', warningSoft: '#FBEFD9', danger: '#B8302A', dangerSoft: '#FBE7E6', info: '#2457C9', infoSoft: '#E5ECFB', orange: '#A84B0B', orangeSoft: '#FCEBDD' },
+    dark: { bg: '#0B0D1A', surface: '#12152A', surface2: '#1A1E38', surface3: '#232846', border: '#2E3466', text: '#E9E8FF', muted: '#A9A8CF', faint: '#8B8AB5',
+      primary: '#6847F5', primaryHover: '#5E3DEB', primarySoft: '#231C4D', primaryInk: '#C7B8FF', bar: '#3E3285',
+      success: '#5EE0A0', successSoft: '#10291F', warning: '#F2B655', warningSoft: '#33270F', danger: '#FF8A8A', dangerSoft: '#3A1A22', info: '#7FB0FF', infoSoft: '#162444', orange: '#F7A160', orangeSoft: '#3A2414' }
+  },
+  mono: {
+    light: { bg: '#F4F4F4', surface: '#FFFFFF', surface2: '#EDEDED', surface3: '#E0E0E0', border: '#D6D6D6', text: '#111111', muted: '#505050', faint: '#666666',
+      primary: '#111111', primaryHover: '#333333', primarySoft: '#EAEAEA', primaryInk: '#111111', bar: '#C8C8C8',
+      success: '#1F6B3A', successSoft: '#E8F0EA', warning: '#7A4A06', warningSoft: '#F5EEE2', danger: '#A52A24', dangerSoft: '#F7E7E6', info: '#2A4F9A', infoSoft: '#E8ECF4', orange: '#9A4510', orangeSoft: '#F6EBE2' },
+    // Dark primary is a mid grey, not white: many screens draw white text on the primary color.
+    dark: { bg: '#0A0A0A', surface: '#141414', surface2: '#1E1E1E', surface3: '#2A2A2A', border: '#333333', text: '#F2F2F2', muted: '#B0B0B0', faint: '#8F8F8F',
+      primary: '#666666', primaryHover: '#595959', primarySoft: '#262626', primaryInk: '#F2F2F2', bar: '#4A4A4A',
+      success: '#7CCB98', successSoft: '#17261C', warning: '#E3B266', warningSoft: '#2E2414', danger: '#F08C86', dangerSoft: '#331C1B', info: '#9DB6EA', infoSoft: '#1A2130', orange: '#EFA06A', orangeSoft: '#30221A' }
+  }
+};
+
+const RADIUS: Record<Style, Radius> = {
+  classic: { sm: 10, md: 12, lg: 16 }, warm: { sm: 14, md: 16, lg: 20 }, ocean: { sm: 8, md: 10, lg: 12 },
+  sakura: { sm: 14, md: 16, lg: 20 }, midnight: { sm: 10, md: 12, lg: 16 }, mono: { sm: 6, md: 6, lg: 8 }
+};
+
+/* eslint-disable @typescript-eslint/no-require-imports */
+const NUNITO = {
+  Nunito_400Regular: require('@expo-google-fonts/nunito/400Regular/Nunito_400Regular.ttf'),
+  Nunito_700Bold: require('@expo-google-fonts/nunito/700Bold/Nunito_700Bold.ttf'),
+  Nunito_800ExtraBold: require('@expo-google-fonts/nunito/800ExtraBold/Nunito_800ExtraBold.ttf')
+};
+const INTER = {
+  Inter_400Regular: require('@expo-google-fonts/inter/400Regular/Inter_400Regular.ttf'),
+  Inter_700Bold: require('@expo-google-fonts/inter/700Bold/Inter_700Bold.ttf')
+};
+/** Font files per style: only the weights used, loaded when the style becomes active. */
+export const STYLE_FONT_FILES: Record<Exclude<Style, 'classic'>, Record<string, number>> = {
+  warm: NUNITO,
+  sakura: NUNITO,
+  ocean: { ...INTER, Inter_800ExtraBold: require('@expo-google-fonts/inter/800ExtraBold/Inter_800ExtraBold.ttf') },
+  midnight: { ...INTER, SpaceGrotesk_700Bold: require('@expo-google-fonts/space-grotesk/700Bold/SpaceGrotesk_700Bold.ttf') },
+  mono: {
+    IBMPlexSans_400Regular: require('@expo-google-fonts/ibm-plex-sans/400Regular/IBMPlexSans_400Regular.ttf'),
+    IBMPlexSans_700Bold: require('@expo-google-fonts/ibm-plex-sans/700Bold/IBMPlexSans_700Bold.ttf')
+  }
+};
+/* eslint-enable @typescript-eslint/no-require-imports */
+
+const STYLE_FONTS: Record<Exclude<Style, 'classic'>, FontSet> = {
+  warm: { regular: 'Nunito_400Regular', medium: 'Nunito_400Regular', semibold: 'Nunito_700Bold', bold: 'Nunito_700Bold', extrabold: 'Nunito_800ExtraBold' },
+  sakura: { regular: 'Nunito_400Regular', medium: 'Nunito_400Regular', semibold: 'Nunito_700Bold', bold: 'Nunito_700Bold', extrabold: 'Nunito_800ExtraBold' },
+  ocean: { regular: 'Inter_400Regular', medium: 'Inter_400Regular', semibold: 'Inter_700Bold', bold: 'Inter_700Bold', extrabold: 'Inter_800ExtraBold' },
+  midnight: { regular: 'Inter_400Regular', medium: 'Inter_400Regular', semibold: 'Inter_700Bold', bold: 'SpaceGrotesk_700Bold', extrabold: 'SpaceGrotesk_700Bold' },
+  mono: { regular: 'IBMPlexSans_400Regular', medium: 'IBMPlexSans_400Regular', semibold: 'IBMPlexSans_700Bold', bold: 'IBMPlexSans_700Bold', extrabold: 'IBMPlexSans_700Bold' }
+};
+const SYSTEM_FONT: FontSet = { regular: undefined, medium: undefined, semibold: undefined, bold: undefined, extrabold: undefined };
+
+/** Style id, name and one-line description, for the settings picker. */
+export const STYLES: [Style, string, string][] = [
+  ['classic', 'Classic', 'The original look, with your accent'], ['warm', 'Warm café', 'Cream paper, terracotta, rounded'],
+  ['ocean', 'Ocean', 'Cool blue-grey and deep teal'], ['sakura', 'Sakura', 'Soft pink, rose and plum'],
+  ['midnight', 'Midnight', 'Navy night with a violet glow'], ['mono', 'Mono', 'Black, white and greys']
+];
+
+/** Full theme: colors (style x light/dark; accent only for classic), fonts (system until loaded) and radius. */
+export function makeTheme(style: Style, dark: boolean, accent: Accent, fontsLoaded = true): Theme {
+  if (style === 'classic' || !STYLE_COLORS[style]) return { ...makePalette(dark, accent), style: 'classic', font: FONT, radius: RADIUS.classic };
+  return { ...STYLE_COLORS[style][dark ? 'dark' : 'light'], dark, style, font: fontsLoaded ? STYLE_FONTS[style] : SYSTEM_FONT, radius: RADIUS[style] };
 }
 
 /** Plus Jakarta Sans, one family per weight (React Native can't synthesize weights from one file). */

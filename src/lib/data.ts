@@ -4,6 +4,7 @@ export type Level = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
 export type Status = 'new' | 'learning' | 'mastered';
 export type Rating = 'Again' | 'Hard' | 'Good' | 'Easy';
 export type Theme = 'light' | 'dark' | 'system';
+export type Style = 'classic' | 'warm' | 'ocean' | 'sakura' | 'midnight' | 'mono';
 export type Accent = 'indigo' | 'blue' | 'teal' | 'green' | 'orange' | 'rose';
 
 export interface ReviewEntry { at: number; r: Rating }
@@ -40,6 +41,8 @@ export interface Settings {
   showEx: boolean;
   theme: Theme;
   accent: Accent;
+  /** App style (level S); accent only applies to classic. */
+  style: Style;
   /** Speech voice (voiceURI); '' = browser default English voice. */
   voice: string;
   /** Speaking speed and pitch, 0.5–1.5. */

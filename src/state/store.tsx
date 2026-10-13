@@ -4,17 +4,18 @@ import {
   api, ApiError, loadToken, setToken, setUnauthorizedHandler,
   type AuthResponse, type CourseDetail, type LibraryWord, type SaveWordsResult, type Topic, type WordInput
 } from '../lib/api';
-import { DAY, MIN, dayKey, isDue, type Category, type Data, type Rating, type Settings, type Word } from '../lib/data';
+import { DAY, MIN, dayKey, isDue, type Category, type Data, type Rating, type Settings, type Style, type Word } from '../lib/data';
 import { registerForPush, unregisterPush } from '../lib/push';
 import { setVoicePrefs, stopSpeaking } from '../lib/speech';
-import { makePalette, type Palette } from '../lib/theme';
+import * as Font from 'expo-font';
+import { makeTheme, STYLE_FONT_FILES, type Theme } from '../lib/theme';
 
 export interface Toast { msg: string; kind: 'ok' | 'bad' }
 type Status = 'booting' | 'auth' | 'loading' | 'ready' | 'error';
 
 const EMPTY: Data = {
   words: [], cats: [], tags: [], shared: [], userId: '', autofill: { used: 0, limit: 3 },
-  settings: { name: '', email: '', goal: '20', dir: 'en-vi', autoplay: true, showEx: true, theme: 'light', accent: 'indigo', voice: '', rate: 0.9, pitch: 1, mute: [] },
+  settings: { name: '', email: '', goal: '20', dir: 'en-vi', autoplay: true, showEx: true, theme: 'light', accent: 'indigo', style: 'classic', voice: '', rate: 0.9, pitch: 1, mute: [] },
   progress: { streak: 0, lastStreakDay: '', reviewedDay: '', reviewedToday: 0 }
 };
 
@@ -308,6 +309,17 @@ function useStoreState() {
     }, 500);
   };
 
+  /** Style applies at once and saves right away; on failure it goes back to the previous style. */
+  const setStyle = async (style: Style) => {
+    const prev = dataRef.current.settings.style;
+    if (prev === style) return;
+    patch((d) => ({ settings: { ...d.settings, style } }));
+    try { await api.updateSettings({ style }); } catch (e) {
+      patch((d) => ({ settings: { ...d.settings, style: prev } }));
+      showToast("Couldn't save the style: " + errMsg(e), 'bad');
+    }
+  };
+
   return {
     data, status, loadError, toast, unread,
     actions: {
@@ -315,23 +327,31 @@ function useStoreState() {
       reload: load, login, register, logout, showToast, call,
       setAutofill: (q: Data['autofill']) => patch({ autofill: q }),
       saveWord, deleteWord, createTag, deleteTag, saveCategory, deleteCategory, rate, dueIds,
-      saveFromLibrary, shareWord, unshare, learnCourseDay, saveCourseWords, setSettings
+      saveFromLibrary, shareWord, unshare, learnCourseDay, saveCourseWords, setSettings, setStyle
     }
   };
 }
 
 type Store = ReturnType<typeof useStoreState>;
 const StoreContext = createContext<Store | null>(null);
-const ThemeContext = createContext<Palette>(makePalette(false, 'indigo'));
+const ThemeContext = createContext<Theme>(makeTheme('classic', false, 'indigo'));
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const store = useStoreState();
   const scheme = useColorScheme();
-  const { theme, accent } = store.data.settings;
+  const { theme, accent, style = 'classic' } = store.data.settings;
   const dark = theme === 'dark' || (theme === 'system' && scheme === 'dark');
+  // A style's fonts load on first use; until then its text uses the system font.
+  const [loadedFonts, setLoadedFonts] = useState<Partial<Record<Style, boolean>>>({ classic: true });
+  useEffect(() => {
+    if (style === 'classic' || loadedFonts[style] || !STYLE_FONT_FILES[style]) return;
+    let live = true;
+    Font.loadAsync(STYLE_FONT_FILES[style]).then(() => { if (live) setLoadedFonts((f) => ({ ...f, [style]: true })); }).catch(() => undefined);
+    return () => { live = false; };
+  }, [style, loadedFonts]);
   return (
     <StoreContext.Provider value={store}>
-      <ThemeContext.Provider value={makePalette(dark, accent)}>{children}</ThemeContext.Provider>
+      <ThemeContext.Provider value={makeTheme(style, dark, accent, !!loadedFonts[style])}>{children}</ThemeContext.Provider>
     </StoreContext.Provider>
   );
 }
@@ -341,4 +361,4 @@ export function useStore(): Store {
   if (!s) throw new Error('useStore must be used inside <StoreProvider>');
   return s;
 }
-export const useTheme = (): Palette => useContext(ThemeContext);
+export const useTheme = (): Theme => useContext(ThemeContext);

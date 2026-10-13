@@ -33,7 +33,7 @@ export function T({ children, size = 15, weight = 'regular', tone = 'text', styl
   const t = useTheme();
   const color = tone === 'white' ? '#fff' : (t as unknown as Record<string, string>)[tone];
   return (
-    <Text numberOfLines={numberOfLines} style={[{ fontFamily: ipa ? undefined : FONT[weight], fontSize: size, color, lineHeight: Math.round(size * 1.45), includeFontPadding: false }, ipa && { flexShrink: 1 }, center && { textAlign: 'center' }, style]}>
+    <Text numberOfLines={numberOfLines} style={[{ fontFamily: ipa ? undefined : t.font[weight], fontSize: size, color, lineHeight: Math.round(size * 1.45), includeFontPadding: false }, ipa && { flexShrink: 1 }, center && { textAlign: 'center' }, style]}>
       {children}
     </Text>
   );
@@ -61,7 +61,7 @@ export function Button({ title, onPress, variant = 'primary', size = 'md', icon,
     <Pressable
       onPress={onPress} disabled={off} accessibilityRole="button" accessibilityLabel={accessibilityLabel ?? title} accessibilityState={{ disabled: !!off }}
       style={({ pressed }) => [
-        { minHeight: h, paddingHorizontal: size === 'sm' ? 12 : size === 'lg' ? 24 : 18, borderRadius: size === 'lg' ? 12 : 10, borderWidth: 1,
+        { minHeight: h, paddingHorizontal: size === 'sm' ? 12 : size === 'lg' ? 24 : 18, borderRadius: size === 'lg' ? t.radius.md : t.radius.sm, borderWidth: 1,
           backgroundColor: pressed ? c.pressed : c.bg, borderColor: c.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
           opacity: off ? 0.55 : 1 },
         block && { alignSelf: 'stretch' }, style
@@ -78,7 +78,7 @@ export function IconButton({ name, onPress, label, color, size = 44, tone }: { n
   const t = useTheme();
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} hitSlop={4}
-      style={({ pressed }) => ({ width: size, height: size, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: pressed ? (tone === 'danger' ? t.dangerSoft : t.surface2) : 'transparent' })}>
+      style={({ pressed }) => ({ width: size, height: size, borderRadius: t.radius.sm, alignItems: 'center', justifyContent: 'center', backgroundColor: pressed ? (tone === 'danger' ? t.dangerSoft : t.surface2) : 'transparent' })}>
       <Icon name={name} size={size > 40 ? 20 : 18} color={color ?? (tone === 'danger' ? t.danger : t.muted)} />
     </Pressable>
   );
@@ -87,7 +87,7 @@ export function IconButton({ name, onPress, label, color, size = 44, tone }: { n
 /* ---------- layout ---------- */
 export function Card({ children, style, pad = true }: { children: ReactNode; style?: StyleProp<ViewStyle>; pad?: boolean }) {
   const t = useTheme();
-  return <View style={[{ backgroundColor: t.surface, borderColor: t.border, borderWidth: 1, borderRadius: 16 }, pad && { padding: 18 }, style]}>{children}</View>;
+  return <View style={[{ backgroundColor: t.surface, borderColor: t.border, borderWidth: 1, borderRadius: t.radius.lg }, pad && { padding: 18 }, style]}>{children}</View>;
 }
 
 /** Scrollable screen with safe-area padding and an optional title row. */
@@ -203,9 +203,9 @@ export function Input(props: TextInputProps & { invalid?: boolean; big?: boolean
         onBlur={(e) => { setFocus(false); rest.onBlur?.(e); }}
         style={[{
           minHeight: big ? 56 : 46, paddingHorizontal: 14, paddingLeft: leftIcon ? 40 : 14, paddingVertical: multiline ? 11 : 0,
-          borderWidth: 1, borderRadius: big ? 12 : 10, backgroundColor: t.surface, color: t.text,
+          borderWidth: 1, borderRadius: big ? t.radius.md : t.radius.sm, backgroundColor: t.surface, color: t.text,
           borderColor: invalid ? t.danger : focus ? t.primary : t.border,
-          fontFamily: ipa ? undefined : big ? FONT.bold : FONT.regular, fontSize: big ? 20 : 15, textAlignVertical: multiline ? 'top' : 'center', includeFontPadding: false
+          fontFamily: ipa ? undefined : big ? t.font.bold : t.font.regular, fontSize: big ? 20 : 15, textAlignVertical: multiline ? 'top' : 'center', includeFontPadding: false
         }, multiline && { minHeight: 88 }, style]}
       />
     </View>

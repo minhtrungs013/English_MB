@@ -5,7 +5,7 @@ import { api, API_URL, type NoteType } from '../lib/api';
 import type { Theme } from '../lib/data';
 import { openPushSettings, pushStatus, registerForPush, type PushStatus } from '../lib/push';
 import { speak, useEnglishVoices } from '../lib/speech';
-import { ACCENT_SWATCH } from '../lib/theme';
+import { ACCENT_SWATCH, makeTheme, STYLES } from '../lib/theme';
 import { errMsg, useStore, useTheme } from '../state/store';
 
 const SAMPLE = 'Could you clarify the requirements before the deadline?';
@@ -165,8 +165,12 @@ export default function Settings() {
           <View style={{ flexDirection: 'row', gap: 6 }}>
             {([['light', 'Light'], ['dark', 'Dark'], ['system', 'System']] as [Theme, string][]).map(([v, l]) => <Chip key={v} label={l} on={st.theme === v} onPress={() => actions.setSettings({ theme: v })} />)}
           </View>
+          <T size={13.5} weight="bold" style={{ marginTop: 6 }}>Style</T>
+          <StylePicker />
           <T size={13.5} weight="bold" style={{ marginTop: 6 }}>Accent color</T>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }} accessibilityRole="radiogroup">
+          {(st.style ?? 'classic') !== 'classic' ? <T size={13} tone="muted">The accent color applies to the Classic style; other styles bring their own colors.</T> : null}
+          <View style={[{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }, (st.style ?? 'classic') !== 'classic' && { opacity: 0.4 }]} accessibilityRole="radiogroup"
+            pointerEvents={(st.style ?? 'classic') !== 'classic' ? 'none' : 'auto'} accessibilityElementsHidden={(st.style ?? 'classic') !== 'classic'}>
             {ACCENT_SWATCH.map(([v, label, hex]) => {
               const on = st.accent === v;
               return (
@@ -223,6 +227,44 @@ export default function Settings() {
         </Card>
         <T size={12} tone="faint" center>Server: {API_URL}</T>
       </ScrollView>
+    </View>
+  );
+}
+
+/** Six style cards, two per row; each draws a tiny mock (header, card, button) with that style's own tokens. */
+function StylePicker() {
+  const t = useTheme();
+  const { data, actions } = useStore();
+  const current = data.settings.style ?? 'classic';
+  return (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }} accessibilityRole="radiogroup" accessibilityLabel="App style">
+      {STYLES.map(([id, name, desc]) => {
+        const on = current === id;
+        const s = makeTheme(id, t.dark, data.settings.accent, false);
+        return (
+          <Pressable key={id} onPress={() => void actions.setStyle(id)} accessibilityRole="radio" accessibilityState={{ checked: on }}
+            accessibilityLabel={name + ', ' + desc}
+            style={({ pressed }) => ({ flexBasis: '47%', flexGrow: 1, minHeight: 44, borderRadius: t.radius.md, borderWidth: on ? 2 : 1,
+              borderColor: on ? t.primary : t.border, padding: on ? 7 : 8, gap: 8, backgroundColor: pressed ? t.surface2 : t.surface })}>
+            <View style={{ height: 76, borderRadius: s.radius.sm, backgroundColor: s.bg, overflow: 'hidden', borderWidth: 1, borderColor: s.border }}>
+              <View style={{ height: 14, backgroundColor: s.surface, borderBottomWidth: 1, borderBottomColor: s.border, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 6, gap: 4 }}>
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: s.primary }} />
+                <View style={{ width: 26, height: 4, borderRadius: 2, backgroundColor: s.text }} />
+              </View>
+              <View style={{ margin: 6, padding: 6, gap: 4, borderRadius: s.radius.sm, backgroundColor: s.surface, borderWidth: 1, borderColor: s.border }}>
+                <View style={{ width: '70%', height: 4, borderRadius: 2, backgroundColor: s.text }} />
+                <View style={{ width: '45%', height: 4, borderRadius: 2, backgroundColor: s.muted }} />
+                <View style={{ alignSelf: 'flex-start', width: 34, height: 10, borderRadius: Math.min(s.radius.sm, 5), backgroundColor: s.primary }} />
+              </View>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <T size={13.5} weight="bold" style={{ flex: 1 }} numberOfLines={1}>{name}</T>
+              {on ? <Icon name="check" size={16} color={t.primary} /> : null}
+            </View>
+            <T size={12} tone="muted" numberOfLines={2}>{desc}</T>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
