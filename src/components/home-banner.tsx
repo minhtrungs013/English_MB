@@ -6,7 +6,7 @@ import type { IconName } from '../lib/icons';
 import { tilesFor, type TileKey } from '../lib/theme';
 import { bannerFor, seasonAt, SEASON_LINE, type BannerName, type Season } from '../lib/season';
 import { useStore, useTheme } from '../state/store';
-import { DuoIcon, T } from './ui';
+import { Icon, T } from './ui';
 
 /* ---------- greeting banner ---------- */
 
@@ -104,8 +104,8 @@ export function ShortcutTiles({ items }: { items: Shortcut[] }) {
         return (
           <Pressable key={s.key} onPress={s.go} accessibilityRole="button" accessibilityLabel={s.title + '. ' + s.sub}
             style={({ pressed }) => ({ flexBasis: '47%', flexGrow: 1, minHeight: 104, padding: 14, gap: 4, borderRadius: t.radius.lg, backgroundColor: c.bg, opacity: pressed ? 0.85 : 1 })}>
-            <View style={{ width: 36, height: 36, borderRadius: t.radius.sm, backgroundColor: t.dark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.6)', alignItems: 'center', justifyContent: 'center', marginBottom: 4 }}>
-              <DuoIcon name={s.icon} size={20} color={c.ink} />
+            <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: t.dark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.85)', alignItems: 'center', justifyContent: 'center', marginBottom: 6 }}>
+              <Icon name={s.icon} size={22} color={c.ink} strokeWidth={1.8} />
             </View>
             <T size={15} weight="extrabold" numberOfLines={1}>{s.title}</T>
             <T size={12.5} weight="semibold" tone="muted" numberOfLines={2}>{s.sub}</T>
