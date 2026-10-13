@@ -4,7 +4,7 @@ export type Level = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
 export type Status = 'new' | 'learning' | 'mastered';
 export type Rating = 'Again' | 'Hard' | 'Good' | 'Easy';
 export type Theme = 'light' | 'dark' | 'system';
-export type Style = 'classic' | 'warm' | 'ocean' | 'sakura' | 'midnight' | 'mono';
+export type Style = 'classic' | 'warm' | 'ocean' | 'sakura' | 'midnight' | 'mono' | 'aurora' | 'royal';
 export type Accent = 'indigo' | 'blue' | 'teal' | 'green' | 'orange' | 'rose';
 
 export interface ReviewEntry { at: number; r: Rating }
@@ -58,6 +58,8 @@ export interface Progress {
   lastStreakDay: string;
   reviewedDay: string;
   reviewedToday: number;
+  /** Longest review streak ever (unlocks bonus styles). */
+  bestStreak?: number;
 }
 
 export interface Data {

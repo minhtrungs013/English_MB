@@ -8,7 +8,10 @@ import { DAY, MIN, dayKey, isDue, type Category, type Data, type Rating, type Se
 import { registerForPush, unregisterPush } from '../lib/push';
 import { setVoicePrefs, stopSpeaking } from '../lib/speech';
 import * as Font from 'expo-font';
-import { makeTheme, STYLE_FONT_FILES, type Theme } from '../lib/theme';
+import * as SecureStore from 'expo-secure-store';
+import { lockMessage, makeTheme, STYLE_FONT_FILES, STYLE_UNLOCKS, STYLES, styleLock, type Theme } from '../lib/theme';
+
+const SEASONAL_KEY = 'seasonal_decor';
 
 export interface Toast { msg: string; kind: 'ok' | 'bad' }
 type Status = 'booting' | 'auth' | 'loading' | 'ready' | 'error';
@@ -94,6 +97,39 @@ function useStoreState() {
   const { voice, rate: speechRate, pitch } = data.settings;
   useEffect(() => { setVoicePrefs({ voice, rate: speechRate, pitch }); }, [voice, speechRate, pitch]);
 
+  /* ---------- seasonal decorations (per device) ---------- */
+  const [seasonal, setSeasonalState] = useState(true);
+  useEffect(() => {
+    SecureStore.getItemAsync(SEASONAL_KEY).then((v) => setSeasonalState(v !== '0')).catch(() => undefined);
+  }, []);
+  const setSeasonal = (on: boolean) => {
+    setSeasonalState(on);
+    SecureStore.setItemAsync(SEASONAL_KEY, on ? '1' : '0').catch(() => undefined);
+  };
+
+  /* ---------- bonus styles: one-time "unlocked" toast per user (remembered on this device) ---------- */
+  const { userId } = data;
+  const best = Math.max(data.progress.bestStreak ?? 0, data.progress.streak ?? 0);
+  useEffect(() => {
+    if (!userId || status !== 'ready') return;
+    let live = true;
+    void (async () => {
+      for (const [id, name] of STYLES) {
+        const need = STYLE_UNLOCKS[id];
+        if (!need || best < need) continue;
+        const key = 'style_unlocked_' + userId.replace(/[^A-Za-z0-9._-]/g, '') + '_' + id;
+        try {
+          if (await SecureStore.getItemAsync(key)) continue;
+          await SecureStore.setItemAsync(key, '1');
+        } catch { continue; }
+        if (live) showToast('New style unlocked: ' + name + ' — try it in Settings');
+        return; // one at a time; the next one shows on a later change
+      }
+    })();
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, best, status]);
+
   /* ---------- auth ---------- */
   const startSession = async (res: AuthResponse) => { await setToken(res.accessToken); await load(); };
   const login = async (email: string, password: string) => startSession(await api.login(email, password));
@@ -175,6 +211,7 @@ function useStoreState() {
         const y = new Date(); y.setDate(y.getDate() - 1);
         progress.streak = p.lastStreakDay === dayKey(y) ? p.streak + 1 : 1;
         progress.lastStreakDay = today;
+        progress.bestStreak = Math.max(p.bestStreak ?? 0, progress.streak);
       }
       return { words, progress };
     });
@@ -313,6 +350,8 @@ function useStoreState() {
   const setStyle = async (style: Style) => {
     const prev = dataRef.current.settings.style;
     if (prev === style) return;
+    const lock = styleLock(style, dataRef.current.progress);
+    if (lock.locked) { showToast(lockMessage(lock.need), 'bad'); return; } // no request: the server would refuse it
     patch((d) => ({ settings: { ...d.settings, style } }));
     try { await api.updateSettings({ style }); } catch (e) {
       patch((d) => ({ settings: { ...d.settings, style: prev } }));
@@ -327,8 +366,9 @@ function useStoreState() {
       reload: load, login, register, logout, showToast, call,
       setAutofill: (q: Data['autofill']) => patch({ autofill: q }),
       saveWord, deleteWord, createTag, deleteTag, saveCategory, deleteCategory, rate, dueIds,
-      saveFromLibrary, shareWord, unshare, learnCourseDay, saveCourseWords, setSettings, setStyle
-    }
+      saveFromLibrary, shareWord, unshare, learnCourseDay, saveCourseWords, setSettings, setStyle, setSeasonal
+    },
+    seasonal
   };
 }
 

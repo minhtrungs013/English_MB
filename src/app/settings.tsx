@@ -5,7 +5,7 @@ import { api, API_URL, type NoteType } from '../lib/api';
 import type { Theme } from '../lib/data';
 import { openPushSettings, pushStatus, registerForPush, type PushStatus } from '../lib/push';
 import { speak, useEnglishVoices } from '../lib/speech';
-import { ACCENT_SWATCH, makeTheme, STYLES } from '../lib/theme';
+import { ACCENT_SWATCH, lockMessage, makeTheme, styleLock, STYLES } from '../lib/theme';
 import { errMsg, useStore, useTheme } from '../state/store';
 
 const SAMPLE = 'Could you clarify the requirements before the deadline?';
@@ -76,7 +76,7 @@ function Stepper({ value, onChange, label, suffix = '' }: { value: number; onCha
 }
 
 export default function Settings() {
-  const { data, actions } = useStore();
+  const { data, actions, seasonal } = useStore();
   const t = useTheme();
   const st = data.settings;
   const mute = st.mute ?? [];
@@ -167,6 +167,13 @@ export default function Settings() {
           </View>
           <T size={13.5} weight="bold" style={{ marginTop: 6 }}>Style</T>
           <StylePicker />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 12, marginTop: 4, borderTopWidth: 1, borderTopColor: t.border }}>
+            <View style={{ flex: 1 }}>
+              <T weight="bold">Seasonal decorations</T>
+              <T size={13.5} tone="muted">Lanterns for Tết and Mid-Autumn, snow at Christmas, confetti at New Year (Home only, on this phone)</T>
+            </View>
+            <Switch value={seasonal} onValueChange={actions.setSeasonal} trackColor={{ true: t.primary, false: t.surface3 }} thumbColor="#fff" accessibilityLabel="Seasonal decorations" />
+          </View>
           <T size={13.5} weight="bold" style={{ marginTop: 6 }}>Accent color</T>
           {(st.style ?? 'classic') !== 'classic' ? <T size={13} tone="muted">The accent color applies to the Classic style; other styles bring their own colors.</T> : null}
           <View style={[{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }, (st.style ?? 'classic') !== 'classic' && { opacity: 0.4 }]} accessibilityRole="radiogroup"
@@ -231,7 +238,7 @@ export default function Settings() {
   );
 }
 
-/** Six style cards, two per row; each draws a tiny mock (header, card, button) with that style's own tokens. */
+/** Style cards (bonus ones locked until their streak), two per row, two per row; each draws a tiny mock (header, card, button) with that style's own tokens. */
 function StylePicker() {
   const t = useTheme();
   const { data, actions } = useStore();
@@ -241,9 +248,11 @@ function StylePicker() {
       {STYLES.map(([id, name, desc]) => {
         const on = current === id;
         const s = makeTheme(id, t.dark, data.settings.accent, false);
+        const lock = styleLock(id, data.progress);
+        const pick = () => (lock.locked ? actions.showToast(lockMessage(lock.need), 'bad') : void actions.setStyle(id));
         return (
-          <Pressable key={id} onPress={() => void actions.setStyle(id)} accessibilityRole="radio" accessibilityState={{ checked: on }}
-            accessibilityLabel={name + ', ' + desc}
+          <Pressable key={id} onPress={pick} accessibilityRole="radio" accessibilityState={{ checked: on, disabled: lock.locked }}
+            accessibilityLabel={name + ', ' + desc + (lock.locked ? '. Locked: unlocks at a ' + lock.need + '-day streak, ' + lock.have + ' of ' + lock.need + ' days' : '')}
             style={({ pressed }) => ({ flexBasis: '47%', flexGrow: 1, minHeight: 44, borderRadius: t.radius.md, borderWidth: on ? 2 : 1,
               borderColor: on ? t.primary : t.border, padding: on ? 7 : 8, gap: 8, backgroundColor: pressed ? t.surface2 : t.surface })}>
             <View style={{ height: 76, borderRadius: s.radius.sm, backgroundColor: s.bg, overflow: 'hidden', borderWidth: 1, borderColor: s.border }}>
@@ -260,8 +269,17 @@ function StylePicker() {
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <T size={13.5} weight="bold" style={{ flex: 1 }} numberOfLines={1}>{name}</T>
               {on ? <Icon name="check" size={16} color={t.primary} /> : null}
+              {lock.locked ? <Icon name="lock" size={16} color={t.muted} /> : null}
             </View>
-            <T size={12} tone="muted" numberOfLines={2}>{desc}</T>
+            {lock.locked ? (
+              <View style={{ gap: 4 }}>
+                <T size={12} weight="bold" tone="primaryInk">Unlocks at a {lock.need}-day streak</T>
+                <View style={{ height: 6, borderRadius: 3, backgroundColor: t.surface3, overflow: 'hidden' }}>
+                  <View style={{ width: `${Math.round((lock.have / lock.need) * 100)}%` as const, height: '100%', backgroundColor: t.primary }} />
+                </View>
+                <T size={12} tone="muted">{lock.have} / {lock.need} days</T>
+              </View>
+            ) : <T size={12} tone="muted" numberOfLines={2}>{desc}</T>}
           </Pressable>
         );
       })}
