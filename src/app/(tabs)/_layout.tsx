@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { Tabs } from 'expo-router/js-tabs';
 import { Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Icon, T } from '../../components/ui';
+import { DuoIcon, Icon, T } from '../../components/ui';
 import type { IconName } from '../../lib/icons';
 import { useTheme } from '../../state/store';
 
@@ -27,7 +27,7 @@ function BottomBar({ state, navigation }: BarProps) {
     return (
       <Pressable key={r.key} onPress={() => navigation.navigate(r.name)} accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={label}
         style={{ flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 58, gap: 3 }}>
-        <Icon name={icon} size={22} color={color} />
+        <DuoIcon name={icon} size={22} color={color} active={on} />
         <T size={11.5} weight="bold" style={{ color }}>{label}</T>
       </Pressable>
     );

@@ -106,12 +106,31 @@ const STYLE_COLORS: Record<Exclude<Style, 'classic'>, { light: P; dark: P }> = {
     dark: { bg: '#0A0A0A', surface: '#141414', surface2: '#1E1E1E', surface3: '#2A2A2A', border: '#333333', text: '#F2F2F2', muted: '#B0B0B0', faint: '#8F8F8F',
       primary: '#666666', primaryHover: '#595959', primarySoft: '#262626', primaryInk: '#F2F2F2', bar: '#4A4A4A',
       success: '#7CCB98', successSoft: '#17261C', warning: '#E3B266', warningSoft: '#2E2414', danger: '#F08C86', dangerSoft: '#331C1B', info: '#9DB6EA', infoSoft: '#1A2130', orange: '#EFA06A', orangeSoft: '#30221A' }
+  },
+  // Bonus styles (level L), unlocked by a review streak (STYLE_UNLOCKS).
+  aurora: {
+    light: { bg: '#F1F7F9', surface: '#FFFFFF', surface2: '#E7F1F4', surface3: '#D6E6EB', border: '#D3E3E8', text: '#0E2230', muted: '#44606E', faint: '#4F6B79',
+      primary: '#0F766E', primaryHover: '#0B5F58', primarySoft: '#DDF3EF', primaryInk: '#0A5A53', bar: '#AEE0D7',
+      success: '#15753F', successSoft: '#E2F3E9', warning: '#8A5300', warningSoft: '#FBF0DC', danger: '#B42F2F', dangerSoft: '#FBE7E7', info: '#5B3FC4', infoSoft: '#EEE9FB', orange: '#A84B0B', orangeSoft: '#FCEBDD' },
+    dark: { bg: '#071420', surface: '#0D1D2B', surface2: '#142838', surface3: '#1C3446', border: '#21394B', text: '#E6F4F5', muted: '#A2BCC4', faint: '#86A2AC',
+      primary: '#0F7A72', primaryHover: '#0D6C65', primarySoft: '#0E3433', primaryInk: '#7EEBD0', bar: '#1D5E58',
+      success: '#5EE0A0', successSoft: '#10291F', warning: '#F2B655', warningSoft: '#33270F', danger: '#FF8A8A', dangerSoft: '#3A1A22', info: '#B9A6FF', infoSoft: '#221C45', orange: '#F7A160', orangeSoft: '#3A2414' }
+  },
+  royal: {
+    light: { bg: '#F7F4EC', surface: '#FFFDF8', surface2: '#F0EBDF', surface3: '#E4DCCB', border: '#E0D7C4', text: '#14203D', muted: '#4A5470', faint: '#5A637D',
+      primary: '#1E2D5C', primaryHover: '#16224A', primarySoft: '#E8EAF3', primaryInk: '#1E2D5C', bar: '#E7CF8E',
+      success: '#1F6F3E', successSoft: '#E5F1E8', warning: '#7F5200', warningSoft: '#F8EED6', danger: '#A82A24', dangerSoft: '#F8E6E4', info: '#2A4FA0', infoSoft: '#E7ECF7', orange: '#9A4510', orangeSoft: '#F7EADF' },
+    // Gold is the dark-mode ink (on navy); buttons stay a lighter navy so white text keeps AA.
+    dark: { bg: '#0A1022', surface: '#111A33', surface2: '#18233F', surface3: '#212D4D', border: '#2A3657', text: '#F3EEDF', muted: '#C2BBA6', faint: '#A39C88',
+      primary: '#4F63B0', primaryHover: '#4A5DA8', primarySoft: '#2A2612', primaryInk: '#E9C46A', bar: '#6B5521',
+      success: '#7CCB98', successSoft: '#17261C', warning: '#E9C46A', warningSoft: '#2E2612', danger: '#F08C86', dangerSoft: '#331C1B', info: '#9DB6EA', infoSoft: '#1A2130', orange: '#EFA06A', orangeSoft: '#30221A' }
   }
 };
 
 const RADIUS: Record<Style, Radius> = {
   classic: { sm: 10, md: 12, lg: 16 }, warm: { sm: 14, md: 16, lg: 20 }, ocean: { sm: 8, md: 10, lg: 12 },
-  sakura: { sm: 14, md: 16, lg: 20 }, midnight: { sm: 10, md: 12, lg: 16 }, mono: { sm: 6, md: 6, lg: 8 }
+  sakura: { sm: 14, md: 16, lg: 20 }, midnight: { sm: 10, md: 12, lg: 16 }, mono: { sm: 6, md: 6, lg: 8 },
+  aurora: { sm: 12, md: 14, lg: 18 }, royal: { sm: 8, md: 10, lg: 14 }
 };
 
 /* eslint-disable @typescript-eslint/no-require-imports */
@@ -133,7 +152,9 @@ export const STYLE_FONT_FILES: Record<Exclude<Style, 'classic'>, Record<string, 
   mono: {
     IBMPlexSans_400Regular: require('@expo-google-fonts/ibm-plex-sans/400Regular/IBMPlexSans_400Regular.ttf'),
     IBMPlexSans_700Bold: require('@expo-google-fonts/ibm-plex-sans/700Bold/IBMPlexSans_700Bold.ttf')
-  }
+  },
+  aurora: { ...INTER, Inter_800ExtraBold: require('@expo-google-fonts/inter/800ExtraBold/Inter_800ExtraBold.ttf') },
+  royal: { ...INTER, PlayfairDisplay_700Bold: require('@expo-google-fonts/playfair-display/700Bold/PlayfairDisplay_700Bold.ttf') }
 };
 /* eslint-enable @typescript-eslint/no-require-imports */
 
@@ -142,7 +163,10 @@ const STYLE_FONTS: Record<Exclude<Style, 'classic'>, FontSet> = {
   sakura: { regular: 'Nunito_400Regular', medium: 'Nunito_400Regular', semibold: 'Nunito_700Bold', bold: 'Nunito_700Bold', extrabold: 'Nunito_800ExtraBold' },
   ocean: { regular: 'Inter_400Regular', medium: 'Inter_400Regular', semibold: 'Inter_700Bold', bold: 'Inter_700Bold', extrabold: 'Inter_800ExtraBold' },
   midnight: { regular: 'Inter_400Regular', medium: 'Inter_400Regular', semibold: 'Inter_700Bold', bold: 'SpaceGrotesk_700Bold', extrabold: 'SpaceGrotesk_700Bold' },
-  mono: { regular: 'IBMPlexSans_400Regular', medium: 'IBMPlexSans_400Regular', semibold: 'IBMPlexSans_700Bold', bold: 'IBMPlexSans_700Bold', extrabold: 'IBMPlexSans_700Bold' }
+  mono: { regular: 'IBMPlexSans_400Regular', medium: 'IBMPlexSans_400Regular', semibold: 'IBMPlexSans_700Bold', bold: 'IBMPlexSans_700Bold', extrabold: 'IBMPlexSans_700Bold' },
+  aurora: { regular: 'Inter_400Regular', medium: 'Inter_400Regular', semibold: 'Inter_700Bold', bold: 'Inter_700Bold', extrabold: 'Inter_800ExtraBold' },
+  // Serif (Playfair Display) for headings (extrabold) only; body and labels stay Inter.
+  royal: { regular: 'Inter_400Regular', medium: 'Inter_400Regular', semibold: 'Inter_700Bold', bold: 'Inter_700Bold', extrabold: 'PlayfairDisplay_700Bold' }
 };
 const SYSTEM_FONT: FontSet = { regular: undefined, medium: undefined, semibold: undefined, bold: undefined, extrabold: undefined };
 
@@ -150,8 +174,19 @@ const SYSTEM_FONT: FontSet = { regular: undefined, medium: undefined, semibold: 
 export const STYLES: [Style, string, string][] = [
   ['classic', 'Classic', 'The original look, with your accent'], ['warm', 'Warm café', 'Cream paper, terracotta, rounded'],
   ['ocean', 'Ocean', 'Cool blue-grey and deep teal'], ['sakura', 'Sakura', 'Soft pink, rose and plum'],
-  ['midnight', 'Midnight', 'Navy night with a violet glow'], ['mono', 'Mono', 'Black, white and greys']
+  ['midnight', 'Midnight', 'Navy night with a violet glow'], ['mono', 'Mono', 'Black, white and greys'],
+  ['aurora', 'Aurora', 'Northern lights: teal, mint and violet'], ['royal', 'Royal', 'Deep navy, gold and serif headings']
 ];
+
+/** Bonus styles and the review streak (best ever, or current) each one needs. Same rule as the backend. */
+export const STYLE_UNLOCKS: Partial<Record<Style, number>> = { aurora: 7, royal: 30 };
+/** Lock state of a style for this progress (have is capped at need, for "4 / 7 days"). */
+export function styleLock(style: Style, progress: { streak: number; bestStreak?: number }): { need: number; have: number; locked: boolean } {
+  const need = STYLE_UNLOCKS[style] ?? 0;
+  const have = Math.max(progress.bestStreak ?? 0, progress.streak ?? 0);
+  return { need, have: Math.min(have, need), locked: have < need };
+}
+export const lockMessage = (need: number) => 'Keep a ' + need + '-day review streak to unlock this style.';
 
 /** Full theme: colors (style x light/dark; accent only for classic), fonts (system until loaded) and radius. */
 export function makeTheme(style: Style, dark: boolean, accent: Accent, fontsLoaded = true): Theme {
@@ -197,9 +232,27 @@ const TILES: Record<Style, { light: TileSet; dark: TileSet }> = {
   mono: {
     light: { vocab: { bg: '#EAEAEA', ink: '#111111' }, grammar: { bg: '#E2E2E2', ink: '#111111' }, listen: { bg: '#F0F0F0', ink: '#111111' }, review: { bg: '#DADADA', ink: '#111111' } },
     dark: { vocab: { bg: '#262626', ink: '#F2F2F2' }, grammar: { bg: '#202020', ink: '#F2F2F2' }, listen: { bg: '#2C2C2C', ink: '#F2F2F2' }, review: { bg: '#333333', ink: '#F2F2F2' } }
+  },
+  aurora: {
+    light: { vocab: { bg: '#DDF3EF', ink: '#0A5A53' }, grammar: { bg: '#EEE9FB', ink: '#5B3FC4' }, listen: { bg: '#E3F1FB', ink: '#1F5D9A' }, review: { bg: '#E4F6EA', ink: '#15703D' } },
+    dark: { vocab: { bg: '#0E3433', ink: '#7EEBD0' }, grammar: { bg: '#221C45', ink: '#B9A6FF' }, listen: { bg: '#122A40', ink: '#8CC8FF' }, review: { bg: '#10291F', ink: '#5EE0A0' } }
+  },
+  royal: {
+    light: { vocab: { bg: '#E8EAF3', ink: '#1E2D5C' }, grammar: { bg: '#F6ECCF', ink: '#6E4700' }, listen: { bg: '#F4E6E6', ink: '#8A2A35' }, review: { bg: '#E5F1E8', ink: '#1F6F3E' } },
+    dark: { vocab: { bg: '#1E2A4E', ink: '#C9D4FF' }, grammar: { bg: '#2A2612', ink: '#E9C46A' }, listen: { bg: '#331C24', ink: '#F4A7B4' }, review: { bg: '#17261C', ink: '#7CCB98' } }
   }
 };
 /* end TILES */
+
+/* ---------- duotone navigation icons (level L) ---------- */
+/** Styles whose main navigation icons are duotone: a tinted blob behind the line icon. */
+export const DUO_STYLES: Style[] = ['warm', 'sakura', 'aurora', 'royal', 'midnight'];
+/** Blob tint behind a duotone icon (inactive / active); null = plain line icons for this style. */
+export function duoTint(t: Theme, active: boolean): string | null {
+  if (!DUO_STYLES.includes(t.style)) return null;
+  return active ? t.bar : t.dark ? t.surface3 : t.primarySoft;
+}
+/* end DUO */
 
 export function tilesFor(t: Theme): TileSet {
   return (TILES[t.style] ?? TILES.classic)[t.dark ? 'dark' : 'light'];
