@@ -13,6 +13,7 @@
     },
     "android": {
       "package": "com.wordbook.app",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#5847D6",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
