@@ -31,3 +31,16 @@ export const SEASON_LINE: Record<Exclude<Season, null>, string> = {
   christmas: 'Merry Christmas!',
   newyear: 'Happy New Year!'
 };
+
+/** Name of the illustrated Home banner (assets/banners/<name>.webp): the season's when decorations are on, else the style's. */
+export type BannerName = 'classic' | 'midnight' | 'mono' | 'royal' | 'autumn' | 'spring' | 'summer' | 'winter' | 'tet' | 'midautumn' | 'xmas';
+const STYLE_BANNER: Record<string, BannerName> = {
+  classic: 'classic', midnight: 'midnight', mono: 'mono', royal: 'royal',
+  warm: 'autumn', sakura: 'spring', ocean: 'summer', aurora: 'winter'
+};
+export function bannerFor(style: string, season: Season): BannerName {
+  if (season === 'tet') return 'tet';
+  if (season === 'midautumn') return 'midautumn';
+  if (season === 'christmas') return 'xmas';
+  return STYLE_BANNER[style] ?? 'classic';
+}

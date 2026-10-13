@@ -2,7 +2,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { coursePlan, fmtDateKey, planNextLabel, type CoursePlan } from '../../components/course';
-import { goReview, GreetingBanner, HomeDecor, ShortcutTiles, type NextStep } from '../../components/home-banner';
+import { goReview, GreetingBanner, ShortcutTiles, type NextStep } from '../../components/home-banner';
 import { HomeSearch } from '../../components/home-search';
 import { Sheet, SheetItem } from '../../components/sheet';
 import { Button, Card, EmptyState, Icon, IconTile, LevelBadge, Screen, T } from '../../components/ui';
@@ -205,7 +205,6 @@ export default function Home() {
           </Pressable>
         </View>
       }>
-      <HomeDecor />
       <View style={{ gap: 12 }}>
         <GreetingBanner greeting={greeting} next={next}
           stat={streak ? '🔥 ' + streak + (streak === 1 ? ' day' : ' days') + ' streak' : due ? due + (due === 1 ? ' word' : ' words') + ' due today' : 'No words due — nice!'} />
