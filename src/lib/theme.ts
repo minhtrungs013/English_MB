@@ -167,3 +167,40 @@ export const FONT = {
   bold: 'PlusJakartaSans_700Bold',
   extrabold: 'PlusJakartaSans_800ExtraBold'
 } as const;
+
+/* ---------- home shortcut tiles (level M) ---------- */
+/** One soft tint per Home shortcut card: `bg` behind theme text/muted, `ink` for the icon and the live number. */
+export interface Tile { bg: string; ink: string }
+export type TileKey = 'vocab' | 'grammar' | 'listen' | 'review';
+type TileSet = Record<TileKey, Tile>;
+const TILES: Record<Style, { light: TileSet; dark: TileSet }> = {
+  classic: {
+    light: { vocab: { bg: '#EEEBFD', ink: '#4231B8' }, grammar: { bg: '#E5F4EB', ink: '#16723F' }, listen: { bg: '#FDF1DF', ink: '#8F4E05' }, review: { bg: '#E7EFFD', ink: '#2054C9' } },
+    dark: { vocab: { bg: '#29244E', ink: '#BDB4FF' }, grammar: { bg: '#16301F', ink: '#56C98A' }, listen: { bg: '#382910', ink: '#EBA845' }, review: { bg: '#1A2643', ink: '#7AA5FF' } }
+  },
+  warm: {
+    light: { vocab: { bg: '#FCE9DC', ink: '#9A3209' }, grammar: { bg: '#E6F2E3', ink: '#2A6E34' }, listen: { bg: '#FBEFD9', ink: '#814A06' }, review: { bg: '#E5EDF8', ink: '#2B5FA8' } },
+    dark: { vocab: { bg: '#3D2416', ink: '#FDBA8C' }, grammar: { bg: '#1B2E1F', ink: '#6FCF8E' }, listen: { bg: '#3A2A12', ink: '#EDB25A' }, review: { bg: '#1D2738', ink: '#8DB4F5' } }
+  },
+  ocean: {
+    light: { vocab: { bg: '#E0EFF6', ink: '#08496A' }, grammar: { bg: '#E2F3EA', ink: '#0F6A44' }, listen: { bg: '#FBF0DC', ink: '#7D4B00' }, review: { bg: '#E5EEFC', ink: '#1D5BC4' } },
+    dark: { vocab: { bg: '#10303F', ink: '#8FD3EE' }, grammar: { bg: '#123026', ink: '#5CCB97' }, listen: { bg: '#352911', ink: '#EDB04F' }, review: { bg: '#18263F', ink: '#84ADFF' } }
+  },
+  sakura: {
+    light: { vocab: { bg: '#FDE4EE', ink: '#9C1450' }, grammar: { bg: '#E5F3EA', ink: '#276E43' }, listen: { bg: '#FBEFD9', ink: '#814A06' }, review: { bg: '#EEE6FA', ink: '#5B3A9E' } },
+    dark: { vocab: { bg: '#3B1A2B', ink: '#FDA4C4' }, grammar: { bg: '#18301F', ink: '#6FCF97' }, listen: { bg: '#3A2A12', ink: '#EDB25A' }, review: { bg: '#2A2040', ink: '#C4B0FF' } }
+  },
+  midnight: {
+    light: { vocab: { bg: '#E8E3FC', ink: '#4325C2' }, grammar: { bg: '#E2F2E9', ink: '#16723F' }, listen: { bg: '#FBEFD9', ink: '#814A06' }, review: { bg: '#E5ECFB', ink: '#2457C9' } },
+    dark: { vocab: { bg: '#231C4D', ink: '#C7B8FF' }, grammar: { bg: '#10291F', ink: '#5EE0A0' }, listen: { bg: '#33270F', ink: '#F2B655' }, review: { bg: '#162444', ink: '#7FB0FF' } }
+  },
+  mono: {
+    light: { vocab: { bg: '#EAEAEA', ink: '#111111' }, grammar: { bg: '#E2E2E2', ink: '#111111' }, listen: { bg: '#F0F0F0', ink: '#111111' }, review: { bg: '#DADADA', ink: '#111111' } },
+    dark: { vocab: { bg: '#262626', ink: '#F2F2F2' }, grammar: { bg: '#202020', ink: '#F2F2F2' }, listen: { bg: '#2C2C2C', ink: '#F2F2F2' }, review: { bg: '#333333', ink: '#F2F2F2' } }
+  }
+};
+/* end TILES */
+
+export function tilesFor(t: Theme): TileSet {
+  return (TILES[t.style] ?? TILES.classic)[t.dark ? 'dark' : 'light'];
+}

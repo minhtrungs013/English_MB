@@ -2,11 +2,12 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { coursePlan, fmtDateKey, planNextLabel, type CoursePlan } from '../../components/course';
+import { goReview, GreetingBanner, HomeDecor, ShortcutTiles, type NextStep } from '../../components/home-banner';
 import { HomeSearch } from '../../components/home-search';
 import { Sheet, SheetItem } from '../../components/sheet';
 import { Button, Card, EmptyState, Icon, IconTile, LevelBadge, Screen, T } from '../../components/ui';
 import { masteryLabel, weakestTense } from '../../components/grammar';
-import { api, getUserFlag, PLACEMENT_SKIPPED, type CourseSummary, type GrammarList } from '../../lib/api';
+import { api, getUserFlag, PLACEMENT_SKIPPED, type CourseSummary, type DictationList, type GrammarList } from '../../lib/api';
 import { DAY, dayKey, fmtAgo, isDue } from '../../lib/data';
 import { useNow } from '../../hooks/use-now';
 import { useStore, useTheme } from '../../state/store';
@@ -40,8 +41,9 @@ function NotificationBell({ unread }: { unread: number }) {
 }
 
 /** Compact link to my first joined course (or to all courses). */
-function CoursesCard() {
-  const t = useTheme();
+type JoinedCourse = { course: CourseSummary | null | undefined; plan: { id: string; p: CoursePlan } | null };
+/** My first joined course and today's plan for it; refetched when Home comes into view, fails silently. */
+function useJoinedCourse(): JoinedCourse {
   const [course, setCourse] = useState<CourseSummary | null | undefined>(undefined);
   const [plan, setPlan] = useState<{ id: string; p: CoursePlan } | null>(null);
   useFocusEffect(useCallback(() => {
@@ -60,6 +62,11 @@ function CoursesCard() {
       .catch(() => { if (alive) setCourse((c) => c ?? null); });
     return () => { alive = false; };
   }, []));
+  return { course, plan };
+}
+
+function CoursesCard({ course, plan }: JoinedCourse) {
+  const t = useTheme();
   const e = course?.enrollment;
   // Day 0: joined, but the course's start date hasn't come yet.
   const upcoming = !!e && e.currentDay < 1;
@@ -88,14 +95,12 @@ function CoursesCard() {
  * otherwise it invites to the placement test (or plain mixed practice once the test was skipped or taken).
  * Fetched when Home comes into view; fails silently.
  */
-function GrammarCard() {
+function GrammarCard({ list }: { list: GrammarList | null }) {
   const t = useTheme();
   const { data } = useStore();
-  const [list, setList] = useState<GrammarList | null>(null);
   const [skipped, setSkipped] = useState(false);
   useFocusEffect(useCallback(() => {
     let alive = true;
-    api.grammar().then((r) => { if (alive) setList(r); }).catch(() => { /* keep the last list */ });
     void getUserFlag(PLACEMENT_SKIPPED, data.userId).then((v) => { if (alive) setSkipped(v); });
     return () => { alive = false; };
   }, [data.userId]));
@@ -158,6 +163,24 @@ export default function Home() {
   const recent = words.slice().sort((a, b) => b.addedAt - a.addedAt).slice(0, 5);
   const initial = (settings.name || '?').trim().charAt(0).toUpperCase();
   const [menu, setMenu] = useState(false);
+  const joined = useJoinedCourse();
+  const [grammar, setGrammar] = useState<GrammarList | null>(null);
+  const [dictation, setDictation] = useState<DictationList | null>(null);
+  useFocusEffect(useCallback(() => {
+    let alive = true;
+    api.grammar().then((r) => { if (alive) setGrammar(r); }).catch(() => { /* keep the last list */ });
+    api.dictation().then((r) => { if (alive) setDictation(r); }).catch(() => { /* optional */ });
+    return () => { alive = false; };
+  }, []));
+  // Most useful next step: today's course day if it isn't done, else due words, else today's grammar practice.
+  const cp = joined.plan && joined.course && joined.plan.id === joined.course.id ? joined.plan.p : null;
+  const next: NextStep = cp && cp.day >= 1 && cp.next !== 'done' && cp.next !== 'empty' && cp.next !== 'upcoming' && joined.course
+    ? { label: joined.course.title + ', day ' + cp.day, go: () => router.push({ pathname: '/course/[id]', params: { id: joined.course!.id } }) }
+    : due ? { label: 'review ' + due + (due === 1 ? ' word' : ' words'), go: goReview }
+    : { label: 'today’s grammar practice', go: () => router.push({ pathname: '/grammar/practice', params: { mode: 'daily' } }) };
+  const lessons = (grammar?.tenses ?? []).filter((x) => x.group === 'tenses');
+  const avg = lessons.length ? Math.round(lessons.reduce((a, x) => a + x.mastery, 0) / lessons.length) : 0;
+  const sets = dictation?.sets.length ?? 0;
   /** Close the account menu, then go (so the sheet doesn't stay open behind the next screen). */
   const goTo = (path: '/courses' | '/grammar' | '/notifications' | '/categories' | '/tags' | '/settings') => { setMenu(false); router.push(path); };
   // Coming back to Home is a good moment to check for new notifications.
@@ -172,7 +195,7 @@ export default function Home() {
 
   return (
     <Screen
-      title={greeting} sub="Keep learning a few words today."
+      title="Home"
       right={
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
           <NotificationBell unread={unread} />
@@ -182,10 +205,19 @@ export default function Home() {
           </Pressable>
         </View>
       }>
+      <HomeDecor />
       <View style={{ gap: 12 }}>
+        <GreetingBanner greeting={greeting} next={next}
+          stat={streak ? '🔥 ' + streak + (streak === 1 ? ' day' : ' days') + ' streak' : due ? due + (due === 1 ? ' word' : ' words') + ' due today' : 'No words due — nice!'} />
+        <ShortcutTiles items={[
+          { key: 'vocab', icon: 'layers', title: 'Vocabulary', sub: words.length + (words.length === 1 ? ' word' : ' words') + ' · +' + week + ' this week', go: () => router.push('/words') },
+          { key: 'grammar', icon: 'type', title: 'Grammar', sub: grammar ? lessons.length + ' tenses · ' + avg + '% mastery' : 'Lessons and practice', go: () => router.push('/grammar') },
+          { key: 'listen', icon: 'headphones', title: 'Dictation', sub: dictation ? sets + ' sets' + (dictation.practisedToday ? ' · done today' : ' · listen and type') : 'Listen and type', go: () => router.push('/dictation') },
+          { key: 'review', icon: 'clock', title: 'Review', sub: due ? due + ' due today' : 'Nothing due today', go: goReview }
+        ]} />
         <HomeSearch />
-        <CoursesCard />
-        <GrammarCard />
+        <CoursesCard {...joined} />
+        <GrammarCard list={grammar} />
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <Stat icon="layers" tone="indigo" value={words.length} label="Total words" foot={'+' + week + ' this week'} />
           <Stat icon="clock" tone="amber" value={due} label="To review" />
