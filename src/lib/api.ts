@@ -535,6 +535,8 @@ export const api = {
   deleteNote: (id: string) => req<void>('DELETE', '/notifications/' + id),
   /** Registers this phone's Expo push token for the signed-in user. */
   registerPushToken: (token: string, platform: 'ios' | 'android') => req<unknown>('POST', '/notifications/push-token', { token, platform }),
+  /** Sends a test push to my phones now; what the push service said for each one. */
+  pushTest: () => req<{ devices: number; results: { status: string; error?: string }[] }>('POST', '/notifications/push-test'),
   /** Stops pushes to this phone (on logout). */
   unregisterPushToken: (token: string) => req<unknown>('DELETE', '/notifications/push-token', { token }),
 
