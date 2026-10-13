@@ -88,7 +88,12 @@ function Root({ fontsReady }: { fontsReady: boolean }) {
           <Stack.Screen name="library-word/[id]" options={{ animation: 'slide_from_bottom' }} />
           <Stack.Screen name="review" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
           <Stack.Screen name="quiz" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
-          <Stack.Screen name="settings" />
+          <Stack.Screen name="settings/index" />
+          <Stack.Screen name="settings/account" />
+          <Stack.Screen name="settings/appearance" />
+          <Stack.Screen name="settings/learning" />
+          <Stack.Screen name="settings/notifications" />
+          <Stack.Screen name="settings/voice" />
           <Stack.Screen name="notifications" />
           <Stack.Screen name="categories" />
           <Stack.Screen name="tags" />

@@ -9,7 +9,7 @@ import Svg, { Path } from 'react-native-svg';
 import type { Topic } from '../lib/api';
 import { ST_LABEL, type Level, type Status } from '../lib/data';
 import { IC, type IconName } from '../lib/icons';
-import { duoTint, FONT, levelColors } from '../lib/theme';
+import { FONT, levelColors } from '../lib/theme';
 import { useStore, useTheme } from '../state/store';
 
 /* ---------- icon (same stroke icons as the web design) ---------- */
@@ -23,22 +23,14 @@ export function Icon({ name, size = 20, color, strokeWidth = 1.9 }: { name: Icon
 }
 
 /** Soft hand-drawn blob (24×24) drawn behind a duotone icon, nudged down-right so the stroke overlaps its edge. */
-const BLOB = 'M13.5 4.6c4.4-.5 8.3 2.4 8.6 6.8.3 4.7-3 9-7.8 9.5-4.5.5-8.6-2.6-8.9-7-.3-4.6 3.4-8.8 8.1-9.3z';
 
 /**
  * Main navigation icon: the plain line icon, or (warm, sakura, aurora, royal, midnight) the same glyph over a
  * tinted blob. Same size and alignment either way; decorative, so labels stay on the parent.
  */
 export function DuoIcon({ name, size = 22, color, active = false }: { name: IconName; size?: number; color?: string; active?: boolean }) {
-  const t = useTheme();
-  const tint = duoTint(t, active);
-  if (!tint) return <Icon name={name} size={size} color={color} />;
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color ?? t.text} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
-      <Path d={BLOB} fill={tint} stroke="none" />
-      <Path d={IC[name]} />
-    </Svg>
-  );
+  void active;
+  return <Icon name={name} size={size} color={color} />;
 }
 
 /* ---------- text ---------- */
