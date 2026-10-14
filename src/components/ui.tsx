@@ -102,8 +102,12 @@ export function Card({ children, style, pad = true }: { children: ReactNode; sty
 }
 
 /** Scrollable screen with safe-area padding and an optional title row. */
-export function Screen({ title, sub, right, children, scroll = true, bottomPad = 24 }: {
+export function Screen({ title, sub, right, below, children, scroll = true, bottomPad = 24, overlay }: {
   title?: string; sub?: string; right?: ReactNode; children: ReactNode; scroll?: boolean; bottomPad?: number;
+  /** Pinned under the title row; stays at the top while the page scrolls (e.g. a search box). */
+  below?: ReactNode;
+  /** Floating content above the page, such as a bottom-right button. */
+  overlay?: ReactNode;
 }) {
   const t = useTheme();
   const insets = useSafeAreaInsets();
@@ -119,12 +123,28 @@ export function Screen({ title, sub, right, children, scroll = true, bottomPad =
   if (!scroll) {
     return <View style={{ flex: 1, backgroundColor: t.bg, paddingTop: insets.top + 12, paddingHorizontal: 16 }}>{head}{children}</View>;
   }
-  return (
+  if (below) {
+    // Title row and `below` stay fixed; only the content scrolls.
+    return (
+      <View style={{ flex: 1, backgroundColor: t.bg }}>
+        <View style={{ paddingTop: insets.top + 12, paddingHorizontal: 16, paddingBottom: 12, zIndex: 2, elevation: 2, backgroundColor: t.bg }}>
+          {head ? <View style={{ marginBottom: -6 }}>{head}</View> : null}
+          {below}
+        </View>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: bottomPad }} keyboardShouldPersistTaps="handled">
+          {children}
+        </ScrollView>
+        {overlay}
+      </View>
+    );
+  }
+  const page = (
     <ScrollView style={{ flex: 1, backgroundColor: t.bg }} contentContainerStyle={{ paddingTop: insets.top + 12, paddingHorizontal: 16, paddingBottom: bottomPad }} keyboardShouldPersistTaps="handled">
       {head}
       {children}
     </ScrollView>
   );
+  return overlay ? <View style={{ flex: 1 }}>{page}{overlay}</View> : page;
 }
 
 export function SectionTitle({ children, style }: { children: ReactNode; style?: StyleProp<TextStyle> }) {

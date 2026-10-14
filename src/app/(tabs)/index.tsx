@@ -1,6 +1,6 @@
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { useCallback, useRef, useState } from 'react';
+import { Pressable, View, type TextInput } from 'react-native';
 import { coursePlan, fmtDateKey, planNextLabel, type CoursePlan } from '../../components/course';
 import { goReview, GreetingBanner, ShortcutTiles, type NextStep } from '../../components/home-banner';
 import { HomeSearch } from '../../components/home-search';
@@ -36,6 +36,18 @@ function NotificationBell({ unread }: { unread: number }) {
           <T size={10} weight="extrabold" tone="white" style={{ lineHeight: 12 }}>{unread > 9 ? '9+' : unread}</T>
         </View>
       ) : null}
+    </Pressable>
+  );
+}
+
+/** Round search button in the bottom-right corner of Home; focuses the search box at the top. */
+function SearchBubble({ onPress }: { onPress: () => void }) {
+  const t = useTheme();
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel="Search my words and the library"
+      style={({ pressed }) => ({ position: 'absolute', right: 16, bottom: 16, width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center',
+        backgroundColor: pressed ? t.primaryHover : t.primary, elevation: 6, shadowColor: t.primary, shadowOpacity: 0.35, shadowRadius: 10, shadowOffset: { width: 0, height: 6 } })}>
+      <Icon name="search" size={24} color="#fff" />
     </Pressable>
   );
 }
@@ -163,6 +175,7 @@ export default function Home() {
   const recent = words.slice().sort((a, b) => b.addedAt - a.addedAt).slice(0, 5);
   const initial = (settings.name || '?').trim().charAt(0).toUpperCase();
   const [menu, setMenu] = useState(false);
+  const searchRef = useRef<TextInput>(null);
   const joined = useJoinedCourse();
   const [grammar, setGrammar] = useState<GrammarList | null>(null);
   const [dictation, setDictation] = useState<DictationList | null>(null);
@@ -196,6 +209,9 @@ export default function Home() {
   return (
     <Screen
       title="Home"
+      below={<HomeSearch inputRef={searchRef} />}
+      bottomPad={96}
+      overlay={<SearchBubble onPress={() => searchRef.current?.focus()} />}
       right={
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
           <NotificationBell unread={unread} />
@@ -214,7 +230,6 @@ export default function Home() {
           { key: 'listen', icon: 'headphones', title: 'Dictation', sub: dictation ? sets + ' sets' + (dictation.practisedToday ? ' · done today' : ' · listen and type') : 'Listen and type', go: () => router.push('/dictation') },
           { key: 'review', icon: 'clock', title: 'Review', sub: due ? due + ' due today' : 'Nothing due today', go: goReview }
         ]} />
-        <HomeSearch />
         <CoursesCard {...joined} />
         <GrammarCard list={grammar} />
         <View style={{ flexDirection: 'row', gap: 12 }}>
