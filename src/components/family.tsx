@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, View, ActivityIndicator } from 'react-native';
 import { api, type FamilyStatusItem } from '../lib/api';
 import { FAMILY_MAX, FAMILY_POS, type FamilyMember, type FamilyPos } from '../lib/data';
 import { speak } from '../lib/speech';
@@ -36,6 +36,8 @@ export function FormsTag({ family }: { family?: FamilyMember[] }) {
  * "Word family" section for a word's detail screen. Looks up (once) which members are in the library or already
  * in my words, so each row can offer Save / "In your words". `compact` (learn cards): rows only, no lookups.
  */
+const POS_SHORT: Record<string, string> = { Noun: 'n', Verb: 'v', Adjective: 'adj', Adverb: 'adv', Other: '—' };
+
 export function WordFamily({ word, family, compact = false }: { word: string; family?: FamilyMember[]; compact?: boolean }) {
   const { data, actions } = useStore();
   const t = useTheme();
@@ -73,36 +75,33 @@ export function WordFamily({ word, family, compact = false }: { word: string; fa
       await actions.saveFromLibrary({ id: st.libraryId, word: m.word });
       setSaving('');
     };
+    // Small round action: + (save from the library) or ✓ (already in your words, opens it).
     let action = null;
     if (!isSelf && !compact) {
       if (mineId) {
-        action = <Button title="In your words" icon="check" variant="ghost" size="sm" style={{ minHeight: 44, alignSelf: 'flex-start', paddingHorizontal: 8 }}
-          accessibilityLabel={'Open ' + m.word + ' in your words'} onPress={() => router.push({ pathname: '/word/[id]', params: { id: mineId } })} />;
+        action = <IconButton name="check" label={'Open ' + m.word + ' in your words'} color={t.success} onPress={() => router.push({ pathname: '/word/[id]', params: { id: mineId } })} />;
       } else if (st?.libraryId) {
-        action = <Button title="Save" icon="plus" variant="secondary" size="sm" loading={saving === lower} style={{ minHeight: 44, alignSelf: 'flex-start' }}
-          accessibilityLabel={'Save ' + m.word + ' to your words'} onPress={save} />;
+        action = saving === lower ? <ActivityIndicator style={{ width: 44 }} color={t.primaryInk} />
+          : <IconButton name="plus" label={'Save ' + m.word + ' to your words'} color={t.primaryInk} onPress={save} />;
       }
     }
+    const posColor = m.pos === 'Noun' ? t.info : m.pos === 'Verb' ? t.success : m.pos === 'Adjective' ? t.orange ?? t.warning : t.primaryInk;
     return (
-      <View key={lower + i} style={{
-        borderWidth: 1, borderColor: isSelf ? t.primary : t.border, backgroundColor: isSelf ? t.primarySoft : t.surface2,
-        borderRadius: 12, paddingLeft: 12, paddingRight: 4, paddingVertical: compact ? 6 : 8, gap: 4, alignSelf: 'stretch'
+      <View key={lower + i} accessibilityLabel={(isSelf ? 'This word: ' : '') + m.word + ', ' + m.pos + (m.vi ? ', ' + m.vi : '')} style={{
+        borderTopWidth: i ? 1 : 0, borderTopColor: t.border, borderLeftWidth: 3, borderLeftColor: isSelf ? t.primary : 'transparent',
+        backgroundColor: isSelf ? t.primarySoft : 'transparent', paddingLeft: 10, paddingVertical: compact ? 6 : 8,
+        flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'stretch'
       }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <PosBadge pos={famPos(m.pos)} />
-          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', columnGap: 8 }}>
-            <T size={compact ? 15.5 : 17} weight="extrabold" tone={isSelf ? 'primaryInk' : 'text'}>{m.word}</T>
-            {isSelf ? <T size={12} weight="semibold" tone="primaryInk">this word</T> : null}
+        <View style={{ flex: 1, gap: 2 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', columnGap: 6 }}>
+            <T size={11.5} weight="extrabold" style={{ color: posColor, minWidth: 26 }}>{POS_SHORT[famPos(m.pos)]}</T>
+            <T size={compact ? 15 : 16} weight="extrabold" tone={isSelf ? 'primaryInk' : 'text'}>{m.word}</T>
+            {m.vi ? <T size={13.5} tone="muted" style={{ flexShrink: 1 }}>· {m.vi}</T> : null}
           </View>
-          <IconButton name="volume" label={'Play ' + m.word} color={t.primaryInk} onPress={() => speak(m.word)} />
+          {m.note ? <T size={11.5} tone="faint" style={{ fontStyle: 'italic', paddingLeft: 32 }}>{m.note}</T> : null}
+          {m.ex && !compact ? <T size={13} tone="muted" style={{ paddingLeft: 32 }}>{m.ex}</T> : null}
         </View>
-        {m.vi || m.note ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, paddingRight: 8 }}>
-            {m.vi ? <T size={14} weight="semibold" style={{ flexShrink: 1 }}>{m.vi}</T> : null}
-            {m.note ? <Badge label={m.note} bg={t.warningSoft} fg={t.warning} /> : null}
-          </View>
-        ) : null}
-        {m.ex && !compact ? <T size={13.5} tone="muted" style={{ fontStyle: 'italic', paddingRight: 8 }}>“{m.ex}”</T> : null}
+        <IconButton name="volume" label={'Play ' + m.word} color={t.muted} onPress={() => speak(m.word)} />
         {action}
       </View>
     );
@@ -117,9 +116,9 @@ export function WordFamily({ word, family, compact = false }: { word: string; fa
     );
   }
   return (
-    <Card style={{ gap: 8 }}>
+    <Card style={{ gap: 6 }}>
       <SectionTitle>Word family</SectionTitle>
-      {rows}
+      <View style={{ marginHorizontal: -4 }}>{rows}</View>
     </Card>
   );
 }
