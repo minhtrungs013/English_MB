@@ -229,7 +229,7 @@ function useStoreState() {
   };
 
   /* ---------- library ---------- */
-  const saveFromLibrary = async (lw: LibraryWord): Promise<Word | undefined> => {
+  const saveFromLibrary = async (lw: Pick<LibraryWord, 'id' | 'word'>): Promise<Word | undefined> => {
     const res = await call(api.saveFromLibrary(lw.id));
     if (!res) return undefined;
     patch((d) => ({

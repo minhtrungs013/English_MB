@@ -4,6 +4,7 @@ import { Alert, ScrollView, View } from 'react-native';
 import {
   BackBar, Badge, Button, Card, Chip, EmptyState, IconButton, LevelBadge, PosBadge, SectionTitle, StatusBadge, T, TOPIC_LABEL
 } from '../../components/ui';
+import { WordFamily } from '../../components/family';
 import type { Topic } from '../../lib/api';
 import { fmtAgo, fmtDate, fmtNext, type Word } from '../../lib/data';
 import { speak } from '../../lib/speech';
@@ -86,6 +87,8 @@ export default function WordDetail() {
             </View>
           </Card>
         ) : null}
+
+        <WordFamily word={w.word} family={w.family} />
 
         {(w.syn.length > 0 || w.ant.length > 0) && (
           <Card style={{ gap: 14 }}>

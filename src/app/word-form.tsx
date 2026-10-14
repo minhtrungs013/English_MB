@@ -2,9 +2,10 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { cleanFamily, famPos, FamilyEditor } from '../components/family';
 import { BackBar, Button, Card, Chip, Field, Icon, Input, LevelBadge, T, TopicBadge } from '../components/ui';
 import { api, ApiError, type LibraryWord } from '../lib/api';
-import { LEVELS, POS_LIST, type Level } from '../lib/data';
+import { FAMILY_MAX, LEVELS, POS_LIST, type FamilyMember, type Level } from '../lib/data';
 import { errMsg, useStore, useTheme } from '../state/store';
 
 const toList = (s: string) => s.split(',').map((x) => x.trim()).filter(Boolean);
@@ -43,6 +44,7 @@ export default function WordForm() {
   const [tags, setTags] = useState<string[]>(editing?.tags ?? []);
   const [cat, setCat] = useState(editing?.cat ?? '');
   const [notes, setNotes] = useState(editing?.notes ?? '');
+  const [family, setFamily] = useState<FamilyMember[]>(editing?.family ?? []);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   const [looking, setLooking] = useState(false);
@@ -74,6 +76,10 @@ export default function WordForm() {
       if (d.syn?.length) setSyn(d.syn.join(', '));
       if (d.ant?.length) setAnt(d.ant.join(', '));
       if (d.level) setLevel(d.level);
+      if (d.family?.length) {
+        setFamily(d.family.filter((m) => m && m.word).slice(0, FAMILY_MAX)
+          .map((m) => ({ word: m.word, pos: famPos(m.pos), vi: m.vi ?? '', ex: m.ex ?? '', ...(m.note ? { note: m.note } : {}) })));
+      }
       actions.showToast('Details filled in — review them before saving.');
     } catch (e) {
       const quota = e instanceof ApiError ? (e.body?.quota as { used: number; limit: number } | undefined) : undefined;
@@ -94,7 +100,8 @@ export default function WordForm() {
     try {
       const saved = await actions.saveWord({
         word: w, ipa: ipa.trim(), pos, meaning: meaning.trim(), vi: vi.trim(), ex: ex.trim(),
-        syn: toList(syn), ant: toList(ant), level, cat, tags, notes: notes.trim()
+        syn: toList(syn), ant: toList(ant), level, cat, tags, notes: notes.trim(),
+        family: cleanFamily(family, { word: w, pos, vi })
       }, editing?.id);
       actions.showToast(editing ? 'Changes saved.' : 'Saved “' + w + '” to your words.');
       if (editing) router.back();
@@ -178,6 +185,8 @@ export default function WordForm() {
           )}
           <Field label="Personal notes"><Input value={notes} onChangeText={setNotes} placeholder="Why do I want to remember this word?" multiline /></Field>
         </Card>
+
+        <FamilyEditor value={family} onChange={setFamily} word={word} pos={pos} vi={vi} />
       </ScrollView>
       <View style={{ flexDirection: 'row', gap: 10, padding: 12, paddingBottom: insets.bottom + 12, backgroundColor: t.surface, borderTopWidth: 1, borderTopColor: t.border }}>
         <Button title="Cancel" variant="secondary" onPress={() => router.back()} style={{ flex: 1 }} />

@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { isCorrect, normAnswer, Progress, SaveCourseWord, scoreColors } from '../../../../components/course';
+import { WordFamily } from '../../../../components/family';
 import { BackBar, Badge, Button, Card, EmptyState, Icon, IconButton, Input, LevelBadge, PosBadge, SectionTitle, T } from '../../../../components/ui';
 import { api, type CourseDetail, type CourseWord } from '../../../../lib/api';
 import { shuffle } from '../../../../lib/data';
@@ -305,6 +306,7 @@ export default function LearnDayScreen() {
                     <IconButton name="volume" label="Play the example" color={t.primaryInk} onPress={() => speak(w.ex, 0.95)} />
                   </View>
                 ) : null}
+                <WordFamily word={w.word} family={w.family} compact />
                 <SaveCourseWord courseId={c.id} day={day} word={w.word} canSave={open} style={{ alignSelf: 'center', marginTop: 4 }} />
               </Card>
             </ScrollView>

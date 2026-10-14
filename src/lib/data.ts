@@ -9,6 +9,13 @@ export type Accent = 'indigo' | 'blue' | 'teal' | 'green' | 'orange' | 'rose';
 
 export interface ReviewEntry { at: number; r: Rating }
 
+export type FamilyPos = 'Noun' | 'Verb' | 'Adjective' | 'Adverb' | 'Other';
+/** One form in a word family (e.g. decide → decision, decisive, decisively). */
+export interface FamilyMember { word: string; pos: FamilyPos; vi: string; ex?: string; note?: string }
+/** Display/edit order of family parts of speech. */
+export const FAMILY_POS: FamilyPos[] = ['Verb', 'Noun', 'Adjective', 'Adverb', 'Other'];
+export const FAMILY_MAX = 8;
+
 export interface Word {
   id: string;
   word: string;
@@ -19,6 +26,8 @@ export interface Word {
   ex: string;
   syn: string[];
   ant: string[];
+  /** Word family (2–8 members incl. this word), [] or missing = none. */
+  family?: FamilyMember[];
   level: Level;
   status: Status;
   cat: string;

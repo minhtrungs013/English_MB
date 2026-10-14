@@ -11,7 +11,7 @@ import { errMsg, useStore, useTheme } from '../../../state/store';
 const TOPICS: Topic[] = ['it', 'interview', 'customer', 'leader', 'toeic', 'other'];
 
 const fromLibrary = (w: LibraryWord): CourseWord => ({
-  word: w.word, ipa: w.ipa, pos: w.pos, meaning: w.meaning, vi: w.vi, ex: w.ex, syn: w.syn, ant: w.ant, level: w.level, libraryId: w.id, source: 'library'
+  word: w.word, ipa: w.ipa, pos: w.pos, meaning: w.meaning, vi: w.vi, ex: w.ex, syn: w.syn, ant: w.ant, level: w.level, family: w.family ?? [], libraryId: w.id, source: 'library'
 });
 
 /** Library words matching what the owner types (debounced). */

@@ -2,6 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { FlatList, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { FormsTag } from '../../components/family';
 import { Button, Chip, ChipRow, EmptyState, IconButton, Input, LevelBadge, StatusBadge, T } from '../../components/ui';
 import { LEVELS, fmtNext, isDue } from '../../lib/data';
 import { useStore, useTheme } from '../../state/store';
@@ -87,7 +88,10 @@ export default function Words() {
         <Pressable onPress={() => router.push({ pathname: '/word/[id]', params: { id: w.id } })} accessibilityRole="button"
           style={({ pressed }) => ({ backgroundColor: pressed ? t.surface2 : t.surface, borderColor: t.border, borderWidth: 1, borderRadius: 16, padding: 16, gap: 8 })}>
           <View>
-            <T size={18} weight="extrabold">{w.word}</T>
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+              <T size={18} weight="extrabold">{w.word}</T>
+              <FormsTag family={w.family} />
+            </View>
             <T ipa size={12.5} tone="muted">{w.ipa}</T>
           </View>
           <View>

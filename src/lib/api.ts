@@ -1,5 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
-import type { Category, Data, Progress, Rating, Settings, Word } from './data';
+import type { Category, Data, FamilyMember, Progress, Rating, Settings, Word } from './data';
+export type { FamilyMember, FamilyPos } from './data';
 
 /** Same NestJS API as the web app. Set EXPO_PUBLIC_API_URL in .env (or the EAS build profile). */
 export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000/api';
@@ -86,6 +87,8 @@ export interface LookupResult {
   quota?: Quota;
   source: 'collection' | 'builtin' | 'online';
   ipa?: string; pos?: string; meaning?: string; vi?: string; ex?: string; syn?: string[]; ant?: string[]; level?: Word['level'];
+  /** Word family from the AI (includes the word itself), [] when none. */
+  family?: FamilyMember[];
 }
 export interface User { id: string; name: string; email: string }
 export interface AuthResponse { accessToken: string; user: User }
@@ -94,9 +97,12 @@ export type Topic = 'it' | 'interview' | 'customer' | 'leader' | 'toeic' | 'othe
 export interface LibraryWord {
   id: string; word: string; ipa: string; pos: string; meaning: string; vi: string; ex: string;
   syn: string[]; ant: string[]; level: Word['level']; topic: Topic;
+  family?: FamilyMember[];
   /** '' for built-in words. */
   authorId: string; authorName: string; saves: number; sharedAt: number;
 }
+/** Per family member: the library entry and my own word with that text (null when there is none). */
+export interface FamilyStatusItem { word: string; libraryId: string | null; myWordId: string | null }
 export interface LibraryPage { items: LibraryWord[]; total: number; page: number; limit: number; topics: Record<Topic, number>; all: number }
 export interface LibraryQuery { q?: string; topic?: Topic; level?: string; source?: 'me' | 'community' | 'builtin'; page?: number; limit?: number }
 
@@ -104,6 +110,7 @@ export interface LibraryQuery { q?: string; topic?: Topic; level?: string; sourc
 export interface CourseWord {
   word: string; ipa: string; pos: string; meaning: string; vi: string; ex: string;
   syn: string[]; ant: string[]; level: Word['level'];
+  family?: FamilyMember[];
   /** '' when the word isn't in the shared library. */
   libraryId: string; source: 'library' | 'ai' | 'manual';
 }
@@ -458,6 +465,8 @@ export const api = {
   libraryWord: (id: string) => req<LibraryWord>('GET', '/library/' + id),
   /** Exact library entry for a word (case-insensitive), or null. */
   findInLibrary: (word: string) => req<{ word: LibraryWord | null }>('GET', '/library/find?word=' + encodeURIComponent(word)),
+  /** For up to 10 family member words: library id and my word id, if any. */
+  familyStatus: (words: string[]) => req<{ items: FamilyStatusItem[] }>('POST', '/library/family-status', { words }),
   saveFromLibrary: (id: string) => req<{ word: Word; tag: string }>('POST', '/library/' + id + '/save'),
   shareToLibrary: (wordId: string, topic: Topic) => req<LibraryWord>('POST', '/library/share', { wordId, topic }),
   unshare: (id: string) => req<void>('DELETE', '/library/' + id),

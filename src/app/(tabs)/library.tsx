@@ -2,6 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { familyExtra, FormsTag } from '../../components/family';
 import { SaveFromLibrary } from '../../components/library';
 import { Chip, ChipRow, EmptyState, Input, LevelBadge, T, TOPIC_LABEL, TopicBadge } from '../../components/ui';
 import { api, type LibraryPage, type Topic } from '../../lib/api';
@@ -99,8 +100,11 @@ export default function Library() {
         // Tapping the card opens the word; the Save button sits beside the title, not inside another button.
         <View style={{ backgroundColor: t.surface, borderColor: t.border, borderWidth: 1, borderRadius: 16, overflow: 'hidden' }}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingTop: 12, paddingRight: 12 }}>
-            <Pressable onPress={open} accessibilityRole="button" accessibilityLabel={w.word + ', ' + w.vi} style={{ flex: 1, paddingLeft: 16, paddingTop: 4 }}>
-              <T size={18} weight="extrabold">{w.word}</T>
+            <Pressable onPress={open} accessibilityRole="button" accessibilityLabel={w.word + ', ' + w.vi + (familyExtra(w.family) ? ', ' + familyExtra(w.family) + ' related forms' : '')} style={{ flex: 1, paddingLeft: 16, paddingTop: 4 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+                <T size={18} weight="extrabold">{w.word}</T>
+                <FormsTag family={w.family} />
+              </View>
               <T ipa size={12.5} tone="muted">{w.ipa}</T>
             </Pressable>
             <SaveFromLibrary w={w} />
