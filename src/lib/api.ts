@@ -210,13 +210,13 @@ export interface GenerateResult { source: 'ai' | 'template'; added: number; quot
 
 /* ---------- homework & leaderboard ---------- */
 /** 'dictation': hear a sentence (the device speaks `audio`) and type it. */
-export type HomeworkType = 'meaning' | 'word' | 'type' | 'blank' | 'tense' | 'tenseChoice' | 'dictation';
+export type HomeworkType = 'meaning' | 'word' | 'type' | 'blank' | 'tense' | 'tenseChoice' | 'dictation' | 'wordform';
 export interface HomeworkQuestion {
   type: HomeworkType;
   /** A word from an earlier day. */
   review: boolean;
   prompt: string; hint: string;
-  /** Empty for typed answers ('type' / 'blank' / 'tense' / 'dictation'). */
+  /** Empty for typed answers ('type' / 'blank' / 'tense' / 'dictation' / 'wordform'). 'wordform': hint = part of speech, e.g. "noun". */
   choices: string[];
   /** Dictation only (before handing in): the sentence, base64 of its UTF-8 — only for speak(), never shown. */
   audio?: string;
@@ -320,7 +320,7 @@ export interface NotePage { items: Note[]; hasMore: boolean; unread: number }
 /** The irregular verbs lesson (V1 – V2 – V3 tables, one per pattern). Results link to it through `verb`. */
 export const IRREGULAR_LESSON = 'irregular-verbs';
 /** Foundations lessons (helping verbs, irregular verbs), taught before the tenses. 'aux-cheatsheet' is reference only (no drills). */
-export const FOUNDATIONS = ['be', 'do', 'have', 'agreement', IRREGULAR_LESSON, 'aux-cheatsheet'] as const;
+export const FOUNDATIONS = ['be', 'do', 'have', 'agreement', IRREGULAR_LESSON, 'word-formation', 'aux-cheatsheet'] as const;
 export type Foundation = (typeof FOUNDATIONS)[number];
 /** "Mixed practice: real-world English": the last lesson of the Tenses group. Not a tense (no formula, uses or mistakes). */
 export const MIXED_LESSON = 'mixed';
@@ -330,7 +330,7 @@ export type LessonId = Foundation | Tense | typeof MIXED_LESSON;
 export const LESSON_IDS: readonly LessonId[] = [...FOUNDATIONS, ...TENSES, MIXED_LESSON];
 /** Short lesson names (for links, before the server's name is loaded). */
 export const LESSON_LABEL: Record<LessonId, string> = {
-  be: 'Be', do: 'Do', have: 'Have', agreement: 'Subject–verb agreement', 'irregular-verbs': 'Irregular verbs', 'aux-cheatsheet': 'Helping verbs cheat sheet',
+  be: 'Be', do: 'Do', have: 'Have', agreement: 'Subject–verb agreement', 'irregular-verbs': 'Irregular verbs', 'word-formation': 'Word formation', 'aux-cheatsheet': 'Helping verbs cheat sheet',
   ...TENSE_LABEL,
   mixed: 'Mixed practice: real-world English'
 };

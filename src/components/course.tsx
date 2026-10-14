@@ -395,9 +395,10 @@ export const ASK: Record<HomeworkType, string> = {
   blank: 'Fill in the missing word',
   tense: 'Put the verb in brackets in the right tense',
   tenseChoice: 'Choose the right verb form',
-  dictation: 'Listen and type the sentence'
+  dictation: 'Listen and type the sentence',
+  wordform: 'Use the right form of the word'
 };
 /** Answered by typing (the others have choices). */
-export const isTyped = (q: { type: HomeworkType; choices: string[] }) => q.type === 'type' || q.type === 'blank' || q.type === 'tense' || q.type === 'dictation' || !q.choices.length;
+export const isTyped = (q: { type: HomeworkType; choices: string[] }) => q.type === 'type' || q.type === 'blank' || q.type === 'tense' || q.type === 'dictation' || q.type === 'wordform' || !q.choices.length;
 /** The prompt is a whole sentence (shown smaller than a single word). */
-export const isSentence = (q: { type: HomeworkType }) => q.type === 'blank' || q.type === 'tense' || q.type === 'tenseChoice';
+export const isSentence = (q: { type: HomeworkType }) => q.type === 'blank' || q.type === 'tense' || q.type === 'tenseChoice' || q.type === 'wordform';

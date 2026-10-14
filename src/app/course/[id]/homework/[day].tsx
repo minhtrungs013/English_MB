@@ -13,7 +13,7 @@ import { errMsg, useStore, useTheme } from '../../../../state/store';
 
 type Phase = 'intro' | 'loading' | 'quiz' | 'sending' | 'result';
 
-const TYPE_LABEL: Record<HomeworkQuestion['type'], string> = { meaning: 'Meaning', word: 'Word', type: 'Spelling', blank: 'Sentence', tense: 'Tense', tenseChoice: 'Tense', dictation: 'Dictation' };
+const TYPE_LABEL: Record<HomeworkQuestion['type'], string> = { meaning: 'Meaning', word: 'Word', type: 'Spelling', blank: 'Sentence', tense: 'Tense', tenseChoice: 'Tense', dictation: 'Dictation', wordform: 'Word form' };
 
 export default function HomeworkScreen() {
   const { id, day: dayParam, flow } = useLocalSearchParams<{ id: string; day: string; flow?: string }>();
@@ -202,7 +202,7 @@ export default function HomeworkScreen() {
                     {r.review ? <Badge label="Review" bg={t.infoSoft} fg={t.info} /> : null}
                   </View>
                   <T weight="bold">{r.prompt}</T>
-                  {r.hint ? <T size={13} tone="muted">{r.hint}</T> : null}
+                  {r.hint ? <T size={13} tone="muted">{r.type === 'wordform' ? '(' + r.hint + ')' : r.hint}</T> : null}
                   <View style={{ borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, backgroundColor: r.correct ? t.successSoft : t.dangerSoft }}>
                     <T size={13.5} weight="semibold" style={{ color: fg }}>Your answer: {r.yourAnswer || '— (empty)'}</T>
                   </View>
@@ -254,7 +254,7 @@ export default function HomeworkScreen() {
               <T size={13} weight="extrabold" tone="muted" style={{ textTransform: 'uppercase', letterSpacing: 0.8, flex: 1 }}>Question {i + 1} of {n}</T>
               {q.review ? <Badge label="Review" bg={t.infoSoft} fg={t.info} /> : null}
             </View>
-            <T size={14} weight="bold" tone="muted">{ASK[q.type] ?? ''}</T>
+            <T size={14} weight="bold" tone="muted">{ASK[q.type] ?? ''}{q.type === 'wordform' && q.hint ? ' (' + q.hint + ')' : ''}</T>
             {dictation ? (
               <View style={{ gap: 10 }}>
                 <PlayButtons big what="the sentence" onPlay={(f) => playDictation(i, f)} />
@@ -269,7 +269,7 @@ export default function HomeworkScreen() {
                 {q.type === 'meaning' ? <IconButton name="volume" label={'Play ' + q.prompt} color={t.primaryInk} onPress={() => speak(q.prompt)} /> : null}
               </View>
             )}
-            {q.hint && !dictation ? <T size={13.5} tone="muted">{q.type === 'meaning' ? q.hint : 'Hint: ' + q.hint}</T> : null}
+            {q.hint && !dictation && q.type !== 'wordform' ? <T size={13.5} tone="muted">{q.type === 'meaning' ? q.hint : 'Hint: ' + q.hint}</T> : null}
 
             {dictation ? (
               <Input key={i} value={a} onChangeText={setA} placeholder="Type what you hear…" multiline maxLength={MAX_TYPED}

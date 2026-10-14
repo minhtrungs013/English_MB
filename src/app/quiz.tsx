@@ -2,14 +2,16 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Button, Card, EmptyState, Icon, IconButton, Input, T } from '../components/ui';
+import { Badge, Button, Card, EmptyState, Icon, IconButton, Input, T } from '../components/ui';
 import { cap1, low1, shuffle, type Word } from '../lib/data';
 import { speak, stopSpeaking } from '../lib/speech';
+import { isWordformCorrect, pickWordform, type WordformQuestion } from '../lib/wordform';
 import { useStore, useTheme } from '../state/store';
 
-type Mode = 'mc' | 'fill' | 'trans' | 'listen';
-interface Q { id: string; opts?: string[]; ans?: number; before?: string; after?: string; answer: string }
-const TITLES: Record<Mode, string> = { mc: 'Multiple Choice', fill: 'Fill in the Blank', trans: 'Translation', listen: 'Listening' };
+type Mode = 'mc' | 'fill' | 'trans' | 'listen' | 'wordform';
+interface Q { id: string; opts?: string[]; ans?: number; before?: string; after?: string; answer: string; wf?: WordformQuestion }
+const TITLES: Record<Mode, string> = { mc: 'Multiple Choice', fill: 'Fill in the Blank', trans: 'Translation', listen: 'Listening', wordform: 'Word forms' };
+const MODES: Mode[] = ['mc', 'fill', 'trans', 'listen', 'wordform'];
 
 function makeQuestions(mode: Mode, ws: Word[]): Q[] {
   if (mode === 'mc') {
@@ -26,13 +28,20 @@ function makeQuestions(mode: Mode, ws: Word[]): Q[] {
       return { id: w.id, before: w.ex.slice(0, k), after: w.ex.slice(k + w.word.length), answer: w.word };
     });
   }
+  if (mode === 'wordform') {
+    // One question per word (a random usable member of its family).
+    return shuffle(ws).flatMap((w) => {
+      const wf = pickWordform(w.family);
+      return wf ? [{ id: w.id, answer: wf.answer, wf }] : [];
+    }).slice(0, 10);
+  }
   if (mode === 'trans') return shuffle(ws.filter((w) => w.vi)).slice(0, 10).map((w) => ({ id: w.id, answer: w.word }));
   return shuffle(ws).slice(0, 10).map((w) => ({ id: w.id, answer: w.word }));
 }
 
 export default function Quiz() {
   const params = useLocalSearchParams<{ mode?: string }>();
-  const mode = (['mc', 'fill', 'trans', 'listen'].includes(params.mode ?? '') ? params.mode : 'mc') as Mode;
+  const mode = (MODES.includes(params.mode as Mode) ? params.mode : 'mc') as Mode;
   const { data } = useStore();
   const t = useTheme();
   const insets = useSafeAreaInsets();
@@ -64,7 +73,7 @@ export default function Quiz() {
   };
   const check = (skip: boolean) => {
     if (checked || !q || (!skip && !input.trim())) return;
-    const ok = !skip && input.trim().toLowerCase() === q.answer.toLowerCase();
+    const ok = !skip && (q.wf ? isWordformCorrect(input, q.wf) : input.trim().toLowerCase() === q.answer.toLowerCase());
     setChecked(true); setCorrect(ok); if (ok) setScore((s) => s + 1);
   };
   const next = () => {
@@ -91,7 +100,7 @@ export default function Quiz() {
         {bar}
         <View style={{ flex: 1, justifyContent: 'center', padding: 16 }}>
           <Card>
-            <EmptyState icon="alert" title="Not enough words yet" text={mode === 'mc' ? 'Multiple choice needs at least 4 words with meanings.' : 'Save a few more words with examples and translations first.'}>
+            <EmptyState icon="alert" title="Not enough words yet" text={mode === 'mc' ? 'Multiple choice needs at least 4 words with meanings.' : mode === 'wordform' ? 'Save words that have a word family first (look for “+N forms”).' : 'Save a few more words with examples and translations first.'}>
               <Button title="Browse the Library" icon="globe" onPress={() => router.replace('/library')} />
             </EmptyState>
           </Card>
@@ -126,14 +135,22 @@ export default function Quiz() {
     );
   }
 
-  const explain = w?.meaning ? '“' + cap1(q.answer) + '” means ' + low1(w.meaning.replace(/\.$/, '')) + '.' : '';
+  const explain = mode !== 'wordform' && w?.meaning ? '“' + cap1(q.answer) + '” means ' + low1(w.meaning.replace(/\.$/, '')) + '.' : '';
   const feedback = checked ? (
     <View style={{ borderRadius: 14, padding: 16, gap: 6, backgroundColor: correct ? t.successSoft : t.dangerSoft }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         <Icon name={correct ? 'checkc' : 'alert'} size={20} color={correct ? t.success : t.danger} />
         <T size={16} weight="extrabold" style={{ color: correct ? t.success : t.danger }}>{correct ? 'Correct!' : mode === 'mc' ? 'Not quite' : 'Not quite — the answer is'}</T>
       </View>
-      {mode !== 'mc' ? (
+      {q.wf ? (
+        <View style={{ gap: 6 }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', gap: 8 }}>
+            <T size={20} weight="extrabold">{q.answer}</T>
+            <T tone="muted">({q.wf.pos}){q.wf.vi ? ' · ' + q.wf.vi : ''}</T>
+          </View>
+          <T size={14} weight="semibold">{q.wf.familyLine}</T>
+        </View>
+      ) : mode !== 'mc' ? (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', gap: 8 }}>
           <T size={20} weight="extrabold">{q.answer}</T>
           <T ipa tone="muted">{w?.ipa}</T>
@@ -180,6 +197,17 @@ export default function Quiz() {
                 {q.before}<T size={21} weight="extrabold" tone="primaryInk" style={{ textDecorationLine: 'underline' }}>{checked ? q.answer : ' ______ '}</T>{q.after}
               </T>
               <T size={13.5} tone="muted">Hint: {w?.pos} · {w?.vi}</T>
+            </>
+          )}
+          {q.wf && (
+            <>
+              <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                <T size={13.5} weight="bold" tone="muted">Use the right form of the word</T>
+                <Badge label={q.wf.pos} bg={t.primarySoft} fg={t.primaryInk} />
+              </View>
+              <View accessible accessibilityLabel={(checked ? q.wf.prompt.replace('___', q.answer) : q.wf.prompt.replace('___', 'blank')) + ', ' + q.wf.pos}>
+                <T size={21} weight="extrabold" style={{ lineHeight: 32 }}>{checked ? q.wf.prompt.replace('___', q.answer) : q.wf.prompt}</T>
+              </View>
             </>
           )}
           {mode === 'trans' && (
