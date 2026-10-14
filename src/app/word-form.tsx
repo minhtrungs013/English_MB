@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cleanFamily, famPos, FamilyEditor } from '../components/family';
 import { BackBar, Button, Card, Chip, Field, Icon, Input, LevelBadge, T, TopicBadge } from '../components/ui';
 import { api, ApiError, type LibraryWord } from '../lib/api';
+import { takeWordDraft } from '../lib/chat';
 import { FAMILY_MAX, LEVELS, POS_LIST, type FamilyMember, type Level } from '../lib/data';
 import { errMsg, useStore, useTheme } from '../state/store';
 
@@ -31,20 +32,22 @@ export default function WordForm() {
   const t = useTheme();
   const insets = useSafeAreaInsets();
   const editing = id ? data.words.find((w) => w.id === id) : undefined;
+  // Opened from a chat word card: start with the card's data (still editable before saving).
+  const [draft] = useState(() => (editing ? null : takeWordDraft()));
 
-  const [word, setWord] = useState(editing?.word ?? '');
-  const [ipa, setIpa] = useState(editing?.ipa ?? '');
-  const [pos, setPos] = useState(editing?.pos ?? 'Noun');
-  const [meaning, setMeaning] = useState(editing?.meaning ?? '');
-  const [vi, setVi] = useState(editing?.vi ?? '');
-  const [ex, setEx] = useState(editing?.ex ?? '');
+  const [word, setWord] = useState(editing?.word ?? draft?.word ?? '');
+  const [ipa, setIpa] = useState(editing?.ipa ?? draft?.ipa ?? '');
+  const [pos, setPos] = useState(editing?.pos ?? (draft?.pos || 'Noun'));
+  const [meaning, setMeaning] = useState(editing?.meaning ?? draft?.meaning ?? '');
+  const [vi, setVi] = useState(editing?.vi ?? draft?.vi ?? '');
+  const [ex, setEx] = useState(editing?.ex ?? draft?.ex ?? '');
   const [syn, setSyn] = useState((editing?.syn ?? []).join(', '));
   const [ant, setAnt] = useState((editing?.ant ?? []).join(', '));
-  const [level, setLevel] = useState<Level>(editing?.level ?? 'B1');
+  const [level, setLevel] = useState<Level>(editing?.level ?? (draft?.level || 'B1'));
   const [tags, setTags] = useState<string[]>(editing?.tags ?? []);
   const [cat, setCat] = useState(editing?.cat ?? '');
   const [notes, setNotes] = useState(editing?.notes ?? '');
-  const [family, setFamily] = useState<FamilyMember[]>(editing?.family ?? []);
+  const [family, setFamily] = useState<FamilyMember[]>(editing?.family ?? draft?.family ?? []);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   const [looking, setLooking] = useState(false);

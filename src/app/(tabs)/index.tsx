@@ -40,12 +40,12 @@ function NotificationBell({ unread }: { unread: number }) {
   );
 }
 
-/** Round search button in the bottom-right corner of Home; focuses the search box at the top. */
+/** Round search button bottom-right on Home (stacked above the chat button); focuses the search box at the top. */
 function SearchBubble({ onPress }: { onPress: () => void }) {
   const t = useTheme();
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel="Search my words and the library"
-      style={({ pressed }) => ({ position: 'absolute', right: 16, bottom: 16, width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center',
+      style={({ pressed }) => ({ position: 'absolute', right: 16, bottom: 16 + 56 + 12, width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center',
         backgroundColor: pressed ? t.primaryHover : t.primary, elevation: 6, shadowColor: t.primary, shadowOpacity: 0.35, shadowRadius: 10, shadowOffset: { width: 0, height: 6 } })}>
       <Icon name="search" size={24} color="#fff" />
     </Pressable>
@@ -210,7 +210,7 @@ export default function Home() {
     <Screen
       title="Home"
       below={<HomeSearch inputRef={searchRef} />}
-      bottomPad={96}
+      bottomPad={168}
       overlay={<SearchBubble onPress={() => searchRef.current?.focus()} />}
       right={
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>

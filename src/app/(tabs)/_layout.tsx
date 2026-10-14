@@ -46,13 +46,29 @@ function BottomBar({ state, navigation }: BarProps) {
   );
 }
 
+/** Round chat button bottom-right on every tab, just above the tab bar; opens the study assistant. */
+function ChatBubble() {
+  const t = useTheme();
+  const insets = useSafeAreaInsets();
+  return (
+    <Pressable onPress={() => router.push('/chat')} accessibilityRole="button" accessibilityLabel="Mở trợ lý học tiếng Anh"
+      style={({ pressed }) => ({ position: 'absolute', right: 16, bottom: 68 + insets.bottom + 16, width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center',
+        backgroundColor: pressed ? t.primaryHover : t.primary, elevation: 6, shadowColor: t.primary, shadowOpacity: 0.35, shadowRadius: 10, shadowOffset: { width: 0, height: 6 } })}>
+      <Icon name="chat" size={24} color="#fff" />
+    </Pressable>
+  );
+}
+
 export default function TabsLayout() {
   return (
-    <Tabs screenOptions={{ headerShown: false }} tabBar={(props) => <BottomBar {...(props as unknown as BarProps)} />}>
-      <Tabs.Screen name="index" />
-      <Tabs.Screen name="library" />
-      <Tabs.Screen name="words" />
-      <Tabs.Screen name="practice" />
-    </Tabs>
+    <View style={{ flex: 1 }}>
+      <Tabs screenOptions={{ headerShown: false }} tabBar={(props) => <BottomBar {...(props as unknown as BarProps)} />}>
+        <Tabs.Screen name="index" />
+        <Tabs.Screen name="library" />
+        <Tabs.Screen name="words" />
+        <Tabs.Screen name="practice" />
+      </Tabs>
+      <ChatBubble />
+    </View>
   );
 }

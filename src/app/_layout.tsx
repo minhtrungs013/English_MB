@@ -95,6 +95,7 @@ function Root({ fontsReady }: { fontsReady: boolean }) {
           <Stack.Screen name="settings/notifications" />
           <Stack.Screen name="settings/voice" />
           <Stack.Screen name="notifications" />
+          <Stack.Screen name="chat" options={{ animation: 'slide_from_bottom' }} />
           <Stack.Screen name="categories" />
           <Stack.Screen name="tags" />
           <Stack.Screen name="courses" />
