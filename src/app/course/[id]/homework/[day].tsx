@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, BackHandler, KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ASK, fmtDuration, isSentence, isTyped, Progress, scoreColors, TenseNote } from '../../../../components/course';
+import { SentenceGrammar } from '../../../../components/sentence-grammar';
 import { BackBar, Badge, Button, Card, EmptyState, Icon, IconButton, IconTile, Input, SectionTitle, T } from '../../../../components/ui';
 import { api, ApiError, type CourseDetail, type Homework, type HomeworkQuestion, type HomeworkResult } from '../../../../lib/api';
 import { speak, stopSpeaking } from '../../../../lib/speech';
@@ -215,6 +216,7 @@ export default function HomeworkScreen() {
                 </View>
                 {/* Outside the summary above, so screen readers can reach it. */}
                 <LearnTenseLink tense={r.tense} />
+                <SentenceGrammar g={r.grammar} />
               </View>
             );
           })}

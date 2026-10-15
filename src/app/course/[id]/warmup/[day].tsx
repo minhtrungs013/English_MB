@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ASK, isCorrect, isSentence, isTyped, Progress, scoreColors, TenseNote } from '../../../../components/course';
+import { SentenceGrammar } from '../../../../components/sentence-grammar';
 import { LearnTenseLink } from '../../../../components/grammar';
 import { BackBar, Badge, Button, Card, EmptyState, Icon, IconButton, IconTile, Input, SectionTitle, T } from '../../../../components/ui';
 import { api, type Warmup } from '../../../../lib/api';
@@ -144,6 +145,7 @@ export default function WarmupScreen() {
                 </View>
                 <TenseNote label={q.tenseLabel} explain={q.explain} />
                 <LearnTenseLink tense={q.tense} />
+                <SentenceGrammar g={q.grammar} practice={false} />
               </View>
             ) : null}
           </Card>
@@ -193,6 +195,7 @@ export default function WarmupScreen() {
               </View>
               {/* Outside the summary above, so screen readers can reach it. */}
               <LearnTenseLink tense={q.tense} />
+              <SentenceGrammar g={q.grammar} practice={false} />
             </View>
           ))}
         </ScrollView>

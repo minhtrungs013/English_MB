@@ -225,6 +225,8 @@ export interface HomeworkReviewItem extends HomeworkQuestion {
   yourAnswer: string; answer: string; correct: boolean;
   /** Tense questions only. */
   tense?: string; tenseLabel?: string; explain?: string;
+  /** The sentence's grammar (answer in place), or null for questions without a sentence. */
+  grammar?: GrammarView | null;
   /** Dictation only: the word-by-word grade of yourAnswer against `answer` (the sentence). */
   grade?: DictationGrade;
 }
@@ -244,10 +246,20 @@ export interface Homework {
   questions: HomeworkQuestion[];
   submission: HomeworkResult | null;
 }
+/** A sentence's grammar: tense, formula and lesson from the grammar lessons; parts/explain from storage when analysed ('full'). */
+export interface GrammarView {
+  text: string; tense: string;
+  lesson: { id: string; name: string; vi: string } | null;
+  formula: string; signals: string[];
+  parts: { text: string; role: 'S' | 'V' | 'O' | 'C' | 'time' | 'place' | 'adv' | 'clause' | 'other' }[];
+  explain: string; notes: { on: string; text: string }[];
+  level: 'full' | 'basic';
+}
 /* ---------- warm-up (learner, not graded) ---------- */
 export interface WarmupQuestion {
   type: HomeworkType; word: string; prompt: string; hint: string; choices: string[];
   answer: string; accept: string[]; tense: string; tenseLabel: string; explain: string;
+  grammar?: GrammarView | null;
 }
 export interface Warmup {
   day: number;
@@ -501,6 +513,8 @@ export const api = {
   /** Practice before the homework. Not graded: answers are included and checked on the device. */
   getWarmup: (id: string, day: number) => req<Warmup>('GET', '/courses/' + id + '/days/' + day + '/warmup'),
   /** Marks a day's warm-up as done: with the practice result when finished, without one when skipped. */
+  /** The grammar of a day's example sentences (Learn step). */
+  courseGrammar: (id: string, day: number) => req<{ items: { word: string; ex: string; grammar: GrammarView }[] }>('GET', '/courses/' + id + '/days/' + day + '/grammar'),
   warmupDone: (id: string, day: number, result?: { correct: number; total: number }) =>
     req<{ warmedUp: number[] }>('POST', '/courses/' + id + '/days/' + day + '/warmup/done', result ?? {}),
   /** The day's listening dialogue, or `dialogue: null` when the owner hasn't added one. */

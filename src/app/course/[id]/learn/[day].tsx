@@ -6,9 +6,10 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { isCorrect, normAnswer, Progress, SaveCourseWord, scoreColors } from '../../../../components/course';
+import { SentenceGrammar } from '../../../../components/sentence-grammar';
 import { WordFamily } from '../../../../components/family';
 import { BackBar, Badge, Button, Card, EmptyState, Icon, IconButton, Input, LevelBadge, PosBadge, SectionTitle, T } from '../../../../components/ui';
-import { api, type CourseDetail, type CourseWord } from '../../../../lib/api';
+import { api, type CourseDetail, type CourseWord, type GrammarView } from '../../../../lib/api';
 import { shuffle } from '../../../../lib/data';
 import { speak, stopSpeaking } from '../../../../lib/speech';
 import { DayStepper, FlowNext, useDayFlow } from '../../../../components/day-flow';
@@ -115,6 +116,13 @@ export default function LearnDayScreen() {
   const [res, setRes] = useState<{ answer: string; correct: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const [savingAll, setSavingAll] = useState(false);
+  // The grammar of the day's example sentences, by word; fails silently (no Grammar buttons).
+  const [grammar, setGrammar] = useState<Map<string, GrammarView>>(() => new Map());
+  useEffect(() => {
+    let alive = true;
+    api.courseGrammar(id, day).then((r) => { if (alive) setGrammar(new Map(r.items.map((x) => [x.word.toLowerCase(), x.grammar]))); }).catch(() => { /* optional */ });
+    return () => { alive = false; };
+  }, [id, day]);
   /** Opened from the Today plan: part of the guided day flow. */
   const inFlow = flow === '1';
   const dayFlow = useDayFlow(id, day, inFlow);
@@ -306,6 +314,7 @@ export default function LearnDayScreen() {
                     <IconButton name="volume" label="Play the example" color={t.primaryInk} onPress={() => speak(w.ex, 0.95)} />
                   </View>
                 ) : null}
+                {w.ex ? <SentenceGrammar g={grammar.get(w.word.toLowerCase())} practice={false} /> : null}
                 <WordFamily word={w.word} family={w.family} compact />
                 <SaveCourseWord courseId={c.id} day={day} word={w.word} canSave={open} style={{ alignSelf: 'center', marginTop: 4 }} />
               </Card>
