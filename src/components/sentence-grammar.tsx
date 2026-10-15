@@ -55,11 +55,17 @@ export function SentenceGrammar({ g, practice = true }: { g: GrammarView | null 
               <Icon name="clock" size={16} color={t.primaryInk} />
               <T size={16} weight="extrabold" tone="primaryInk">{g.lesson.name}</T>
               <T size={14} weight="semibold" tone="muted">{g.lesson.vi}</T>
+              {g.label ? <T size={14} weight="semibold" tone="muted">· {g.label}</T> : null}
               {g.level === 'basic' ? (
                 <View style={{ marginLeft: 'auto', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, borderWidth: 1, borderColor: t.border }} accessibilityLabel="Found from the sentence pattern">
                   <T size={10.5} weight="extrabold" tone="faint" style={{ letterSpacing: 0.5 }}>AUTO</T>
                 </View>
               ) : null}
+            </View>
+          ) : g.label ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Icon name="type" size={16} color={t.primaryInk} />
+              <T size={16} weight="extrabold" tone="primaryInk" style={{ flex: 1 }}>{g.label}</T>
             </View>
           ) : null}
 
