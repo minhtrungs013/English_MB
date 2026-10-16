@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
 import { dialogueBlankCount, Progress, TenseNote } from '../../../../components/course';
@@ -63,7 +63,7 @@ function DialogueCard({ q, busy, onStatus, onPreview, onDelete }: {
     </View>
   );
 }
-const SOURCE_LABEL: Record<BankItem['source'], string> = { ai: 'AI', template: 'Template', manual: 'Written by you' };
+const SOURCE_LABEL: Record<BankItem['source'], string> = { ai: 'AI', template: 'Template', manual: 'Written by you', bank: 'Sentence bank' };
 const GROUPS: { status: BankStatus; title: string }[] = [
   { status: 'pending', title: 'Waiting for review' },
   { status: 'approved', title: 'Approved' },
@@ -175,6 +175,12 @@ export default function CourseQuestions() {
     const res = await api.courseQuestions(id, day);
     setItems(res);
   }, [id, day]);
+  // Back from the sentence bank picker: show the questions it added.
+  const back = useRef(false);
+  useFocusEffect(useCallback(() => {
+    if (back.current) void reload().catch(() => { /* keep the list */ });
+    back.current = true;
+  }, [reload]));
 
   useEffect(() => {
     let live = true;
@@ -404,6 +410,15 @@ export default function CourseQuestions() {
             </>
           )}
         </Card>
+
+        {words.length ? (
+          <Card style={{ gap: 10 }}>
+            <T size={16.5} weight="extrabold">Sentence bank</T>
+            <T size={13.5} tone="muted">Checked example sentences for {words.map((w) => w.word).join(', ')}. Pick the ones you like; they become approved tense questions.</T>
+            <Button title="Pick from sentence bank" icon="layers" variant="secondary"
+              onPress={() => router.push({ pathname: '/course-edit/[id]/sentence-bank/[day]', params: { id, day: String(day) } })} />
+          </Card>
+        ) : null}
 
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <Button title="Add question" icon="plus" variant="secondary" onPress={() => openForm({ kind: 'add' })} style={{ flex: 1 }} />

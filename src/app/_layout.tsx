@@ -110,6 +110,7 @@ function Root({ fontsReady }: { fontsReady: boolean }) {
           <Stack.Screen name="course/[id]/member/[userId]" />
           <Stack.Screen name="course-edit/[id]/index" />
           <Stack.Screen name="course-edit/[id]/questions/[day]" />
+          <Stack.Screen name="course-edit/[id]/sentence-bank/[day]" options={{ animation: 'slide_from_bottom' }} />
           <Stack.Screen name="grammar/index" />
           <Stack.Screen name="grammar/[tense]" />
           <Stack.Screen name="grammar/practice" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />

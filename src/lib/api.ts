@@ -200,10 +200,14 @@ export interface BankItem {
   /** '' for recaps. */
   tense: Tense | ''; tenseLabel: string;
   prompt: string; choices: string[]; answer: string; accept: string[]; explain: string;
-  source: 'ai' | 'template' | 'manual'; status: BankStatus;
+  source: 'ai' | 'template' | 'manual' | 'bank'; status: BankStatus;
   /** Dialogues only. */
   data?: Dialogue;
 }
+/** A sentence of the word sentence bank, as the owner sees it when picking questions. used: already one of this course's questions · canAsk: can be a tense question (typed); canChoose: also multiple choice. */
+export interface BankSentence { id: string; sentence: string; verb: string; tense: Tense | ''; tenseLabel: string; context: string; level: string; used: boolean; canAsk: boolean; canChoose: boolean }
+/** has: tenses this word already has questions in, in this course. */
+export interface BankWord { word: string; has: Tense[]; sentences: BankSentence[] }
 export interface BankItemInput { kind: BankKind; word?: string; tense?: Tense | ''; prompt: string; choices?: string[]; answer?: string; accept?: string[]; explain?: string }
 export interface GenerateDialogueResult { quota: Quota; items: BankItem[] }
 export interface GenerateResult { source: 'ai' | 'template'; added: number; quota: Quota; items: BankItem[] }
@@ -527,6 +531,11 @@ export const api = {
 
   /* question bank (owner) */
   courseQuestions: (id: string, day: number) => req<BankItem[]>('GET', '/courses/' + id + '/questions?day=' + day),
+  /** The word sentence bank's sentences for a day's words (owner). */
+  bankSentences: (id: string, day: number) => req<{ words: BankWord[] }>('GET', '/courses/' + id + '/days/' + day + '/sentence-bank'),
+  /** Turn picked bank sentences into the day's questions (approved). */
+  addFromBank: (id: string, day: number, items: { id: string; kind: 'tense' | 'tenseChoice' }[]) =>
+    req<{ added: number; skipped: number; items: BankItem[] }>('POST', '/courses/' + id + '/days/' + day + '/sentence-bank', { items }),
   /** Can take 10–40 s. New items wait for approval. */
   generateQuestions: (id: string, day: number, opts: { tenses?: Tense[]; perWord?: number }) =>
     req<GenerateResult>('POST', '/courses/' + id + '/days/' + day + '/questions/generate', opts),
