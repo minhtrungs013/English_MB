@@ -86,8 +86,10 @@ function CreateSheet({ visible, onClose }: { visible: boolean; onClose: () => vo
 }
 
 export default function Courses() {
-  const { actions } = useStore();
+  const { data, actions } = useStore();
   const t = useTheme();
+  // Only admins create and manage courses; everyone else follows them.
+  const admin = data.role === 'admin';
   const [lists, setLists] = useState<Lists | null>(null);
   const [err, setErr] = useState('');
   const [refreshing, setRefreshing] = useState(false);
@@ -97,13 +99,13 @@ export default function Courses() {
 
   const load = useCallback(async () => {
     try {
-      const [joined, mine, pub] = await Promise.all([api.courses('joined'), api.courses('mine'), api.courses('public')]);
+      const [joined, mine, pub] = await Promise.all([api.courses('joined'), admin ? api.courses('mine') : Promise.resolve([]), api.courses('public')]);
       setLists({ joined, mine, pub });
       setErr('');
     } catch (e) {
       setErr(errMsg(e));
     }
-  }, []);
+  }, [admin]);
   useFocusEffect(useCallback(() => { void load(); }, [load]));
   const refresh = async () => { setRefreshing(true); await load(); setRefreshing(false); };
 
@@ -128,7 +130,7 @@ export default function Courses() {
 
   return (
     <View style={{ flex: 1, backgroundColor: t.bg }}>
-      <BackBar title="Courses" right={<IconButton name="plus" label="Create course" color={t.primaryInk} onPress={() => setCreating(true)} />} />
+      <BackBar title="Courses" right={admin ? <IconButton name="plus" label="Create course" color={t.primaryInk} onPress={() => setCreating(true)} /> : undefined} />
       <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 0, gap: 12, paddingBottom: 32 }} keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={t.primary} colors={[t.primary]} />}>
         <T tone="muted">Learn a few new words every day for 30 days.</T>
@@ -157,14 +159,18 @@ export default function Courses() {
               <Card><T tone="muted">You haven’t joined a course yet. Pick one from Explore, or ask a friend for their join code.</T></Card>
             )}
 
-            <SectionTitle style={{ marginTop: 8 }}>My courses</SectionTitle>
-            {mine.length ? mine.map((c) => <CourseCard key={c.id} c={c} />) : lists.mine.length ? (
-              <Card><T tone="muted">Your courses are listed under Learning.</T></Card>
-            ) : (
-              <EmptyState icon="cap" title="Make your own course" text="Pick a few words for each of 30 days, then share the join code with friends or your team.">
-                <Button title="Create Course" icon="plus" onPress={() => setCreating(true)} />
-              </EmptyState>
-            )}
+            {admin ? (
+              <>
+                <SectionTitle style={{ marginTop: 8 }}>My courses</SectionTitle>
+                {mine.length ? mine.map((c) => <CourseCard key={c.id} c={c} />) : lists.mine.length ? (
+                  <Card><T tone="muted">Your courses are listed under Learning.</T></Card>
+                ) : (
+                  <EmptyState icon="cap" title="Make a course" text="Pick a few words for each of 30 days, then share the join code. All courses are also in the Admin page on the web.">
+                    <Button title="Create Course" icon="plus" onPress={() => setCreating(true)} />
+                  </EmptyState>
+                )}
+              </>
+            ) : null}
 
             <SectionTitle style={{ marginTop: 8 }}>Explore</SectionTitle>
             {explore.length ? explore.map((c) => <CourseCard key={c.id} c={c} />) : (
@@ -173,7 +179,7 @@ export default function Courses() {
           </>
         )}
       </ScrollView>
-      <CreateSheet visible={creating} onClose={() => setCreating(false)} />
+      {admin ? <CreateSheet visible={creating} onClose={() => setCreating(false)} /> : null}
     </View>
   );
 }
