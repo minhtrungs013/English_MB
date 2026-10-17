@@ -274,18 +274,35 @@ export default function ListeningScreen() {
 
   const toggle = (label: string, on: boolean, onPress: () => void) => (
     <Pressable onPress={onPress} accessibilityRole="switch" accessibilityLabel={label} accessibilityState={{ checked: on }}
-      style={({ pressed }) => ({ flex: 1, minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1,
+      style={({ pressed }) => ({ minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 10, paddingRight: 14, borderRadius: 99, borderWidth: 1,
         borderColor: on ? t.primary : t.border, backgroundColor: on ? t.primarySoft : pressed ? t.surface2 : t.surface })}>
-      <Icon name={on ? 'eye' : 'eyeOff'} size={16} color={on ? t.primaryInk : t.muted} />
+      <View style={{ width: 30, height: 18, borderRadius: 9, padding: 2, backgroundColor: on ? t.primary : t.surface3, alignItems: on ? 'flex-end' : 'flex-start' }}>
+        <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: '#fff' }} />
+      </View>
       <T size={13.5} weight="bold" style={{ color: on ? t.primaryInk : t.muted }}>{label}</T>
     </Pressable>
   );
 
+  /** Speaker colours: the first speaker in the primary colour, the second in orange (as on the web). */
+  const tint = (sp: number) => (sp === 1 ? { fg: t.orange, soft: t.orangeSoft } : { fg: t.primary, soft: t.primarySoft });
   const player = (
-    <Card style={{ gap: 10, padding: 14 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <Button title={playing ? 'Stop' : 'Play all'} icon={playing ? 'x' : 'volume'} variant={playing ? 'secondary' : 'primary'} style={{ flex: 1 }}
-          accessibilityLabel={playing ? 'Stop playing' : 'Play the whole dialogue'} onPress={() => (playing ? stop() : play(0, true))} />
+    <Card style={{ gap: 12, padding: 14 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <Pressable onPress={() => (playing ? stop() : play(0, true))} accessibilityRole="button" accessibilityLabel={playing ? 'Stop playing' : 'Play the whole dialogue'}
+          style={({ pressed }) => ({ width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', backgroundColor: pressed ? t.primaryHover : t.primary,
+            elevation: 4, shadowColor: t.primary, shadowOpacity: 0.35, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } })}>
+          <Icon name={playing ? 'stop' : 'play'} size={22} color="#fff" />
+        </Pressable>
+        <View style={{ flex: 1, gap: 8 }}>
+          <T size={13} weight="bold" tone="muted">{current !== null ? 'Playing · line ' + (current + 1) + ' of ' + dlg.lines.length : 'Play all · ' + dlg.lines.length + ' lines'}</T>
+          <View style={{ flexDirection: 'row', gap: 3, height: 6 }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+            {dlg.lines.map((l, k) => (
+              <View key={k} style={{ flex: 1, borderRadius: 3, backgroundColor: current === k ? tint(l.s).fg : current !== null && k < current ? tint(l.s).fg + '99' : t.surface3 }} />
+            ))}
+          </View>
+        </View>
+      </View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 10 }}>
         <View accessibilityRole="radiogroup" accessibilityLabel="Speed" style={{ flexDirection: 'row', gap: 4, padding: 3, borderRadius: 12, backgroundColor: t.surface2 }}>
           {SPEEDS.map((s) => {
             const on = speed === s;
@@ -298,31 +315,39 @@ export default function ListeningScreen() {
           })}
         </View>
       </View>
-      <T size={12.5} tone="muted">{current !== null ? 'Playing line ' + (current + 1) + ' of ' + dlg.lines.length : 'Tap a line to hear it again.'}</T>
     </Card>
   );
 
   /* ---------- listen ---------- */
-  const listenLines = (
-    <View style={{ gap: 8 }}>
+  const listenLines = !showText ? (
+    <T size={13} tone="muted">Turn on Transcript to read along and replay single lines.</T>
+  ) : (
+    <View style={{ gap: 12 }}>
       {dlg.lines.map((l, i) => {
         const sp = speakerOf(l.s);
         const on = current === i;
+        const right = l.s === 1;
+        const c = tint(l.s);
         const text = lineText(l.text, checked);
         return (
-          <Pressable key={i} onPress={() => play(i, false)} accessibilityRole="button"
-            accessibilityLabel={'Line ' + (i + 1) + ', ' + sp.name + (showText ? ': ' + text.replace(/_____/g, 'blank') : '') + (showVi && l.vi ? '. ' + l.vi : '') + (on ? '. Playing' : '')}
-            accessibilityHint="Plays this line"
-            style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'flex-start', gap: 10, minHeight: 52, padding: 12, borderRadius: 14, borderWidth: on ? 1.5 : 1,
-              borderColor: on ? t.primary : t.border, backgroundColor: on ? t.primarySoft : pressed ? t.surface2 : t.surface })}>
-            {speakerBadge(l.s)}
-            <View style={{ flex: 1, gap: 3 }}>
-              <T size={12.5} weight="extrabold" tone={on ? 'primaryInk' : 'muted'}>{sp.name}{showText ? '' : ' · line ' + (i + 1)}</T>
-              {showText ? <T size={15.5}>{text}</T> : null}
-              {showVi && l.vi ? <T size={13.5} tone="muted" style={{ fontStyle: 'italic' }}>{l.vi}</T> : null}
+          <View key={i} style={{ flexDirection: right ? 'row-reverse' : 'row', alignItems: 'flex-end', gap: 8, maxWidth: '92%', alignSelf: right ? 'flex-end' : 'flex-start' }}>
+            <View style={{ width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: c.soft }}>
+              <T size={13} weight="extrabold" style={{ color: c.fg }}>{sp.name.charAt(0).toUpperCase()}</T>
             </View>
-            <View style={{ paddingTop: 4 }}><Icon name="volume" size={18} color={on ? t.primaryInk : t.faint} /></View>
-          </Pressable>
+            <Pressable onPress={() => play(i, false)} accessibilityRole="button"
+              accessibilityLabel={'Line ' + (i + 1) + ', ' + sp.name + ': ' + text.replace(/_____/g, 'blank') + (showVi && l.vi ? '. ' + l.vi : '') + (on ? '. Playing' : '')}
+              accessibilityHint="Plays this line"
+              style={({ pressed }) => ({ flexShrink: 1, gap: 4, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1.5,
+                borderTopLeftRadius: 18, borderTopRightRadius: 18, borderBottomLeftRadius: right ? 18 : 6, borderBottomRightRadius: right ? 6 : 18,
+                borderColor: on ? c.fg : 'transparent', backgroundColor: on ? c.soft : pressed ? t.surface3 : t.surface2 })}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                <T size={11.5} weight="extrabold" style={{ color: c.fg, textTransform: 'uppercase', letterSpacing: 0.4 }}>{sp.name}</T>
+                <Icon name={on ? 'volume' : 'play'} size={14} color={on ? c.fg : t.faint} />
+              </View>
+              <T size={15.5}>{text}</T>
+              {showVi && l.vi ? <T size={13.5} tone="muted">{l.vi}</T> : null}
+            </Pressable>
+          </View>
         );
       })}
     </View>
@@ -506,9 +531,9 @@ export default function ListeningScreen() {
       <>
         {header}
         {player}
-        <View style={{ flexDirection: 'row', gap: 8 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {toggle('Transcript', showText, () => setShowText(!showText))}
-          {toggle('Translation', showVi, () => setShowVi(!showVi))}
+          {toggle('Vietnamese', showVi, () => setShowVi(!showVi))}
         </View>
         {listenLines}
       </>
