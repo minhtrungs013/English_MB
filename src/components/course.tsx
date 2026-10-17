@@ -239,7 +239,7 @@ export function planNextLabel(p: CoursePlan): string {
 export function CourseCard({ c }: { c: CourseSummary }) {
   const t = useTheme();
   const e = c.enrollment;
-  const owner = c.isOwner ? 'You' : c.ownerName;
+  const owner = c.ownerName || 'Wordbook';
   const label = courseProgressLabel(c);
   const start = courseStartLabel(c);
   const upcoming = !!c.startDate && start.startsWith('Starts');

@@ -388,7 +388,7 @@ export default function CourseScreen() {
   const header = (
     <Card style={{ gap: 10 }}>
       <T size={22} weight="extrabold" style={{ letterSpacing: -0.4 }}>{c.title}</T>
-      <T size={13.5} tone="muted">by {c.isOwner ? 'You' : c.ownerName}</T>
+      <T size={13.5} tone="muted">by {c.ownerName || 'Wordbook'}</T>
       {c.description ? <T>{c.description}</T> : null}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
         <Badge label={c.readyDays + '/' + c.totalDays + ' days ready'} bg={t.surface2} fg={t.muted} />
