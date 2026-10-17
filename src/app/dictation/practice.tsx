@@ -93,6 +93,8 @@ export default function DictationPracticeScreen() {
   const playRun = useRef(0);
   /** My words, read when a round starts (editing a word doesn't restart the round). */
   const wordsRef = useRef(data.words);
+  /** From my words: question id → its bank sentence key, marked practised after checking. */
+  const keys = useRef(new Map<string, string>());
   useEffect(() => { wordsRef.current = data.words; }, [data.words]);
 
   const start = useCallback(async () => {
@@ -100,7 +102,14 @@ export default function DictationPracticeScreen() {
     try {
       let qs: DictationQuestion[];
       if (mine) {
-        qs = myWordsItems(wordsRef.current);
+        const r = await api.practiceSentences('dictation', DICTATION_N).catch(() => null);
+        keys.current = new Map();
+        const fromBank: DictationQuestion[] = (r?.items ?? []).map((x, k) => {
+          const id = MINE + ':' + k + ':' + x.wordId;
+          keys.current.set(id, x.key);
+          return { id, kind: 'line', level: 'easy', text: x.sentence, vi: x.word + (x.vi ? ' — ' + x.vi : '') };
+        });
+        qs = fromBank.length >= 3 ? fromBank : myWordsItems(wordsRef.current);
         if (!qs.length) throw new Error('Add words with example sentences first.');
       } else {
         const [p, list] = await Promise.all([api.dictationPractice(mode, mode === 'passages' ? 3 : DICTATION_N), api.dictation().catch(() => null)]);
@@ -167,6 +176,8 @@ export default function DictationPracticeScreen() {
         const res = await api.gradeDictation([{ text: q.text, typed: typed[0] ?? '' }]);
         const g = res.results[0];
         r = { passed: !!g?.passed && e.hints < 3, score: g?.score ?? 0, sentences: sentencesOf(q), grades: g ? [g] : [] };
+        const key = keys.current.get(q.id);
+        if (key) void api.practiceSeen([{ key, ok: r.passed }]).catch(() => undefined);
       } else {
         const res = await api.submitDictation([{
           id: q.id, ...(q.kind === 'passage' ? { typedSentences: typed } : { typed: typed[0] ?? '' }), plays: Math.min(50, e.plays), hints: e.hints

@@ -12,6 +12,7 @@ const MODES: [string, string, string, IconName, 'indigo' | 'green' | 'orange' | 
   ['fill', 'Fill in the Blank', 'Complete sentences with the missing word.', 'type', 'orange'],
   ['wordform', 'Word forms', 'Use the right form: decide → decision, decisive.', 'layers', 'indigo'],
   ['trans', 'Translation', 'Translate Vietnamese into English.', 'globe', 'blue'],
+  ['tense', 'Verb tenses', 'Put verbs in the right tense, in sentences with your words.', 'clock', 'amber'],
   ['listen', 'Listening', 'Hear a word and type what you hear.', 'volume', 'red'],
   ['dictation', 'Dictation', 'Listen to sentences and type them — Nghe – chép.', 'headphones', 'amber']
 ];

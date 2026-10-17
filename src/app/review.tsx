@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Card, EmptyState, Icon, IconButton, LevelBadge, PosBadge, T } from '../components/ui';
+import { api } from '../lib/api';
 import { shuffle, type Rating } from '../lib/data';
 import type { IconName } from '../lib/icons';
 import { speak, stopSpeaking } from '../lib/speech';
@@ -21,6 +22,16 @@ export default function Review() {
     params.mode === 'ids' ? (params.ids ?? '').split(',').filter(Boolean)
       : practice ? shuffle(data.words.map((w) => w.id)).slice(0, 20)
       : actions.dueIds());
+  /** Flashcards: this session's example sentence per word (from the sentence bank); the saved example otherwise. */
+  const [examples, setExamples] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (!practice || !queue.length) return;
+    let alive = true;
+    api.practiceSentences('flash', queue.length, queue)
+      .then((r) => { if (alive) setExamples(Object.fromEntries(r.items.map((x) => [x.wordId, x.sentence]))); })
+      .catch(() => { /* keep the saved examples */ });
+    return () => { alive = false; };
+  }, [practice, queue]);
   const [i, setI] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [again, setAgain] = useState(0);
@@ -140,9 +151,9 @@ export default function Review() {
                 <View style={{ width: 56, height: 3, borderRadius: 3, backgroundColor: t.surface3, marginVertical: 4 }} />
                 <T size={21} weight="extrabold" center>{word.vi}</T>
                 <T size={15} tone="muted" center>{word.meaning}</T>
-                {data.settings.showEx && word.ex ? (
+                {data.settings.showEx && (examples[word.id] || word.ex) ? (
                   <View style={{ backgroundColor: t.surface2, borderRadius: 12, padding: 14, alignSelf: 'stretch' }}>
-                    <T size={15} style={{ fontStyle: 'italic' }} center>“{word.ex}”</T>
+                    <T size={15} style={{ fontStyle: 'italic' }} center>“{examples[word.id] || word.ex}”</T>
                   </View>
                 ) : null}
               </>

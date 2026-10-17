@@ -1,17 +1,63 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SentenceGrammar } from '../components/sentence-grammar';
 import { Badge, Button, Card, EmptyState, Icon, IconButton, Input, T } from '../components/ui';
+import { api, type GrammarView } from '../lib/api';
 import { cap1, low1, shuffle, type Word } from '../lib/data';
 import { speak, stopSpeaking } from '../lib/speech';
 import { isWordformCorrect, pickWordform, type WordformQuestion } from '../lib/wordform';
 import { useStore, useTheme } from '../state/store';
 
-type Mode = 'mc' | 'fill' | 'trans' | 'listen' | 'wordform';
-interface Q { id: string; opts?: string[]; ans?: number; before?: string; after?: string; answer: string; wf?: WordformQuestion }
-const TITLES: Record<Mode, string> = { mc: 'Multiple Choice', fill: 'Fill in the Blank', trans: 'Translation', listen: 'Listening', wordform: 'Word forms' };
-const MODES: Mode[] = ['mc', 'fill', 'trans', 'listen', 'wordform'];
+type Mode = 'mc' | 'fill' | 'trans' | 'listen' | 'wordform' | 'tense';
+interface Q {
+  id: string; opts?: string[]; ans?: number; before?: string; after?: string; answer: string; wf?: WordformQuestion;
+  /** Sentence practice (fill / tense): the sentence's key (marked practised) and its grammar. */
+  key?: string; grammar?: GrammarView | null;
+  /** tense: the sentence with "___ (base)" and other accepted answers. */
+  prompt?: string; accept?: string[];
+}
+const TITLES: Record<Mode, string> = { mc: 'Multiple Choice', fill: 'Fill in the Blank', trans: 'Translation', listen: 'Listening', wordform: 'Word forms', tense: 'Verb tenses' };
+const MODES: Mode[] = ['mc', 'fill', 'trans', 'listen', 'wordform', 'tense'];
+const norm = (x: string) => x.toLowerCase().replace(/’/g, "'").replace(/\s+/g, ' ').trim();
+
+/**
+ * Fill in the blank and verb tenses use sentences from the server (the word sentence bank, fresh ones first);
+ * fill falls back to the words' own examples when the server can't help.
+ */
+async function loadSentenceQuestions(mode: 'fill' | 'tense', ws: Word[]): Promise<Q[]> {
+  const r = await api.practiceSentences(mode, 10).catch(() => null);
+  if (r && mode === 'fill') {
+    const qs = r.items.flatMap((x): Q[] => {
+      const k = x.form ? x.sentence.toLowerCase().indexOf(x.form.toLowerCase()) : -1;
+      return k < 0 ? [] : [{ id: x.wordId, before: x.sentence.slice(0, k), after: x.sentence.slice(k + x.form!.length), answer: x.sentence.slice(k, k + x.form!.length), key: x.key, grammar: x.grammar }];
+    });
+    if (qs.length) return qs;
+  }
+  if (r && mode === 'tense') {
+    return r.items.flatMap((x, i): Q[] => {
+      const q = x.question;
+      if (!q) return [];
+      // About half multiple choice (where the verb has choices), the rest typed.
+      const choice = q.choices.length === 4 && i % 2 === 1;
+      return [{ id: x.wordId, prompt: choice ? q.prompt.replace(/\s*\([^)]*\)/, '') : q.prompt, answer: q.answer, accept: q.accept, key: x.key, grammar: x.grammar,
+        ...(choice ? { opts: q.choices, ans: q.choices.indexOf(q.answer) } : {}) }];
+    });
+  }
+  return mode === 'fill' ? makeQuestions('fill', ws) : [];
+}
+
+/** "We ___ (fix) it" with the gap shown as a line, or filled after checking. */
+function Blanked({ prompt, fill }: { prompt: string; fill: string }) {
+  const m = /_{3,}/.exec(prompt);
+  if (!m) return <T size={21} weight="extrabold">{prompt}</T>;
+  return (
+    <T size={21} weight="extrabold" style={{ lineHeight: 32 }}>
+      {prompt.slice(0, m.index)}<T size={21} weight="extrabold" tone="primaryInk" style={{ textDecorationLine: 'underline' }}>{fill || ' ______ '}</T>{prompt.slice(m.index + m[0].length)}
+    </T>
+  );
+}
 
 function makeQuestions(mode: Mode, ws: Word[]): Q[] {
   if (mode === 'mc') {
@@ -45,7 +91,11 @@ export default function Quiz() {
   const { data } = useStore();
   const t = useTheme();
   const insets = useSafeAreaInsets();
-  const [qs, setQs] = useState<Q[]>(() => makeQuestions(mode, data.words));
+  const fromServer = mode === 'fill' || mode === 'tense';
+  const [qs, setQs] = useState<Q[] | null>(() => (fromServer ? null : makeQuestions(mode, data.words)));
+  const load = () => { if (fromServer) { setQs(null); void loadSentenceQuestions(mode, data.words).then(setQs); } else setQs(makeQuestions(mode, data.words)); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (fromServer) load(); }, []);
   const [i, setI] = useState(0);
   const [picked, setPicked] = useState<number | null>(null);
   const [input, setInput] = useState('');
@@ -54,8 +104,8 @@ export default function Quiz() {
   const [score, setScore] = useState(0);
   const [done, setDone] = useState(false);
 
-  const n = qs.length;
-  const q = qs[Math.min(i, Math.max(0, n - 1))];
+  const n = qs?.length ?? 0;
+  const q = qs?.[Math.min(i, Math.max(0, n - 1))];
   const w = q ? data.words.find((x) => x.id === q.id) : undefined;
 
   useEffect(() => {
@@ -70,17 +120,21 @@ export default function Quiz() {
     if (checked || !q) return;
     const ok = idx === q.ans;
     setPicked(idx); setChecked(true); setCorrect(ok); if (ok) setScore((s) => s + 1);
+    if (q.key) void api.practiceSeen([{ key: q.key, ok }]).catch(() => undefined);
   };
   const check = (skip: boolean) => {
     if (checked || !q || (!skip && !input.trim())) return;
-    const ok = !skip && (q.wf ? isWordformCorrect(input, q.wf) : input.trim().toLowerCase() === q.answer.toLowerCase());
+    const ok = !skip && (q.wf ? isWordformCorrect(input, q.wf)
+      : mode === 'tense' ? [q.answer, ...(q.accept ?? [])].some((x) => norm(x) === norm(input))
+      : input.trim().toLowerCase() === q.answer.toLowerCase());
     setChecked(true); setCorrect(ok); if (ok) setScore((s) => s + 1);
+    if (q.key) void api.practiceSeen([{ key: q.key, ok }]).catch(() => undefined);
   };
   const next = () => {
     if (i + 1 >= n) { setDone(true); return; }
     setI(i + 1); setPicked(null); setInput(''); setChecked(false); setCorrect(false);
   };
-  const again = () => { setQs(makeQuestions(mode, data.words)); setI(0); setPicked(null); setInput(''); setChecked(false); setCorrect(false); setScore(0); setDone(false); };
+  const again = () => { load(); setI(0); setPicked(null); setInput(''); setChecked(false); setCorrect(false); setScore(0); setDone(false); };
 
   const pct = done ? 100 : n ? Math.round(((i + (checked ? 1 : 0)) / n) * 100) : 0;
   const bar = (
@@ -94,13 +148,22 @@ export default function Quiz() {
     </View>
   );
 
-  if (!n) {
+  if (!qs) {
+    return (
+      <View style={{ flex: 1, backgroundColor: t.bg }}>
+        {bar}
+        <ActivityIndicator color={t.primary} style={{ marginTop: 60 }} />
+      </View>
+    );
+  }
+
+  if (!n || !q) {
     return (
       <View style={{ flex: 1, backgroundColor: t.bg }}>
         {bar}
         <View style={{ flex: 1, justifyContent: 'center', padding: 16 }}>
           <Card>
-            <EmptyState icon="alert" title="Not enough words yet" text={mode === 'mc' ? 'Multiple choice needs at least 4 words with meanings.' : mode === 'wordform' ? 'Save words that have a word family first (look for “+N forms”).' : 'Save a few more words with examples and translations first.'}>
+            <EmptyState icon="alert" title="Not enough words yet" text={mode === 'mc' ? 'Multiple choice needs at least 4 words with meanings.' : mode === 'tense' ? 'Save some words from the library first: their sentences make the tense questions.' : mode === 'wordform' ? 'Save words that have a word family first (look for “+N forms”).' : 'Save a few more words with examples and translations first.'}>
               <Button title="Browse the Library" icon="globe" onPress={() => router.replace('/library')} />
             </EmptyState>
           </Card>
@@ -135,7 +198,7 @@ export default function Quiz() {
     );
   }
 
-  const explain = mode !== 'wordform' && w?.meaning ? '“' + cap1(q.answer) + '” means ' + low1(w.meaning.replace(/\.$/, '')) + '.' : '';
+  const explain = mode !== 'wordform' && mode !== 'tense' && w?.meaning ? '“' + cap1(q.answer) + '” means ' + low1(w.meaning.replace(/\.$/, '')) + '.' : '';
   const feedback = checked ? (
     <View style={{ borderRadius: 14, padding: 16, gap: 6, backgroundColor: correct ? t.successSoft : t.dangerSoft }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -150,6 +213,8 @@ export default function Quiz() {
           </View>
           <T size={14} weight="semibold">{q.wf.familyLine}</T>
         </View>
+      ) : mode === 'tense' ? (
+        !correct ? <T size={20} weight="extrabold">{q.answer}</T> : null
       ) : mode !== 'mc' ? (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', gap: 8 }}>
           <T size={20} weight="extrabold">{q.answer}</T>
@@ -159,6 +224,7 @@ export default function Quiz() {
       ) : null}
       {explain ? <T>{explain}</T> : null}
       {mode === 'mc' && w?.ex ? <T size={13.5} tone="muted">Example: “{w.ex}”</T> : null}
+      {mode === 'fill' || mode === 'tense' ? <SentenceGrammar g={q.grammar} practice={false} /> : null}
     </View>
   ) : null;
 
@@ -169,9 +235,16 @@ export default function Quiz() {
         <Card style={{ gap: 16, padding: 20, borderRadius: 22 }}>
           <T size={13} weight="extrabold" tone="muted" style={{ textTransform: 'uppercase', letterSpacing: 0.8 }}>Question {i + 1} / {n}</T>
 
-          {mode === 'mc' && (
+          {mode === 'tense' && (
             <>
-              <T size={22} weight="extrabold" style={{ letterSpacing: -0.4 }}>What does “{q.answer}” mean?</T>
+              <T size={13.5} weight="bold" tone="muted">{q.opts ? 'Choose the right verb form' : 'Put the verb in the right tense'}</T>
+              <Blanked prompt={q.prompt ?? ''} fill={checked ? q.answer : ''} />
+              {!q.opts ? <T size={13.5} tone="muted">Word: {w?.word}{w?.vi ? ' · ' + w.vi : ''}</T> : null}
+            </>
+          )}
+          {q.opts && (
+            <>
+              {mode === 'mc' ? <T size={22} weight="extrabold" style={{ letterSpacing: -0.4 }}>What does “{q.answer}” mean?</T> : null}
               <View style={{ gap: 10 }}>
                 {(q.opts ?? []).map((o, k) => {
                   const isAns = k === q.ans, isPicked = k === picked;
@@ -196,7 +269,7 @@ export default function Quiz() {
               <T size={21} weight="extrabold" style={{ lineHeight: 32 }}>
                 {q.before}<T size={21} weight="extrabold" tone="primaryInk" style={{ textDecorationLine: 'underline' }}>{checked ? q.answer : ' ______ '}</T>{q.after}
               </T>
-              <T size={13.5} tone="muted">Hint: {w?.pos} · {w?.vi}</T>
+              <T size={13.5} tone="muted">Hint: {w?.pos} · {w?.vi}{w && q.answer.toLowerCase() !== w.word.toLowerCase() ? ' · a form of “' + w.word + '”' : ''}</T>
             </>
           )}
           {q.wf && (
@@ -234,7 +307,7 @@ export default function Quiz() {
             </>
           )}
 
-          {mode !== 'mc' && (
+          {!q.opts && (
             <Input value={input} onChangeText={setInput} placeholder="Type your answer…" editable={!checked} autoCapitalize="none" autoCorrect={false}
               invalid={checked && !correct} returnKeyType="done" onSubmitEditing={() => (checked ? next() : check(false))} accessibilityLabel="Your answer" />
           )}
@@ -244,7 +317,7 @@ export default function Quiz() {
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
             <T size={13.5} tone="muted">Score: {score} / {n}</T>
             {checked ? <Button title="Continue" icon="right" onPress={next} />
-              : mode !== 'mc' ? (
+              : !q.opts ? (
                 <View style={{ flexDirection: 'row', gap: 8 }}>
                   <Button title="Skip" variant="ghost" onPress={() => check(true)} />
                   <Button title="Check" onPress={() => check(false)} disabled={!input.trim()} />

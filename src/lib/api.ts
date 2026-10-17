@@ -452,7 +452,22 @@ export interface DictationResultItem {
 /** `mastery`: the new mastery of each set in the answers. */
 export interface DictationSubmitResult { results: DictationResultItem[]; passed: number; total: number; mastery: Record<string, number> }
 
+/** A sentence for one of my words (from the word sentence bank or the word's own example). */
+export interface PracticeSentence {
+  wordId: string; word: string; vi: string; key: string; sentence: string;
+  /** fill: the word as written in the sentence (the blank). */
+  form?: string;
+  /** tense: "___ (base)" prompt, answer, other accepted answers, 4 choices (empty: typed only). */
+  question?: { prompt: string; answer: string; accept: string[]; choices: string[]; tense: string; tenseLabel: string };
+  grammar: GrammarView | null;
+}
+
 export const api = {
+  /** Sentences for practising my words; fresh ones first, never ones from my courses' homework. */
+  practiceSentences: (mode: 'fill' | 'tense' | 'dictation' | 'flash', n = 10, words?: string[]) =>
+    req<{ items: PracticeSentence[] }>('GET', '/practice/sentences?mode=' + mode + '&n=' + n + (words?.length ? '&words=' + words.join(',') : '')),
+  /** Marks practised sentences (ok = answered right), so the next session prefers others. */
+  practiceSeen: (items: { key: string; ok?: boolean }[]) => req<void>('POST', '/practice/sentences/seen', { items }),
   register: (name: string, email: string, password: string) => req<AuthResponse>('POST', '/auth/register', { name, email, password }),
   login: (email: string, password: string) => req<AuthResponse>('POST', '/auth/login', { email, password }),
   updateMe: (name: string) => req<User>('PATCH', '/auth/me', { name }),
