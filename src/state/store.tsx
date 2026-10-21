@@ -133,7 +133,10 @@ function useStoreState() {
   /* ---------- auth ---------- */
   const startSession = async (res: AuthResponse) => { await setToken(res.accessToken); await load(); };
   const login = async (email: string, password: string) => startSession(await api.login(email, password));
-  const register = async (name: string, email: string, password: string) => startSession(await api.register(name, email, password));
+  /** Sign-up sends a code by email; verifyRegister signs in once the code is right. */
+  const register = async (name: string, email: string, password: string) => { await api.register(name, email, password); };
+  const verifyRegister = async (email: string, code: string) => startSession(await api.registerVerify(email, code));
+  const resetPassword = async (email: string, code: string, password: string) => startSession(await api.resetPassword(email, code, password));
 
   /* ---------- words ---------- */
   /** Creates (no id) or updates a word. Throws on failure so the form can show the message. */
@@ -363,7 +366,7 @@ function useStoreState() {
     data, status, loadError, toast, unread,
     actions: {
       refreshUnread, setUnread, markNotesRead, markAllNotesRead, deleteNote,
-      reload: load, login, register, logout, showToast, call,
+      reload: load, login, register, verifyRegister, resetPassword, logout, showToast, call,
       setAutofill: (q: Data['autofill']) => patch({ autofill: q }),
       saveWord, deleteWord, createTag, deleteTag, saveCategory, deleteCategory, rate, dueIds,
       saveFromLibrary, shareWord, unshare, learnCourseDay, saveCourseWords, setSettings, setStyle, setSeasonal

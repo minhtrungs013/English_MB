@@ -468,7 +468,12 @@ export const api = {
     req<{ items: PracticeSentence[] }>('GET', '/practice/sentences?mode=' + mode + '&n=' + n + (words?.length ? '&words=' + words.join(',') : '')),
   /** Marks practised sentences (ok = answered right), so the next session prefers others. */
   practiceSeen: (items: { key: string; ok?: boolean }[]) => req<void>('POST', '/practice/sentences/seen', { items }),
-  register: (name: string, email: string, password: string) => req<AuthResponse>('POST', '/auth/register', { name, email, password }),
+  /** Starts sign-up: the server emails a 6-digit code; registerVerify creates the account. */
+  register: (name: string, email: string, password: string) => req<{ email: string }>('POST', '/auth/register', { name, email, password }),
+  registerVerify: (email: string, code: string) => req<AuthResponse>('POST', '/auth/register/verify', { email, code }),
+  registerResend: (email: string) => req<void>('POST', '/auth/register/resend', { email }),
+  forgotPassword: (email: string) => req<void>('POST', '/auth/password/forgot', { email }),
+  resetPassword: (email: string, code: string, password: string) => req<AuthResponse>('POST', '/auth/password/reset', { email, code, password }),
   login: (email: string, password: string) => req<AuthResponse>('POST', '/auth/login', { email, password }),
   updateMe: (name: string) => req<User>('PATCH', '/auth/me', { name }),
   changePassword: (currentPassword: string, newPassword: string) => req<void>('POST', '/auth/change-password', { currentPassword, newPassword }),
