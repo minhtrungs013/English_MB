@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -120,6 +120,15 @@ export default function Chat() {
     return () => { alive = false; abort.current?.abort(); };
   }, [user]);
   useEffect(() => { if (loaded && !busy) void saveChat(user, msgs); }, [user, msgs, busy, loaded]);
+  // Opened with ?ask=… (Ask AI from a search): send that question once the history is loaded.
+  const { ask } = useLocalSearchParams<{ ask?: string }>();
+  const asked = useRef(false);
+  useEffect(() => {
+    if (!loaded || !ask || asked.current) return;
+    asked.current = true;
+    void send(ask);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded, ask]);
 
   const send = async (text: string) => {
     const q = text.trim();

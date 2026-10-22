@@ -5,7 +5,8 @@ import { api, type LibraryWord } from '../lib/api';
 import { useStore, useTheme } from '../state/store';
 import { SaveFromLibrary } from './library';
 import { WordSheet } from './word-sheet';
-import { Card, Input, LevelBadge, T, TopicBadge } from './ui';
+import { askAi } from '../lib/askAi';
+import { Icon, Card, Input, LevelBadge, T, TopicBadge } from './ui';
 
 /**
  * Home search: my matching words first, then library words I don't have yet (with Save),
@@ -85,6 +86,13 @@ export function HomeSearch({ inputRef }: { inputRef?: Ref<TextInput> }) {
               </View>
             ))}
             {lib && !fromLib.length ? <T size={13.5} tone="muted" style={{ paddingHorizontal: 16, paddingVertical: 6 }}>{lib.total ? 'You already have every library match.' : 'No library words match.'}</T> : null}
+            {lib && lib.total === 0 ? (
+              <Pressable onPress={() => askAi(q)} accessibilityRole="button" style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, minHeight: 48, backgroundColor: pressed ? t.primarySoft : 'transparent' })}>
+                <Icon name="sparkle" size={16} color={t.primaryInk} />
+                <T size={14} weight="bold" tone="primaryInk" style={{ flex: 1 }}>Hỏi AI về “{q.trim()}”</T>
+                <Icon name="right" size={16} color={t.primaryInk} />
+              </Pressable>
+            ) : null}
             {lib && lib.total > 0 ? more('Search the library for “' + q.trim() + '” (' + lib.total + ')', () => router.push({ pathname: '/library', params: { q: q.trim() } })) : null}
           </ScrollView>
         </Card>

@@ -4,9 +4,10 @@ import { ActivityIndicator, FlatList, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { familyExtra, FormsTag } from '../../components/family';
 import { SaveFromLibrary } from '../../components/library';
-import { Chip, ChipRow, EmptyState, Input, LevelBadge, T, TOPIC_LABEL, TopicBadge } from '../../components/ui';
+import { Button, Chip, ChipRow, EmptyState, Input, LevelBadge, T, TOPIC_LABEL, TopicBadge } from '../../components/ui';
 import { api, type LibraryPage, type Topic } from '../../lib/api';
 import { LEVELS } from '../../lib/data';
+import { askAi } from '../../lib/askAi';
 import { errMsg, useStore, useTheme } from '../../state/store';
 
 const PAGE = 30;
@@ -92,7 +93,9 @@ export default function Library() {
       ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
       ListEmptyComponent={loading
         ? <ActivityIndicator color={t.primary} style={{ marginTop: 40 }} />
-        : <EmptyState icon="search" tone="blue" title="No words found" text="Try a different keyword or topic." />}
+        : <EmptyState icon="search" tone="blue" title="No words found" text="Try a different keyword or topic.">
+            {query ? <Button title={'Hỏi AI về “' + query + '”'} icon="sparkle" onPress={() => askAi(query)} /> : null}
+          </EmptyState>}
       ListFooterComponent={more ? <ActivityIndicator color={t.primary} style={{ marginVertical: 16 }} /> : null}
       renderItem={({ item: w }) => {
         const open = () => router.push({ pathname: '/library-word/[id]', params: { id: w.id } });
