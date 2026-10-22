@@ -14,7 +14,7 @@ import { errMsg, useStore, useTheme } from '../../../../state/store';
 
 type Phase = 'intro' | 'loading' | 'quiz' | 'sending' | 'result';
 
-const TYPE_LABEL: Record<HomeworkQuestion['type'], string> = { meaning: 'Meaning', word: 'Word', type: 'Spelling', blank: 'Sentence', tense: 'Tense', tenseChoice: 'Tense', dictation: 'Dictation', wordform: 'Word form' };
+const TYPE_LABEL: Record<HomeworkQuestion['type'], string> = { meaning: 'Meaning', word: 'Word', type: 'Spelling', blank: 'Sentence', tense: 'Tense', tenseChoice: 'Tense', dictation: 'Dictation', wordform: 'Word form', sentence: 'Your sentence' };
 
 export default function HomeworkScreen() {
   const { id, day: dayParam, flow } = useLocalSearchParams<{ id: string; day: string; flow?: string }>();
@@ -168,6 +168,28 @@ export default function HomeworkScreen() {
           <SectionTitle style={{ marginTop: 4 }}>Answers</SectionTitle>
           {result.review.map((r, k) => {
             const fg = r.correct ? t.success : t.danger;
+            if (r.type === 'sentence') {
+              const f = r.ai;
+              return (
+                <View key={k} style={{ backgroundColor: t.surface, borderColor: r.correct ? t.border : t.danger, borderWidth: 1, borderRadius: 16, padding: 14, gap: 8 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <Icon name={r.correct ? 'checkc' : 'alert'} size={18} color={fg} />
+                    <T size={13} weight="extrabold" tone="muted" style={{ flex: 1 }}>{k + 1}. {TYPE_LABEL.sentence}</T>
+                    {f && f.score !== null ? <Badge label={f.score + '/10'} bg={r.correct ? t.successSoft : t.dangerSoft} fg={fg} /> : null}
+                  </View>
+                  <T weight="bold">{r.prompt}</T>
+                  <View style={{ borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, backgroundColor: r.correct ? t.successSoft : t.dangerSoft }}>
+                    <T size={13.5} weight="semibold" style={{ color: fg }}>Your sentence: {r.yourAnswer || '— (empty)'}</T>
+                  </View>
+                  {f?.feedbackVi ? <T size={13.5}>{f.feedbackVi}</T> : null}
+                  {(f?.mistakes ?? []).map((m, j) => (
+                    <T key={j} size={13.5}><T size={13.5} tone="danger" style={{ textDecorationLine: 'line-through' }}>{m.wrong}</T> → <T size={13.5} weight="bold">{m.fix}</T>{m.explainVi ? <T size={13.5} tone="muted">{' · ' + m.explainVi}</T> : null}</T>
+                  ))}
+                  {f?.corrected && f.corrected !== r.yourAnswer.trim() ? <T size={13.5}><T size={13.5} tone="muted">Corrected: </T><T size={13.5} weight="bold">{f.corrected}</T></T> : null}
+                  <T size={13.5}><T size={13.5} tone="muted">Example: </T>{f?.better || r.answer}</T>
+                </View>
+              );
+            }
             if (r.type === 'dictation') {
               return (
                 <View key={k} style={{ backgroundColor: t.surface, borderColor: r.correct ? t.border : t.danger, borderWidth: 1, borderRadius: 16, padding: 14, gap: 8 }}>
@@ -273,7 +295,13 @@ export default function HomeworkScreen() {
             )}
             {q.hint && !dictation && q.type !== 'wordform' ? <T size={13.5} tone="muted">{q.type === 'meaning' ? q.hint : 'Hint: ' + q.hint}</T> : null}
 
-            {dictation ? (
+            {q.type === 'sentence' ? (
+              <>
+                <Input key={i} value={a} onChangeText={setA} placeholder="Write a sentence with this word…" multiline maxLength={300} autoFocus
+                  autoCapitalize="sentences" editable={!sending} accessibilityLabel={'Your sentence for question ' + (i + 1)} />
+                <T size={12.5} tone="muted">AI scores your sentence when you hand in (7/10 or more counts as correct).</T>
+              </>
+            ) : dictation ? (
               <Input key={i} value={a} onChangeText={setA} placeholder="Type what you hear…" multiline maxLength={MAX_TYPED}
                 autoCapitalize="none" autoCorrect={false} spellCheck={false} autoComplete="off"
                 returnKeyType={last ? 'done' : 'next'} submitBehavior="blurAndSubmit"

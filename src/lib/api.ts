@@ -214,7 +214,9 @@ export interface GenerateResult { source: 'ai' | 'template'; added: number; quot
 
 /* ---------- homework & leaderboard ---------- */
 /** 'dictation': hear a sentence (the device speaks `audio`) and type it. */
-export type HomeworkType = 'meaning' | 'word' | 'type' | 'blank' | 'tense' | 'tenseChoice' | 'dictation' | 'wordform';
+export type HomeworkType = 'meaning' | 'word' | 'type' | 'blank' | 'tense' | 'tenseChoice' | 'dictation' | 'wordform' | 'sentence';
+/** A homework "Write a sentence" answer graded by AI (score null: AI wasn't available, a basic check was used). */
+export interface SentenceFeedback { score: number | null; corrected: string; better: string; feedbackVi: string; mistakes: { type: string; wrong: string; fix: string; explainVi: string }[] }
 export interface HomeworkQuestion {
   type: HomeworkType;
   /** A word from an earlier day. */
@@ -226,6 +228,8 @@ export interface HomeworkQuestion {
   audio?: string;
 }
 export interface HomeworkReviewItem extends HomeworkQuestion {
+  /** "Write a sentence" questions: the AI's grade. */
+  ai?: SentenceFeedback | null;
   yourAnswer: string; answer: string; correct: boolean;
   /** Tense questions only. */
   tense?: string; tenseLabel?: string; explain?: string;
@@ -462,6 +466,15 @@ export interface PracticeSentence {
   grammar: GrammarView | null;
 }
 
+export interface MistakeItem { type: string; wrong: string; fix: string; explainVi: string }
+export interface MistakeNotebook {
+  attempts: number; avg: number | null; withMistakes: number; drillable: number;
+  byType: { type: string; count: number; last7: number; prev7: number }[];
+  weeks: { week: number; attempts: number; avg: number | null; mistakes: number }[];
+  recent: { id: string; at: number; word: string; sentence: string; corrected: string; score: number; source: string; mistakes: MistakeItem[] }[];
+}
+export interface MistakeDrill { id: string; word: string; type: string; prompt: string; choices: string[]; answer: string; wrong: string; explainVi: string; sentence: string }
+
 /** Practice → Write a sentence: the AI's grade for one sentence. */
 export interface SentenceResult {
   score: number; usesWord: boolean; meaningOk: boolean; natural: boolean;
@@ -495,6 +508,8 @@ export const api = {
   /** Practice → Write a sentence: AI grades a sentence with one of my words. */
   checkSentence: (wordId: string, sentence: string) => req<SentenceResult>('POST', '/practice/sentence-check', { wordId, sentence }),
   sentenceQuota: () => req<{ used: number; limit: number }>('GET', '/practice/sentence-check'),
+  mistakes: (type = '') => req<MistakeNotebook>('GET', '/practice/mistakes' + (type ? '?type=' + encodeURIComponent(type) : '')),
+  mistakeDrill: (type = '') => req<{ items: MistakeDrill[] }>('GET', '/practice/mistakes/drill?n=10' + (type ? '&type=' + encodeURIComponent(type) : '')),
   deleteWord: (id: string) => req<void>('DELETE', '/words/' + id),
   reviewWord: (id: string, rating: Rating, practice: boolean, day: string) =>
     req<{ word: Word; progress?: Progress }>('POST', '/words/' + id + '/review', { rating, practice, day }),

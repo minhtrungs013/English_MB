@@ -396,7 +396,8 @@ export const ASK: Record<HomeworkType, string> = {
   tense: 'Put the verb in brackets in the right tense',
   tenseChoice: 'Choose the right verb form',
   dictation: 'Listen and type the sentence',
-  wordform: 'Use the right form of the word'
+  wordform: 'Use the right form of the word',
+  sentence: 'Write your own sentence with the word'
 };
 /** Answered by typing (the others have choices). */
 export const isTyped = (q: { type: HomeworkType; choices: string[] }) => q.type === 'type' || q.type === 'blank' || q.type === 'tense' || q.type === 'dictation' || q.type === 'wordform' || !q.choices.length;

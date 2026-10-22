@@ -15,7 +15,8 @@ const MODES: [string, string, string, IconName, 'indigo' | 'green' | 'orange' | 
   ['tense', 'Verb tenses', 'Put verbs in the right tense, in sentences with your words.', 'clock', 'amber'],
   ['listen', 'Listening', 'Hear a word and type what you hear.', 'volume', 'red'],
   ['dictation', 'Dictation', 'Listen to sentences and type them — Nghe – chép.', 'headphones', 'amber'],
-  ['write', 'Write a sentence', 'Use your words in your own sentences. AI scores them and fixes mistakes.', 'sparkle', 'green']
+  ['write', 'Write a sentence', 'Use your words in your own sentences. AI scores them and fixes mistakes.', 'sparkle', 'green'],
+  ['mistakes', 'My mistakes', 'What you get wrong in your sentences, your progress, and questions from your own mistakes.', 'alert', 'red']
 ];
 
 /** Word forms needs at least this many saved words with a usable family. */
@@ -27,6 +28,7 @@ export default function Practice() {
   const start = (mode: string) => {
     // Dictation has its own hub (sets, today's dictation, from my words) and works without saved words.
     if (mode === 'dictation') { router.push('/dictation'); return; }
+    if (mode === 'mistakes') { router.push('/mistakes'); return; }
     if (!data.words.length) { actions.showToast('Save some words first to practice.', 'bad'); return; }
     if (mode === 'write') router.push('/write-sentence');
     else if (mode === 'flash') router.push({ pathname: '/review', params: { mode: 'flash' } });
