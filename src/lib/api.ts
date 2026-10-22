@@ -462,6 +462,15 @@ export interface PracticeSentence {
   grammar: GrammarView | null;
 }
 
+/** Practice → Write a sentence: the AI's grade for one sentence. */
+export interface SentenceResult {
+  score: number; usesWord: boolean; meaningOk: boolean; natural: boolean;
+  mistakes: { type: string; wrong: string; fix: string; explainVi: string }[];
+  corrected: string; better: string; betterVi: string; feedbackVi: string;
+  lesson: { id: string; name: string; vi: string } | null;
+  quota: { used: number; limit: number };
+}
+
 export const api = {
   /** Sentences for practising my words; fresh ones first, never ones from my courses' homework. */
   practiceSentences: (mode: 'fill' | 'tense' | 'dictation' | 'flash', n = 10, words?: string[]) =>
@@ -483,6 +492,9 @@ export const api = {
 
   createWord: (w: WordInput) => req<Word>('POST', '/words', w),
   updateWord: (id: string, w: Partial<WordInput>) => req<Word>('PATCH', '/words/' + id, w),
+  /** Practice → Write a sentence: AI grades a sentence with one of my words. */
+  checkSentence: (wordId: string, sentence: string) => req<SentenceResult>('POST', '/practice/sentence-check', { wordId, sentence }),
+  sentenceQuota: () => req<{ used: number; limit: number }>('GET', '/practice/sentence-check'),
   deleteWord: (id: string) => req<void>('DELETE', '/words/' + id),
   reviewWord: (id: string, rating: Rating, practice: boolean, day: string) =>
     req<{ word: Word; progress?: Progress }>('POST', '/words/' + id + '/review', { rating, practice, day }),

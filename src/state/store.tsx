@@ -150,6 +150,11 @@ function useStoreState() {
     patch((d) => ({ words: [w, ...d.words] }));
     return w;
   };
+  /** Saves a sentence as the word's example (Write a sentence). Throws on failure. */
+  const setWordExample = async (id: string, ex: string): Promise<void> => {
+    const w = await api.updateWord(id, { ex });
+    patch((d) => ({ words: d.words.map((x) => (x.id === id ? w : x)) }));
+  };
   const deleteWord = async (id: string): Promise<boolean> => {
     const w = dataRef.current.words.find((x) => x.id === id);
     const ok = (await call(api.deleteWord(id).then(() => true))) ?? false;
@@ -368,7 +373,7 @@ function useStoreState() {
       refreshUnread, setUnread, markNotesRead, markAllNotesRead, deleteNote,
       reload: load, login, register, verifyRegister, resetPassword, logout, showToast, call,
       setAutofill: (q: Data['autofill']) => patch({ autofill: q }),
-      saveWord, deleteWord, createTag, deleteTag, saveCategory, deleteCategory, rate, dueIds,
+      saveWord, setWordExample, deleteWord, createTag, deleteTag, saveCategory, deleteCategory, rate, dueIds,
       saveFromLibrary, shareWord, unshare, learnCourseDay, saveCourseWords, setSettings, setStyle, setSeasonal
     },
     seasonal

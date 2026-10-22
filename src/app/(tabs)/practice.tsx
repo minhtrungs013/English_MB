@@ -14,7 +14,8 @@ const MODES: [string, string, string, IconName, 'indigo' | 'green' | 'orange' | 
   ['trans', 'Translation', 'Translate Vietnamese into English.', 'globe', 'blue'],
   ['tense', 'Verb tenses', 'Put verbs in the right tense, in sentences with your words.', 'clock', 'amber'],
   ['listen', 'Listening', 'Hear a word and type what you hear.', 'volume', 'red'],
-  ['dictation', 'Dictation', 'Listen to sentences and type them — Nghe – chép.', 'headphones', 'amber']
+  ['dictation', 'Dictation', 'Listen to sentences and type them — Nghe – chép.', 'headphones', 'amber'],
+  ['write', 'Write a sentence', 'Use your words in your own sentences. AI scores them and fixes mistakes.', 'sparkle', 'green']
 ];
 
 /** Word forms needs at least this many saved words with a usable family. */
@@ -27,7 +28,8 @@ export default function Practice() {
     // Dictation has its own hub (sets, today's dictation, from my words) and works without saved words.
     if (mode === 'dictation') { router.push('/dictation'); return; }
     if (!data.words.length) { actions.showToast('Save some words first to practice.', 'bad'); return; }
-    if (mode === 'flash') router.push({ pathname: '/review', params: { mode: 'flash' } });
+    if (mode === 'write') router.push('/write-sentence');
+    else if (mode === 'flash') router.push({ pathname: '/review', params: { mode: 'flash' } });
     else router.push({ pathname: '/quiz', params: { mode } });
   };
   return (
