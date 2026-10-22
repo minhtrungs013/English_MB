@@ -10,6 +10,7 @@ import { masteryLabel, weakestTense } from '../../components/grammar';
 import { api, getUserFlag, PLACEMENT_SKIPPED, type CourseSummary, type DictationList, type GrammarList } from '../../lib/api';
 import { DAY, dayKey, fmtAgo, isDue } from '../../lib/data';
 import { useNow } from '../../hooks/use-now';
+import { WordSheet } from '../../components/word-sheet';
 import { useStore, useTheme } from '../../state/store';
 
 function Stat({ icon, tone, value, label, foot }: { icon: Parameters<typeof IconTile>[0]['name']; tone: Parameters<typeof IconTile>[0]['tone']; value: number; label: string; foot?: string }) {
@@ -175,6 +176,7 @@ export default function Home() {
   const recent = words.slice().sort((a, b) => b.addedAt - a.addedAt).slice(0, 5);
   const initial = (settings.name || '?').trim().charAt(0).toUpperCase();
   const [menu, setMenu] = useState(false);
+  const [peek, setPeek] = useState<string | null>(null);
   const searchRef = useRef<TextInput>(null);
   const joined = useJoinedCourse();
   const [grammar, setGrammar] = useState<GrammarList | null>(null);
@@ -264,7 +266,7 @@ export default function Home() {
             <Pressable onPress={() => router.push('/words')} hitSlop={8} accessibilityRole="button"><T size={13.5} weight="bold" tone="primaryInk">View all</T></Pressable>
           </View>
           {recent.length ? recent.map((w) => (
-            <Pressable key={w.id} onPress={() => router.push({ pathname: '/word/[id]', params: { id: w.id } })} accessibilityRole="button"
+            <Pressable key={w.id} onPress={() => setPeek(w.id)} accessibilityRole="button"
               style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, minHeight: 58, borderTopWidth: 1, borderTopColor: t.border, backgroundColor: pressed ? t.surface2 : 'transparent' })}>
               <View style={{ flex: 1 }}>
                 <T size={15.5} weight="extrabold">{w.word}</T>
@@ -305,6 +307,7 @@ export default function Home() {
         <View style={{ height: 1, backgroundColor: t.border }} />
         <SheetItem icon="logout" label="Log out" danger onPress={() => { setMenu(false); void actions.logout(); }} />
       </Sheet>
+      <WordSheet id={peek} onClose={() => setPeek(null)} />
     </Screen>
   );
 }

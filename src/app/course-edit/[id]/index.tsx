@@ -274,7 +274,7 @@ export default function CourseEdit() {
   ]);
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: t.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: t.bg }} behavior="padding">
       <BackBar title="Edit course" right={
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           {saving ? <ActivityIndicator color={t.primary} style={{ marginRight: 8 }} accessibilityLabel="Saving" /> : null}

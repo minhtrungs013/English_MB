@@ -219,10 +219,11 @@ export function Field({ label, children, hint, error }: { label?: string; childr
 }
 
 /** `ref` reaches the TextInput (React 19 passes it as a prop). */
-export function Input(props: TextInputProps & { invalid?: boolean; big?: boolean; leftIcon?: IconName; ipa?: boolean; ref?: Ref<TextInput> }) {
+export function Input(props: TextInputProps & { invalid?: boolean; big?: boolean; leftIcon?: IconName; ipa?: boolean; clearable?: boolean; ref?: Ref<TextInput> }) {
   const t = useTheme();
   const [focus, setFocus] = useState(false);
-  const { invalid, big, leftIcon, ipa, style, multiline, ...rest } = props;
+  const { invalid, big, leftIcon, ipa, clearable, style, multiline, ...rest } = props;
+  const showClear = !!clearable && !!rest.value && !!rest.onChangeText;
   return (
     <View style={{ justifyContent: 'center' }}>
       {leftIcon ? <View style={{ position: 'absolute', left: 13, zIndex: 1 }}><Icon name={leftIcon} size={18} color={t.faint} /></View> : null}
@@ -233,12 +234,18 @@ export function Input(props: TextInputProps & { invalid?: boolean; big?: boolean
         onFocus={(e) => { setFocus(true); rest.onFocus?.(e); }}
         onBlur={(e) => { setFocus(false); rest.onBlur?.(e); }}
         style={[{
-          minHeight: big ? 56 : 46, paddingHorizontal: 14, paddingLeft: leftIcon ? 40 : 14, paddingVertical: multiline ? 11 : 0,
+          minHeight: big ? 56 : 46, paddingHorizontal: 14, paddingLeft: leftIcon ? 40 : 14, paddingRight: showClear ? 44 : 14, paddingVertical: multiline ? 11 : 0,
           borderWidth: 1, borderRadius: big ? t.radius.md : t.radius.sm, backgroundColor: t.surface, color: t.text,
           borderColor: invalid ? t.danger : focus ? t.primary : t.border,
           fontFamily: ipa ? undefined : big ? t.font.bold : t.font.regular, fontSize: big ? 20 : 15, textAlignVertical: multiline ? 'top' : 'center', includeFontPadding: false
         }, multiline && { minHeight: 88 }, style]}
       />
+      {showClear ? (
+        <Pressable onPress={() => rest.onChangeText?.('')} accessibilityRole="button" accessibilityLabel="Clear" hitSlop={6}
+          style={{ position: 'absolute', right: 6, width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }}>
+          <View style={{ width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: t.surface3 }}><Icon name="x" size={13} color={t.muted} strokeWidth={2.4} /></View>
+        </Pressable>
+      ) : null}
     </View>
   );
 }

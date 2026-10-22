@@ -150,7 +150,7 @@ export default function Chat() {
   const left = status ? Math.max(0, status.limit - status.used) : null;
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: t.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: t.bg }} behavior="padding">
       <View style={{ paddingTop: insets.top + 4, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 60 + insets.top, borderBottomWidth: 1, borderBottomColor: t.border }}>
         <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: t.primarySoft, alignItems: 'center', justifyContent: 'center', marginLeft: 8 }}>
           <Icon name="sparkle" size={18} color={t.primaryInk} />

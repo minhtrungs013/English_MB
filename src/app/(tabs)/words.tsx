@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FormsTag } from '../../components/family';
 import { Button, Chip, ChipRow, EmptyState, IconButton, Input, LevelBadge, StatusBadge, T } from '../../components/ui';
 import { LEVELS, fmtNext, isDue } from '../../lib/data';
+import { WordSheet } from '../../components/word-sheet';
 import { useStore, useTheme } from '../../state/store';
 
 const STATUS: [string, string][] = [['all', 'All'], ['new', 'New'], ['learning', 'Learning'], ['mastered', 'Mastered']];
@@ -14,6 +15,7 @@ export default function Words() {
   const t = useTheme();
   const insets = useSafeAreaInsets();
   const [q, setQ] = useState('');
+  const [peek, setPeek] = useState<string | null>(null);
   const [level, setLevel] = useState('all');
   const [status, setStatus] = useState('all');
   const [tag, setTag] = useState('all');
@@ -48,7 +50,7 @@ export default function Words() {
       </View>
       {data.words.length > 0 && (
         <>
-          <Input value={q} onChangeText={setQ} placeholder="Search my words…" leftIcon="search" autoCapitalize="none" accessibilityLabel="Search my words" />
+          <Input value={q} onChangeText={setQ} placeholder="Search my words…" leftIcon="search" autoCapitalize="none" clearable accessibilityLabel="Search my words" />
           <ChipRow>{STATUS.map(([v, l]) => <Chip key={v} label={l} on={status === v} onPress={() => setStatus(v)} />)}</ChipRow>
           <ChipRow>{['all', ...LEVELS].map((l) => <Chip key={l} soft label={l === 'all' ? 'All levels' : l} on={level === l} onPress={() => setLevel(l)} />)}</ChipRow>
           {data.cats.length > 0 && (
@@ -64,6 +66,7 @@ export default function Words() {
   );
 
   return (
+    <>
     <FlatList
       style={{ flex: 1, backgroundColor: t.bg }}
       contentContainerStyle={{ paddingTop: insets.top + 12, paddingHorizontal: 16, paddingBottom: 24 }}
@@ -85,7 +88,7 @@ export default function Words() {
         </EmptyState>
       )}
       renderItem={({ item: w }) => (
-        <Pressable onPress={() => router.push({ pathname: '/word/[id]', params: { id: w.id } })} accessibilityRole="button"
+        <Pressable onPress={() => setPeek(w.id)} accessibilityRole="button"
           style={({ pressed }) => ({ backgroundColor: pressed ? t.surface2 : t.surface, borderColor: t.border, borderWidth: 1, borderRadius: 16, padding: 16, gap: 8 })}>
           <View>
             <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
@@ -106,5 +109,7 @@ export default function Words() {
         </Pressable>
       )}
     />
+    <WordSheet id={peek} onClose={() => setPeek(null)} />
+    </>
   );
 }

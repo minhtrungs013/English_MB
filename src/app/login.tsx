@@ -83,7 +83,7 @@ export default function Login() {
   );
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: t.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: t.bg }} behavior="padding">
       <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 16, paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }} keyboardShouldPersistTaps="handled">
         <Card style={{ padding: 24, gap: 18 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>

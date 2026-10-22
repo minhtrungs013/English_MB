@@ -4,6 +4,7 @@ import { ActivityIndicator, Dimensions, Pressable, ScrollView, View, type TextIn
 import { api, type LibraryWord } from '../lib/api';
 import { useStore, useTheme } from '../state/store';
 import { SaveFromLibrary } from './library';
+import { WordSheet } from './word-sheet';
 import { Card, Input, LevelBadge, T, TopicBadge } from './ui';
 
 /**
@@ -15,6 +16,7 @@ export function HomeSearch({ inputRef }: { inputRef?: Ref<TextInput> }) {
   const { data } = useStore();
   const t = useTheme();
   const [q, setQ] = useState('');
+  const [peek, setPeek] = useState<string | null>(null);
   const [res, setRes] = useState<{ term: string; items: LibraryWord[]; total: number } | null>(null);
   const term = q.trim().toLowerCase();
 
@@ -51,7 +53,7 @@ export function HomeSearch({ inputRef }: { inputRef?: Ref<TextInput> }) {
 
   return (
     <View>
-      <Input ref={inputRef} value={q} onChangeText={setQ} placeholder="Search my words and the library…" leftIcon="search" autoCapitalize="none" autoCorrect={false}
+      <Input ref={inputRef} value={q} onChangeText={setQ} placeholder="Search my words and the library…" leftIcon="search" autoCapitalize="none" autoCorrect={false} clearable
         returnKeyType="search" accessibilityLabel="Search my words and the library"
         onSubmitEditing={() => { if (term) router.push(matches.length ? { pathname: '/words', params: { q: q.trim() } } : { pathname: '/library', params: { q: q.trim() } }); }} />
       {term ? (
@@ -59,7 +61,7 @@ export function HomeSearch({ inputRef }: { inputRef?: Ref<TextInput> }) {
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 6 }}>
             {heading('My words', matches.length ? <T size={12.5} weight="bold" tone="muted">{matches.length}</T> : undefined)}
             {matches.length ? matches.slice(0, 5).map((w) => (
-              <Pressable key={w.id} onPress={() => router.push({ pathname: '/word/[id]', params: { id: w.id } })} accessibilityRole="button"
+              <Pressable key={w.id} onPress={() => setPeek(w.id)} accessibilityRole="button"
                 style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, minHeight: 52, backgroundColor: pressed ? t.surface2 : 'transparent' })}>
                 <View style={{ flex: 1 }}>
                   <T weight="extrabold">{w.word}</T>
@@ -87,6 +89,7 @@ export function HomeSearch({ inputRef }: { inputRef?: Ref<TextInput> }) {
           </ScrollView>
         </Card>
       ) : null}
+      <WordSheet id={peek} onClose={() => setPeek(null)} />
     </View>
   );
 }

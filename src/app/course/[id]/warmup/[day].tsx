@@ -87,7 +87,7 @@ export default function WarmupScreen() {
     };
     const typed = isTyped(q);
     return (
-      <KeyboardAvoidingView style={{ flex: 1, backgroundColor: t.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={{ flex: 1, backgroundColor: t.bg }} behavior="padding">
         <View style={{ paddingTop: insets.top + 4, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 56 + insets.top }}>
           <IconButton name="x" label="Stop practice" onPress={() => setPhase('overview')} />
           <View style={{ flex: 1 }}><Progress pct={((i + (res ? 1 : 0)) / n) * 100} height={8} /></View>

@@ -629,7 +629,7 @@ export default function LearnDayScreen() {
 
   const streak = run.streak;
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: t.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: t.bg }} behavior="padding">
       <View style={{ paddingTop: insets.top + 4, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 56 + insets.top }}>
         <IconButton name="x" label="Stop practice" onPress={close} />
         <View style={{ flex: 1 }} accessible accessibilityLabel={'Progress ' + Math.round(pct) + ' percent'}><Progress pct={pct} height={8} /></View>

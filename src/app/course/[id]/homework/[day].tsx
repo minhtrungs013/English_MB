@@ -260,7 +260,7 @@ export default function HomeworkScreen() {
     const done = answers.filter((x) => x.trim()).length;
     const dictation = q.type === 'dictation';
     return (
-      <KeyboardAvoidingView style={{ flex: 1, backgroundColor: t.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={{ flex: 1, backgroundColor: t.bg }} behavior="padding">
         <View style={{ paddingTop: insets.top + 4, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 56 + insets.top }}>
           <IconButton name="x" label="Leave homework" onPress={leave} />
           <View style={{ flex: 1 }}><Progress pct={((i + 1) / n) * 100} height={8} /></View>

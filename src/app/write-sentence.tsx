@@ -78,7 +78,7 @@ export default function WriteSentence() {
   }
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: t.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: t.bg }} behavior="padding">
       <BackBar title="Write a sentence" right={left !== null ? <T size={13} tone={left === 0 ? 'danger' : 'muted'} style={{ paddingRight: 12 }}>{left} left today</T> : undefined} />
       <ScrollView ref={scroll} contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 24, gap: 14 }} keyboardShouldPersistTaps="handled">
         {done ? (

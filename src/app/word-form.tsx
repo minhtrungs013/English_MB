@@ -116,7 +116,7 @@ export default function WordForm() {
   };
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: t.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: t.bg }} behavior="padding">
       <BackBar title={editing ? 'Edit Vocabulary' : 'Add Vocabulary'} />
       <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 0, gap: 12, paddingBottom: 24 }} keyboardShouldPersistTaps="handled">
         <Card style={{ gap: 12 }}>

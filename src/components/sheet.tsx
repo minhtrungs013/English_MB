@@ -15,7 +15,7 @@ export function Sheet({ visible, onClose, title, children, scroll }: { visible: 
       <View style={{ flex: 1, justifyContent: 'flex-end' }}>
         <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close"
           style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: 'rgba(15,17,28,0.48)' }} />
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <KeyboardAvoidingView behavior="padding">
           <View style={{ backgroundColor: t.surface, borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingHorizontal: 20, paddingTop: 10, paddingBottom: insets.bottom + 20, gap: 14 }}>
             <View style={{ alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: t.surface3 }} />
             {title ? (

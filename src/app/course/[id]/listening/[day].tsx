@@ -628,7 +628,7 @@ export default function ListeningScreen() {
   }
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: t.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: t.bg }} behavior="padding">
       <BackBar title={title} onBack={back} />
       {inFlow ? <DayStepper flow={dayFlow} current="listening" currentDone={flowDone} /> : null}
       {stepBar}
