@@ -190,10 +190,13 @@ export interface Listening { day: number; dialogue: ListeningDialogue | null }
 
 /**
  * 'tense': typed — a sentence with one "___" and the base verb in brackets.
- * 'tenseChoice': the same with 4 choices. 'recap': a short story of earlier words (explain = Vietnamese translation).
+ * 'tenseChoice': the same with 4 choices. 'wordFill': the blank is the word itself, no brackets ("My ___ hurts.", answer "leg");
+ * 'wordFillChoice': the same with 4 choices. 'recap': a short story of earlier words (explain = Vietnamese translation).
  * 'dialogue': a listening dialogue (`data`; prompt = its title).
  */
-export type BankKind = 'tense' | 'tenseChoice' | 'recap' | 'dialogue';
+export type BankKind = 'tense' | 'tenseChoice' | 'wordFill' | 'wordFillChoice' | 'recap' | 'dialogue';
+export const isChoiceKind = (k: string) => k === 'tenseChoice' || k === 'wordFillChoice';
+export const isWordKind = (k: string) => k === 'wordFill' || k === 'wordFillChoice';
 export type BankStatus = 'pending' | 'approved' | 'rejected';
 export interface BankItem {
   id: string; day: number; kind: BankKind; word: string;
@@ -214,7 +217,7 @@ export interface GenerateResult { source: 'ai' | 'template'; added: number; quot
 
 /* ---------- homework & leaderboard ---------- */
 /** 'dictation': hear a sentence (the device speaks `audio`) and type it. */
-export type HomeworkType = 'meaning' | 'word' | 'type' | 'blank' | 'tense' | 'tenseChoice' | 'dictation' | 'wordform' | 'sentence';
+export type HomeworkType = 'meaning' | 'word' | 'type' | 'blank' | 'tense' | 'tenseChoice' | 'dictation' | 'wordform' | 'sentence' | 'wordFill' | 'wordFillChoice';
 /** A homework "Write a sentence" answer graded by AI (score null: AI wasn't available, a basic check was used). */
 export interface SentenceFeedback { score: number | null; corrected: string; better: string; feedbackVi: string; mistakes: { type: string; wrong: string; fix: string; explainVi: string }[] }
 export interface HomeworkQuestion {

@@ -14,7 +14,7 @@ import { errMsg, useStore, useTheme } from '../../../../state/store';
 
 type Phase = 'intro' | 'loading' | 'quiz' | 'sending' | 'result';
 
-const TYPE_LABEL: Record<HomeworkQuestion['type'], string> = { meaning: 'Meaning', word: 'Word', type: 'Spelling', blank: 'Sentence', tense: 'Tense', tenseChoice: 'Tense', dictation: 'Dictation', wordform: 'Word form', sentence: 'Your sentence' };
+const TYPE_LABEL: Record<HomeworkQuestion['type'], string> = { meaning: 'Meaning', word: 'Word', type: 'Spelling', blank: 'Sentence', tense: 'Tense', tenseChoice: 'Tense', dictation: 'Dictation', wordform: 'Word form', sentence: 'Your sentence', wordFill: 'Word', wordFillChoice: 'Word' };
 
 export default function HomeworkScreen() {
   const { id, day: dayParam, flow } = useLocalSearchParams<{ id: string; day: string; flow?: string }>();
@@ -312,6 +312,7 @@ export default function HomeworkScreen() {
                 onSubmitEditing={() => (last ? handIn() : next())} editable={!sending} accessibilityLabel={'Answer to question ' + (i + 1)} />
             ) : null}
             {isTyped(q) && q.type === 'tense' ? <T size={12.5} tone="muted">Type only the missing words — e.g. “has finished”, not “She has finished”.</T> : null}
+            {q.type === 'wordFill' ? <T size={12.5} tone="muted">Type only the missing word, in the form the sentence needs — e.g. “legs”.</T> : null}
             {isTyped(q) ? null : (
               <View style={{ gap: 10 }} accessibilityRole="radiogroup">
                 {q.choices.map((o, k) => {

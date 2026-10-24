@@ -5,12 +5,14 @@ import { dialogueBlankCount, Progress, TenseNote } from '../../../../components/
 import { Sheet } from '../../../../components/sheet';
 import { BackBar, Badge, Button, Card, Chip, ChipRow, EmptyState, Field, Icon, IconButton, Input, SectionTitle, T } from '../../../../components/ui';
 import {
-  api, ApiError, TENSE_LABEL, TENSES,
+  api, ApiError, isChoiceKind, isWordKind, TENSE_LABEL, TENSES,
   type BankItem, type BankItemInput, type BankKind, type BankStatus, type CourseDetail, type Quota, type Tense
 } from '../../../../lib/api';
 import { errMsg, useStore, useTheme } from '../../../../state/store';
 
-const KIND_LABEL: Record<BankKind, string> = { tense: 'Typed', tenseChoice: 'Multiple choice', recap: 'Recap story', dialogue: 'Listening dialogue' };
+const KIND_LABEL: Record<BankKind, string> = {
+  tense: 'Tense · typed', tenseChoice: 'Tense · choice', wordFill: 'Word · typed', wordFillChoice: 'Word · choice', recap: 'Recap story', dialogue: 'Listening dialogue'
+};
 const STATUS_LABEL: Record<BankStatus, string> = { pending: 'Waiting for review', approved: 'Approved', rejected: 'Rejected' };
 const DIALOGUE_EXAMPLE = `{
   "title": "Fixing a login bug",
@@ -102,7 +104,7 @@ function BankCard({ q, busy, onStatus, onEdit, onDelete }: {
         <Badge label={SOURCE_LABEL[q.source] ?? q.source} bg={t.surface2} fg={t.muted} />
       </View>
       <T weight={recap ? 'regular' : 'bold'} size={recap ? 14.5 : 15.5}>{q.prompt}</T>
-      {q.kind === 'tenseChoice' ? (
+      {isChoiceKind(q.kind) ? (
         <View style={{ gap: 4 }}>
           {q.choices.map((c, k) => {
             const ok = c === q.answer;
@@ -331,18 +333,20 @@ export default function CourseQuestions() {
     if (!mode) return;
     const f = form;
     if (!f.prompt.trim()) { setFormErr(f.kind === 'recap' ? 'Please write the story.' : 'Please write the sentence.'); return; }
-    if (f.kind !== 'recap' && blanks(f.prompt) !== 1) { setFormErr('The sentence needs exactly one "___" where the verb goes.'); return; }
+    if (f.kind !== 'recap' && blanks(f.prompt) !== 1) { setFormErr('The sentence needs exactly one "___" where the ' + (isWordKind(f.kind) ? 'word' : 'verb') + ' goes.'); return; }
+    if (isWordKind(f.kind) && !f.word.trim()) { setFormErr('Pick the word that goes in the blank.'); return; }
+    const tense = isWordKind(f.kind) ? '' : f.tense;
     const choices = f.choices.map((x) => x.trim());
     let body: BankItemInput;
     if (f.kind === 'recap') {
       body = { kind: 'recap', prompt: f.prompt.trim(), explain: f.explain.trim() };
-    } else if (f.kind === 'tenseChoice') {
+    } else if (isChoiceKind(f.kind)) {
       if (choices.some((x) => !x)) { setFormErr('Fill in all 4 choices.'); return; }
-      body = { kind: f.kind, word: f.word.trim(), tense: f.tense, prompt: f.prompt.trim(), choices, answer: choices[f.right], explain: f.explain.trim() };
+      body = { kind: f.kind, word: f.word.trim(), tense, prompt: f.prompt.trim(), choices, answer: choices[f.right], explain: f.explain.trim() };
     } else {
       if (!f.answer.trim()) { setFormErr('Please enter the correct answer.'); return; }
       const accept = f.accept.split(',').map((x) => x.trim()).filter(Boolean);
-      body = { kind: f.kind, word: f.word.trim(), tense: f.tense, prompt: f.prompt.trim(), answer: f.answer.trim(), accept, explain: f.explain.trim() };
+      body = { kind: f.kind, word: f.word.trim(), tense, prompt: f.prompt.trim(), answer: f.answer.trim(), accept, explain: f.explain.trim() };
     }
     setSaving(true);
     try {
@@ -499,9 +503,10 @@ export default function CourseQuestions() {
             <>
               {mode?.kind === 'add' ? (
                 <Field label="Type">
-                  <View style={{ flexDirection: 'row', gap: 6 }}>
-                    <Chip soft label="Typed" on={form.kind === 'tense'} onPress={() => set({ kind: 'tense' })} />
-                    <Chip soft label="Multiple choice" on={form.kind === 'tenseChoice'} onPress={() => set({ kind: 'tenseChoice' })} />
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                    {(['tense', 'tenseChoice', 'wordFill', 'wordFillChoice'] as BankKind[]).map((k) => (
+                      <Chip key={k} soft label={KIND_LABEL[k]} on={form.kind === k} onPress={() => set({ kind: k })} />
+                    ))}
                   </View>
                 </Field>
               ) : null}
@@ -513,10 +518,10 @@ export default function CourseQuestions() {
                   </ChipRow>
                 ) : null}
               </Field>
-              <Field label="Sentence" hint='Use one "___" for the verb, and put the base verb in brackets.'>
-                <Input value={form.prompt} onChangeText={(v) => set({ prompt: v })} multiline placeholder="Yesterday we ___ (deploy) the hotfix." maxLength={300} accessibilityLabel="Sentence" />
+              <Field label="Sentence" hint={isWordKind(form.kind) ? 'Use one "___" where the word goes (any form: legs, rode…). No hint in brackets.' : 'Use one "___" for the verb, and put the base verb in brackets.'}>
+                <Input value={form.prompt} onChangeText={(v) => set({ prompt: v })} multiline placeholder={isWordKind(form.kind) ? 'My ___ hurts after the long run.' : 'Yesterday we ___ (deploy) the hotfix.'} maxLength={300} accessibilityLabel="Sentence" />
               </Field>
-              {form.kind === 'tenseChoice' ? (
+              {isChoiceKind(form.kind) ? (
                 <Field label="Choices" hint="Tap the circle next to the correct one.">
                   <View style={{ gap: 8 }} accessibilityRole="radiogroup">
                     {form.choices.map((ch, k) => {
@@ -542,19 +547,21 @@ export default function CourseQuestions() {
               ) : (
                 <>
                   <Field label="Correct answer">
-                    <Input value={form.answer} onChangeText={(v) => set({ answer: v })} placeholder="deployed" autoCapitalize="none" autoCorrect={false} maxLength={80} accessibilityLabel="Correct answer" />
+                    <Input value={form.answer} onChangeText={(v) => set({ answer: v })} placeholder={isWordKind(form.kind) ? form.word || 'legs' : 'deployed'} autoCapitalize="none" autoCorrect={false} maxLength={80} accessibilityLabel="Correct answer" />
                   </Field>
                   <Field label="Also accept (optional)" hint="Other correct answers, separated by commas.">
                     <Input value={form.accept} onChangeText={(v) => set({ accept: v })} placeholder="have deployed" autoCapitalize="none" autoCorrect={false} accessibilityLabel="Also accept" />
                   </Field>
                 </>
               )}
-              <Field label="Tense">
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                  {TENSES.map((x) => <Chip key={x} soft label={TENSE_LABEL[x]} on={form.tense === x} onPress={() => set({ tense: form.tense === x ? '' : x })} />)}
-                </View>
-              </Field>
-              <Field label="Explanation (optional)" hint="Why this tense — shown to learners after they answer.">
+              {isWordKind(form.kind) ? null : (
+                <Field label="Tense">
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                    {TENSES.map((x) => <Chip key={x} soft label={TENSE_LABEL[x]} on={form.tense === x} onPress={() => set({ tense: form.tense === x ? '' : x })} />)}
+                  </View>
+                </Field>
+              )}
+              <Field label="Explanation (optional)" hint={isWordKind(form.kind) ? 'In Vietnamese — shown to learners after they answer.' : 'Why this tense — shown to learners after they answer.'}>
                 <Input value={form.explain} onChangeText={(v) => set({ explain: v })} multiline placeholder="Dùng quá khứ đơn vì có “yesterday”." maxLength={1500} accessibilityLabel="Explanation" />
               </Field>
             </>
