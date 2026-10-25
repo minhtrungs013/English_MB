@@ -248,6 +248,31 @@ function useStoreState() {
     showToast('Saved “' + lw.word + '” to your words.');
     return res.word;
   };
+  /**
+   * Chat → a new word's card: saves the word (everything the card has, as the word form would) and, with share, shares it
+   * to the library. A word already in the library is just saved.
+   */
+  const addChatWord = async (input: WordInput, topic: Topic, share = true): Promise<Word | undefined> => {
+    const have = dataRef.current.words.find((w) => w.word.toLowerCase() === input.word.toLowerCase());
+    if (have) return have;
+    const w = await call(api.createWord(input));
+    if (!w) return undefined;
+    patch((d) => ({ words: [w, ...d.words] }));
+    const shared = share && (w.meaning || w.vi) ? await api.shareToLibrary(w.id, topic).then(() => true, () => false) : false;
+    if (shared) patch((d) => ({ shared: d.shared.includes(w.word.toLowerCase()) ? d.shared : [...d.shared, w.word.toLowerCase()] }));
+    showToast(shared ? 'Saved “' + w.word + '” and shared it to the library.' : 'Saved “' + w.word + '” to your words.');
+    return w;
+  };
+  /** Adds a Vietnamese meaning in front of my word's (the chat's "In this question" meaning). */
+  const addWordMeaning = async (id: string, sense: string): Promise<boolean> => {
+    const w = dataRef.current.words.find((x) => x.id === id);
+    if (!w) return false;
+    const uw = await call(api.updateWord(id, { vi: [sense.trim(), w.vi.trim()].filter(Boolean).join(', ') }));
+    if (!uw) return false;
+    patch((d) => ({ words: d.words.map((x) => (x.id === id ? uw : x)) }));
+    showToast('Added “' + sense.trim() + '” to “' + w.word + '”.');
+    return true;
+  };
   const shareWord = async (w: Word, topic: Topic): Promise<boolean> => {
     const res = await call(api.shareToLibrary(w.id, topic));
     if (!res) return false;
@@ -374,7 +399,7 @@ function useStoreState() {
       reload: load, login, register, verifyRegister, resetPassword, logout, showToast, call,
       setAutofill: (q: Data['autofill']) => patch({ autofill: q }),
       saveWord, setWordExample, deleteWord, createTag, deleteTag, saveCategory, deleteCategory, rate, dueIds,
-      saveFromLibrary, shareWord, unshare, learnCourseDay, saveCourseWords, setSettings, setStyle, setSeasonal
+      saveFromLibrary, addChatWord, addWordMeaning, shareWord, unshare, learnCourseDay, saveCourseWords, setSettings, setStyle, setSeasonal
     },
     seasonal
   };

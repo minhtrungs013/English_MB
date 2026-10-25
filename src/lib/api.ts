@@ -536,6 +536,8 @@ export const api = {
   /** For up to 10 family member words: library id and my word id, if any. */
   familyStatus: (words: string[]) => req<{ items: FamilyStatusItem[] }>('POST', '/library/family-status', { words }),
   saveFromLibrary: (id: string) => req<{ word: Word; tag: string }>('POST', '/library/' + id + '/save'),
+  /** Suggest another Vietnamese meaning for a library word (an admin approves it). */
+  suggestMeaning: (id: string, vi: string) => req<{ status: 'exists' | 'pending' }>('POST', '/library/' + id + '/meanings', { vi }),
   shareToLibrary: (wordId: string, topic: Topic) => req<LibraryWord>('POST', '/library/share', { wordId, topic }),
   unshare: (id: string) => req<void>('DELETE', '/library/' + id),
 

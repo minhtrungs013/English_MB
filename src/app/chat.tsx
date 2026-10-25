@@ -3,8 +3,10 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Badge, Button, Icon, IconButton, LevelBadge, PosBadge, T } from '../components/ui';
-import { ApiError } from '../lib/api';
-import { applyEvent, chatAsk, chatStatus, loadChat, saveChat, setWordDraft, type ChatCard, type ChatMsg, type ChatStatus } from '../lib/chat';
+import { api, ApiError, type Topic } from '../lib/api';
+import { cleanFamily } from '../components/family';
+import { POS_LIST } from '../lib/data';
+import { applyEvent, chatAsk, chatStatus, hasMeaning, loadChat, saveChat, type ChatCard, type ChatMsg, type ChatStatus } from '../lib/chat';
 import { speak } from '../lib/speech';
 import { useStore, useTheme } from '../state/store';
 
@@ -50,6 +52,37 @@ function WordCard({ card }: { card: ChatCard }) {
   // The live state wins: a word saved after the answer came shows as saved.
   const mine = data.words.find((w) => w.word.toLowerCase() === card.word.toLowerCase());
   const status = mine ? 'mine' : card.status;
+  const inLibrary = data.shared.includes(card.word.toLowerCase());
+  /** The meaning this question is about, while the word (mine or the library's) doesn't have it yet. */
+  const sense = card.sense && !hasMeaning(mine ? mine.vi : card.vi, card.sense) ? card.sense : '';
+  const [suggested, setSuggested] = useState(false);
+  const suggest = async () => {
+    if (!card.id || !sense) return;
+    setBusy(true);
+    try {
+      const r = await api.suggestMeaning(card.id, sense);
+      setSuggested(true);
+      actions.showToast(r.status === 'exists' ? 'Thư viện đã có nghĩa này.' : 'Đã gửi đề xuất — admin sẽ duyệt nghĩa “' + sense + '”.');
+    } catch (e) {
+      actions.showToast(e instanceof Error ? e.message : 'Không gửi được đề xuất.', 'bad');
+    } finally {
+      setBusy(false);
+    }
+  };
+  /** Saves the new word with everything on the card, then shares it to the library, without leaving the chat. */
+  const add = async () => {
+    const word = card.word.trim();
+    const p = card.pos ? card.pos.charAt(0).toUpperCase() + card.pos.slice(1).toLowerCase() : '';
+    const pos = POS_LIST.includes(p) ? p : 'Other';
+    const vi = card.sense && !hasMeaning(card.vi, card.sense) ? [card.sense, card.vi.trim()].filter(Boolean).join(', ') : card.vi.trim();
+    const topic = (['it', 'interview', 'customer', 'leader', 'toeic', 'other'].includes(card.topic ?? '') ? card.topic : 'other') as Topic;
+    setBusy(true);
+    await actions.addChatWord({
+      word, ipa: card.ipa.trim(), pos, meaning: card.meaning.trim(), vi, ex: card.ex.trim(), syn: card.syn ?? [], ant: card.ant ?? [],
+      level: card.level || 'B1', cat: '', tags: [], notes: '', family: cleanFamily(card.family ?? [], { word, pos, vi })
+    }, topic, card.source !== 'online');
+    setBusy(false);
+  };
   return (
     <View style={{ borderWidth: 1, borderColor: t.border, borderLeftWidth: 3, borderLeftColor: t.primary, borderRadius: 12, padding: 12, gap: 6, backgroundColor: t.surface }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -65,7 +98,19 @@ function WordCard({ card }: { card: ChatCard }) {
           {card.level ? <LevelBadge level={card.level} /> : null}
         </View>
       ) : null}
-      {card.vi ? <T weight="bold">{card.vi}</T> : null}
+      {(mine?.vi || card.vi) ? <T weight="bold">{mine?.vi || card.vi}</T> : null}
+      {sense ? (
+        <View style={{ backgroundColor: t.surface2, borderRadius: 8, padding: 8, gap: 6 }}>
+          <T size={13.5}>Trong câu này: <T size={13.5} weight="bold">{sense}</T></T>
+          {status === 'mine' && mine ? (
+            <Button title="Thêm nghĩa này vào từ của tôi" icon="plus" variant="ghost" size="sm" loading={busy}
+              onPress={async () => { setBusy(true); await actions.addWordMeaning(mine.id, sense); setBusy(false); }} />
+          ) : status === 'library' && card.id ? (
+            suggested ? <T size={13} weight="semibold" tone="muted">Đã gửi đề xuất</T>
+              : <Button title="Đề xuất thêm nghĩa này cho thư viện" icon="plus" variant="ghost" size="sm" loading={busy} onPress={suggest} />
+          ) : status === 'new' ? <T size={12.5} tone="muted">Nghĩa này sẽ được lưu đầu tiên.</T> : null}
+        </View>
+      ) : null}
       {card.meaning ? <T size={13.5} tone="muted">{card.meaning}</T> : null}
       {card.ex ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
@@ -78,7 +123,7 @@ function WordCard({ card }: { card: ChatCard }) {
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
               <Icon name="checkc" size={16} color={t.success} />
-              <T size={13} weight="semibold" tone="muted">Đã có trong sổ của bạn</T>
+              <T size={13} weight="semibold" tone="muted">{card.status === 'new' && inLibrary ? 'Đã lưu và chia sẻ lên thư viện' : card.status === 'new' ? 'Đã lưu vào sổ của bạn' : 'Đã có trong sổ của bạn'}</T>
             </View>
             <Button title="Xem từ" variant="ghost" size="sm" onPress={() => { const id = mine?.id ?? card.id; if (id) router.push({ pathname: '/word/[id]', params: { id } }); }} />
           </View>
@@ -89,7 +134,7 @@ function WordCard({ card }: { card: ChatCard }) {
               onPress={async () => { setBusy(true); await actions.saveFromLibrary({ id: card.id!, word: card.word }); setBusy(false); }} />
           </>
         ) : (
-          <Button title="Thêm vào My Vocabulary" icon="plus" size="sm" onPress={() => { setWordDraft(card); router.push('/word-form'); }} />
+          <Button title="Thêm vào My Vocabulary" icon="plus" size="sm" loading={busy} onPress={add} />
         )}
       </View>
     </View>
