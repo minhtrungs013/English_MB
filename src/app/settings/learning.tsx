@@ -9,7 +9,7 @@ export default function LearningSettings() {
   return (
     <SettingsScreen title="Learning">
       <Card>
-        <Row title="Daily review goal" sub="The most words one review session will show">
+        <Row title="Words per session" sub="The most words one review, flashcard or practice session will show">
           <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>{['10', '20', '30', '50'].map((g) => <Chip key={g} label={g + ' words'} on={st.goal === g} onPress={() => actions.setSettings({ goal: g })} />)}</View>
         </Row>
         <Row title="Review direction" sub="What appears on the front of a flashcard">

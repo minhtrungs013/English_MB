@@ -26,8 +26,8 @@ const norm = (x: string) => x.toLowerCase().replace(/’/g, "'").replace(/\s+/g,
  * Fill in the blank and verb tenses use sentences from the server (the word sentence bank, fresh ones first);
  * fill falls back to the words' own examples when the server can't help.
  */
-async function loadSentenceQuestions(mode: 'fill' | 'tense', ws: Word[]): Promise<Q[]> {
-  const r = await api.practiceSentences(mode, 10).catch(() => null);
+async function loadSentenceQuestions(mode: 'fill' | 'tense', ws: Word[], n: number): Promise<Q[]> {
+  const r = await api.practiceSentences(mode, n).catch(() => null);
   if (r && mode === 'fill') {
     const qs = r.items.flatMap((x): Q[] => {
       const k = x.form ? x.sentence.toLowerCase().indexOf(x.form.toLowerCase()) : -1;
@@ -45,7 +45,7 @@ async function loadSentenceQuestions(mode: 'fill' | 'tense', ws: Word[]): Promis
         ...(choice ? { opts: q.choices, ans: q.choices.indexOf(q.answer) } : {}) }];
     });
   }
-  return mode === 'fill' ? makeQuestions('fill', ws) : [];
+  return mode === 'fill' ? makeQuestions('fill', ws, n) : [];
 }
 
 /** "We ___ (fix) it" with the gap shown as a line, or filled after checking. */
@@ -59,17 +59,18 @@ function Blanked({ prompt, fill }: { prompt: string; fill: string }) {
   );
 }
 
-function makeQuestions(mode: Mode, ws: Word[]): Q[] {
+/** n: words per session (Settings → Learning, the same as review). */
+function makeQuestions(mode: Mode, ws: Word[], n: number): Q[] {
   if (mode === 'mc') {
     const pool = ws.filter((w) => w.meaning);
     if (pool.length < 4) return [];
-    return shuffle(pool).slice(0, 10).map((w) => {
+    return shuffle(pool).slice(0, n).map((w) => {
       const opts = shuffle([w.meaning, ...shuffle(pool.filter((o) => o.id !== w.id && o.meaning !== w.meaning)).slice(0, 3).map((o) => o.meaning)]);
       return { id: w.id, opts, ans: opts.indexOf(w.meaning), answer: w.word };
     });
   }
   if (mode === 'fill') {
-    return shuffle(ws.filter((w) => w.ex && w.ex.toLowerCase().includes(w.word.toLowerCase()))).slice(0, 10).map((w) => {
+    return shuffle(ws.filter((w) => w.ex && w.ex.toLowerCase().includes(w.word.toLowerCase()))).slice(0, n).map((w) => {
       const k = w.ex.toLowerCase().indexOf(w.word.toLowerCase());
       return { id: w.id, before: w.ex.slice(0, k), after: w.ex.slice(k + w.word.length), answer: w.word };
     });
@@ -79,21 +80,22 @@ function makeQuestions(mode: Mode, ws: Word[]): Q[] {
     return shuffle(ws).flatMap((w) => {
       const wf = pickWordform(w.family);
       return wf ? [{ id: w.id, answer: wf.answer, wf }] : [];
-    }).slice(0, 10);
+    }).slice(0, n);
   }
-  if (mode === 'trans') return shuffle(ws.filter((w) => w.vi)).slice(0, 10).map((w) => ({ id: w.id, answer: w.word }));
-  return shuffle(ws).slice(0, 10).map((w) => ({ id: w.id, answer: w.word }));
+  if (mode === 'trans') return shuffle(ws.filter((w) => w.vi)).slice(0, n).map((w) => ({ id: w.id, answer: w.word }));
+  return shuffle(ws).slice(0, n).map((w) => ({ id: w.id, answer: w.word }));
 }
 
 export default function Quiz() {
   const params = useLocalSearchParams<{ mode?: string }>();
   const mode = (MODES.includes(params.mode as Mode) ? params.mode : 'mc') as Mode;
   const { data } = useStore();
+  const perSession = Number(data.settings.goal) || 20;
   const t = useTheme();
   const insets = useSafeAreaInsets();
   const fromServer = mode === 'fill' || mode === 'tense';
-  const [qs, setQs] = useState<Q[] | null>(() => (fromServer ? null : makeQuestions(mode, data.words)));
-  const load = () => { if (fromServer) { setQs(null); void loadSentenceQuestions(mode, data.words).then(setQs); } else setQs(makeQuestions(mode, data.words)); };
+  const [qs, setQs] = useState<Q[] | null>(() => (fromServer ? null : makeQuestions(mode, data.words, perSession)));
+  const load = () => { if (fromServer) { setQs(null); void loadSentenceQuestions(mode, data.words, perSession).then(setQs); } else setQs(makeQuestions(mode, data.words, perSession)); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { if (fromServer) load(); }, []);
   const [i, setI] = useState(0);

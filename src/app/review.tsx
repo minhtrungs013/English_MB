@@ -20,7 +20,7 @@ export default function Review() {
   const practice = params.mode === 'flash';
   const [queue] = useState<string[]>(() =>
     params.mode === 'ids' ? (params.ids ?? '').split(',').filter(Boolean)
-      : practice ? shuffle(data.words.map((w) => w.id)).slice(0, 20)
+      : practice ? shuffle(data.words.map((w) => w.id)).slice(0, Number(data.settings.goal) || 20)
       : actions.dueIds());
   /** Flashcards: this session's example sentence per word (from the sentence bank); the saved example otherwise. */
   const [examples, setExamples] = useState<Record<string, string>>({});
