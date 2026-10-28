@@ -83,7 +83,10 @@ export default function WarmupScreen() {
       if (!last) { setI(i + 1); setInput(''); return; }
       setPhase('summary');
       // Not graded: the result only marks today's review as done. A failure just shows a toast.
-      void actions.call(api.warmupDone(id, day, { correct: checked.filter((x) => x?.correct).length, total: n }));
+      void actions.call(api.warmupDone(id, day, {
+        correct: checked.filter((x) => x?.correct).length, total: n,
+        results: qs.map((x, k) => ({ word: x.word, ok: !!checked[k]?.correct })).filter((x) => x.word)
+      }));
     };
     const typed = isTyped(q);
     return (
@@ -245,7 +248,7 @@ export default function WarmupScreen() {
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <T size={16} weight="extrabold">{x.word}</T>
                 {x.ipa ? <T ipa size={13} tone="muted">{x.ipa}</T> : null}
-                {x.missed ? <Badge label={'missed ' + x.missed + '×'} bg={t.warning} fg={t.dark ? '#1C1F2A' : '#fff'} /> : null}
+                {x.missed ? <Badge label={'missed ' + (x.wrong ?? x.missed) + '×' + (x.right ? ' · right ' + x.right + '×' : '')} bg={t.warning} fg={t.dark ? '#1C1F2A' : '#fff'} /> : null}
               </View>
               {x.vi ? <T size={14} weight="semibold">{x.vi}</T> : null}
               {x.meaning ? <T size={13} tone="muted">{x.meaning}</T> : null}

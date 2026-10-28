@@ -278,8 +278,11 @@ export interface Warmup {
   day: number;
   /** The day's approved recap story; `vi` is its Vietnamese translation. */
   recap: { text: string; vi: string } | null;
-  /** Words from earlier days; `missed` = how many times the learner got it wrong. */
-  words: { word: string; ipa: string; vi: string; meaning: string; missed: number }[];
+  /**
+   * Words from earlier days; `missed` = mistakes still to fix (0 once answered right twice in a row),
+   * `wrong` / `right` = all the learner's answers about it (homework and warm-ups).
+   */
+  words: { word: string; ipa: string; vi: string; meaning: string; missed: number; wrong?: number; right?: number }[];
   questions: WarmupQuestion[];
 }
 
@@ -573,7 +576,8 @@ export const api = {
   /** Marks a day's warm-up as done: with the practice result when finished, without one when skipped. */
   /** The grammar of a day's example sentences (Learn step). */
   courseGrammar: (id: string, day: number) => req<{ items: { word: string; ex: string; grammar: GrammarView }[] }>('GET', '/courses/' + id + '/days/' + day + '/grammar'),
-  warmupDone: (id: string, day: number, result?: { correct: number; total: number }) =>
+  /** results: each answer (the question's word, right or wrong), so the next warm-ups know which words are still weak. */
+  warmupDone: (id: string, day: number, result?: { correct: number; total: number; results?: { word: string; ok: boolean }[] }) =>
     req<{ warmedUp: number[] }>('POST', '/courses/' + id + '/days/' + day + '/warmup/done', result ?? {}),
   /** The day's listening dialogue, or `dialogue: null` when the owner hasn't added one. */
   getListening: (id: string, day: number) => req<Listening>('GET', '/courses/' + id + '/days/' + day + '/listening'),
