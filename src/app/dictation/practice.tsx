@@ -9,6 +9,7 @@ import {
 import { masteryColors } from '../../components/grammar';
 import { BackBar, Badge, Button, Card, EmptyState, Icon, IconButton, Input, SectionTitle, T } from '../../components/ui';
 import { api, type DictationGrade, type DictationQuestion, type DictationSentence } from '../../lib/api';
+import { recordAnswer } from '../../lib/practice';
 import { speak, speakThen, stopSpeaking } from '../../lib/speech';
 import { errMsg, useStore, useTheme } from '../../state/store';
 
@@ -178,6 +179,8 @@ export default function DictationPracticeScreen() {
         r = { passed: !!g?.passed && e.hints < 3, score: g?.score ?? 0, sentences: sentencesOf(q), grades: g ? [g] : [] };
         const key = keys.current.get(q.id);
         if (key) void api.practiceSeen([{ key, ok: r.passed }]).catch(() => undefined);
+        // The word's practice stats (Practice → Words to fix): ids end with my word's id.
+        recordAnswer(q.id.split(':').pop() ?? '', 'dictation', r.passed);
       } else {
         const res = await api.submitDictation([{
           id: q.id, ...(q.kind === 'passage' ? { typedSentences: typed } : { typed: typed[0] ?? '' }), plays: Math.min(50, e.plays), hints: e.hints

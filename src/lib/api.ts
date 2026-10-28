@@ -463,6 +463,19 @@ export interface DictationResultItem {
 export interface DictationSubmitResult { results: DictationResultItem[]; passed: number; total: number; mastery: Record<string, number> }
 
 /** A sentence for one of my words (from the word sentence bank or the word's own example). */
+/** Practice modes whose answers are counted per word. */
+export type PracticeWordMode = 'mc' | 'trans' | 'listen' | 'wordform' | 'fill' | 'tense' | 'dictation';
+/**
+ * What practice knows about my words. records: every word × mode I practised (errors = mistakes still to fix) ·
+ * weak: words with mistakes to fix, most first, and the modes they're weak in · byMode: weak words per mode ·
+ * week: words fixed and wrong answers in the last 7 days.
+ */
+export interface PracticeStats {
+  records: { wordId: string; mode: PracticeWordMode; errors: number; lastAt: number; lastWrongAt: number }[];
+  weak: { wordId: string; word: string; vi: string; errors: number; lastWrongAt: number; modes: { mode: PracticeWordMode; errors: number; wrong: number; spelling: number }[] }[];
+  byMode: Partial<Record<PracticeWordMode, number>>;
+  week: { fixed: number; wrong: number };
+}
 export interface PracticeSentence {
   wordId: string; word: string; vi: string; key: string; sentence: string;
   /** fill: the word as written in the sentence (the blank). */
@@ -496,6 +509,9 @@ export const api = {
     req<{ items: PracticeSentence[] }>('GET', '/practice/sentences?mode=' + mode + '&n=' + n + (words?.length ? '&words=' + words.join(',') : '')),
   /** Marks practised sentences (ok = answered right), so the next session prefers others. */
   practiceSeen: (items: { key: string; ok?: boolean }[]) => req<void>('POST', '/practice/sentences/seen', { items }),
+  practiceStats: () => req<PracticeStats>('GET', '/practice/words/stats'),
+  /** Records practice answers (spelling: wrong but one letter off). */
+  practiceResults: (items: { wordId: string; mode: PracticeWordMode; ok: boolean; spelling?: boolean }[]) => req<void>('POST', '/practice/words/results', { items }),
   /** Starts sign-up: the server emails a 6-digit code; registerVerify creates the account. */
   register: (name: string, email: string, password: string) => req<{ email: string }>('POST', '/auth/register', { name, email, password }),
   registerVerify: (email: string, code: string) => req<AuthResponse>('POST', '/auth/register/verify', { email, code }),
