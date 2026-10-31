@@ -463,6 +463,18 @@ export interface DictationResultItem {
 export interface DictationSubmitResult { results: DictationResultItem[]; passed: number; total: number; mastery: Record<string, number> }
 
 /** A sentence for one of my words (from the word sentence bank or the word's own example). */
+/**
+ * How to use a word (shared by everyone, one per word): structures, collocations, notes (Vietnamese), common mistakes and
+ * look-alikes. status: unreviewed (as AI wrote it) · approved (checked by an admin) · stale (the meaning changed).
+ */
+export interface WordUsage {
+  key: string; word: string; basedOn: { pos: string; vi: string };
+  patterns: { pattern: string; ex: string; vi: string }[]; collocations: string[]; notes: string[];
+  mistakes: { wrong: string; right: string; why: string }[]; related: { word: string; pos: string; vi: string; note: string }[];
+  source: 'ai' | 'admin'; status: 'unreviewed' | 'approved' | 'stale'; reports: number; updatedAt: number;
+}
+/** usage: null when the word has none yet · stale: there is one for an older meaning · writing: AI is on it right now. */
+export interface UsageResult { usage: WordUsage | null; stale?: boolean; ai?: boolean; writing?: boolean; quota: Quota }
 /** Practice modes whose answers are counted per word. */
 export type PracticeWordMode = 'mc' | 'trans' | 'listen' | 'wordform' | 'fill' | 'tense' | 'dictation';
 /**
@@ -510,6 +522,9 @@ export const api = {
   /** Marks practised sentences (ok = answered right), so the next session prefers others. */
   practiceSeen: (items: { key: string; ok?: boolean }[]) => req<void>('POST', '/practice/sentences/seen', { items }),
   practiceStats: () => req<PracticeStats>('GET', '/practice/words/stats'),
+  /** How to use a word; generate writes it with AI when missing (one of today's Usage allowance). */
+  usage: (word: string, generate = false) => req<UsageResult>('GET', '/usage/' + encodeURIComponent(word.trim().toLowerCase()) + (generate ? '?generate=1' : '')),
+  reportUsage: (word: string, note: string) => req<{ ok: boolean }>('POST', '/usage/' + encodeURIComponent(word.trim().toLowerCase()) + '/report', { note }),
   /** Records practice answers (spelling: wrong but one letter off). */
   practiceResults: (items: { wordId: string; mode: PracticeWordMode; ok: boolean; spelling?: boolean }[]) => req<void>('POST', '/practice/words/results', { items }),
   /** Starts sign-up: the server emails a 6-digit code; registerVerify creates the account. */

@@ -8,6 +8,7 @@ import { api, type LibraryWord } from '../../lib/api';
 import { fmtDate } from '../../lib/data';
 import { speak } from '../../lib/speech';
 import { errMsg, useStore, useTheme } from '../../state/store';
+import { UsagePanel } from '../../components/usage';
 
 export default function LibraryWordScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -63,6 +64,8 @@ export default function LibraryWordScreen() {
             </View>
           </Card>
         ) : null}
+
+        <Card style={{ gap: 10 }}><UsagePanel word={w.word} /></Card>
 
         <WordFamily word={w.word} family={w.family} />
 

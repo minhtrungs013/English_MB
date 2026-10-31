@@ -14,6 +14,7 @@ import { shuffle } from '../../../../lib/data';
 import { speak, stopSpeaking } from '../../../../lib/speech';
 import { DayStepper, FlowNext, useDayFlow } from '../../../../components/day-flow';
 import { errMsg, useStore, useTheme } from '../../../../state/store';
+import { UsagePanel } from '../../../../components/usage';
 
 type Phase = 'meet' | 'practice' | 'summary';
 type Kind = 'listen' | 'dictation' | 'meaning' | 'blank' | 'recall' | 'match';
@@ -315,6 +316,8 @@ export default function LearnDayScreen() {
                   </View>
                 ) : null}
                 {w.ex ? <SentenceGrammar g={grammar.get(w.word.toLowerCase())} practice={false} /> : null}
+                {/* Only once someone has it: learning a course day never spends the learner's AI allowance. */}
+                <View style={{ alignSelf: 'stretch' }}><UsagePanel word={w.word} canWrite={false} /></View>
                 <WordFamily word={w.word} family={w.family} compact />
                 <SaveCourseWord courseId={c.id} day={day} word={w.word} canSave={open} style={{ alignSelf: 'center', marginTop: 4 }} />
               </Card>

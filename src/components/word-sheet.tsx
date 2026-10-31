@@ -6,6 +6,7 @@ import { speak } from '../lib/speech';
 import { useStore, useTheme } from '../state/store';
 import { WordFamily } from './family';
 import { Badge, Button, IconButton, LevelBadge, PosBadge, StatusBadge, T } from './ui';
+import { UsageToggle } from './usage';
 
 /** Quick look at one of my words as a bottom sheet: the essentials and the main actions. */
 export function WordSheet({ id, onClose }: { id: string | null; onClose: () => void }) {
@@ -49,6 +50,7 @@ export function WordSheet({ id, onClose }: { id: string | null; onClose: () => v
                   <IconButton name="volume" label="Play example" size={32} onPress={() => speak(w.ex, 0.95)} />
                 </View>
               ) : null}
+              <UsageToggle word={w.word} />
               {w.syn.length || w.ant.length ? (
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
                   {w.syn.map((x) => <Badge key={'s' + x} label={'≈ ' + x} bg={t.surface2} fg={t.text} />)}

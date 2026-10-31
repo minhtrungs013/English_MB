@@ -6,6 +6,7 @@ import { BackBar, Button, Card, Chip, ChipRow, EmptyState, Icon, IconButton, Ico
 import { api, type MistakeDrill, type MistakeNotebook } from '../lib/api';
 import { speak } from '../lib/speech';
 import { errMsg, useTheme } from '../state/store';
+import { UsageToggle } from '../components/usage';
 
 const LABEL: Record<string, string> = {
   tense: 'Tense', agreement: 'Subject–verb', article: 'Article', preposition: 'Preposition', 'word-form': 'Word form',
@@ -149,6 +150,7 @@ export default function Mistakes() {
                 {r.mistakes.map((m, k) => (
                   <T key={k} size={13.5}><T size={13} weight="bold" tone="danger">{LABEL[m.type] ?? m.type}: </T>{m.wrong} → <T size={13.5} weight="bold">{m.fix}</T>{m.explainVi ? <T size={13.5} tone="muted">{' · ' + m.explainVi}</T> : null}</T>
                 ))}
+                <UsageToggle word={r.word} />
               </Card>
             ))}
           </>

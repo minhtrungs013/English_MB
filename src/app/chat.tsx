@@ -9,6 +9,7 @@ import { POS_LIST } from '../lib/data';
 import { applyEvent, chatAsk, chatStatus, hasMeaning, loadChat, saveChat, type ChatCard, type ChatMsg, type ChatStatus } from '../lib/chat';
 import { speak } from '../lib/speech';
 import { useStore, useTheme } from '../state/store';
+import { UsageToggle } from '../components/usage';
 
 const SUGGESTIONS = ['Giải thích từ “device”', 'So sánh present perfect và past simple', 'Đặt câu với “follow up”'];
 /** Lessons without drills (nothing to practise). */
@@ -118,6 +119,7 @@ function WordCard({ card }: { card: ChatCard }) {
           <IconButton name="volume" label="Nghe câu ví dụ" size={40} onPress={() => speak(card.ex)} />
         </View>
       ) : null}
+      <UsageToggle word={card.word} />
       <View style={{ borderTopWidth: 1, borderTopColor: t.border, paddingTop: 8, marginTop: 2, gap: 8 }}>
         {status === 'mine' ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>

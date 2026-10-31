@@ -7,6 +7,7 @@ import { api, type SentenceResult } from '../lib/api';
 import type { Word } from '../lib/data';
 import { speak } from '../lib/speech';
 import { errMsg, useStore, useTheme } from '../state/store';
+import { UsageToggle } from '../components/usage';
 
 /** Words per round: due words first, then the newest. */
 const ROUND = 10;
@@ -142,6 +143,7 @@ export default function WriteSentence() {
                     </T>
                   </View>
                 ))}
+                {res.mistakes.length ? <UsageToggle word={w.word} /> : null}
                 {res.corrected && res.corrected !== text.trim() ? (
                   <Line label="Corrected" text={res.corrected} />
                 ) : null}

@@ -9,6 +9,7 @@ import type { Topic } from '../../lib/api';
 import { fmtAgo, fmtDate, fmtNext, type Word } from '../../lib/data';
 import { speak } from '../../lib/speech';
 import { useStore, useTheme } from '../../state/store';
+import { UsagePanel } from '../../components/usage';
 
 function ShareCard({ w }: { w: Word }) {
   const { data, actions } = useStore();
@@ -87,6 +88,8 @@ export default function WordDetail() {
             </View>
           </Card>
         ) : null}
+
+        <Card style={{ gap: 10 }}><UsagePanel word={w.word} /></Card>
 
         <WordFamily word={w.word} family={w.family} />
 
