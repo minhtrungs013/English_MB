@@ -249,11 +249,12 @@ export default function Quiz() {
             <View style={{ width: 64, height: 64, borderRadius: 18, backgroundColor: t.primarySoft, alignItems: 'center', justifyContent: 'center' }}><Icon name="trophy" size={32} color={t.primaryInk} /></View>
             <T size={26} weight="extrabold" center>{acc >= 80 ? 'Great job!' : acc >= 50 ? 'Nice work!' : 'Keep practicing!'}</T>
             <T tone="muted" center>You answered {score} of {first} correctly.{retries ? ' Fixed on the retry: ' + fixed + ' of ' + retries + '.' : ''}</T>
-            <View style={{ flexDirection: 'row', gap: 10, alignSelf: 'stretch', marginVertical: 8 }}>
+            {/* Four boxes don't fit in one row on a phone: two rows of two then. */}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, alignSelf: 'stretch', marginVertical: 8 }}>
               {[[first, 'questions', t.text], [score, 'correct', t.success], [acc + '%', 'accuracy', t.text], ...(retries ? [[fixed + '/' + retries, 'retry', t.primary]] : [])].map(([v, l, c]) => (
-                <View key={l as string} style={{ flex: 1, backgroundColor: t.surface2, borderRadius: 12, padding: 12, alignItems: 'center' }}>
-                  <T size={24} weight="extrabold" style={{ color: c as string }}>{v}</T>
-                  <T size={12} weight="semibold" tone="muted">{l as string}</T>
+                <View key={l as string} style={{ flexGrow: 1, flexBasis: retries ? '40%' : '28%', backgroundColor: t.surface2, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 8, alignItems: 'center' }}>
+                  <T size={24} weight="extrabold" numberOfLines={1} style={{ color: c as string }}>{v}</T>
+                  <T size={12} weight="semibold" tone="muted" numberOfLines={1}>{l as string}</T>
                 </View>
               ))}
             </View>
