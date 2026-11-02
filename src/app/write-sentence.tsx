@@ -9,14 +9,17 @@ import { speak } from '../lib/speech';
 import { errMsg, useStore, useTheme } from '../state/store';
 import { UsageToggle } from '../components/usage';
 
-/** Words per round: due words first, then the newest. */
+/** Words per round. */
 const ROUND = 10;
+/** The last round's word ids (while the app is open), so coming back doesn't start with the same words. */
+let lastRound: string[] = [];
 
 const MISTAKE_LABEL: Record<string, string> = {
   tense: 'Tense', agreement: 'Subject–verb', article: 'Article', preposition: 'Preposition', 'word-form': 'Word form',
   'word-meaning': 'Meaning', collocation: 'Collocation', 'word-order': 'Word order', spelling: 'Spelling', punctuation: 'Punctuation', other: 'Other'
 };
 
+/** Offline fallback: due words first, then the newest. */
 function pickRound(words: Word[]): Word[] {
   const now = Date.now();
   const due = words.filter((w) => w.dueAt <= now).sort((a, b) => a.dueAt - b.dueAt);
@@ -29,7 +32,7 @@ export default function WriteSentence() {
   const { data, actions } = useStore();
   const t = useTheme();
   const insets = useSafeAreaInsets();
-  const [round, setRound] = useState<Word[]>(() => pickRound(data.words));
+  const [round, setRound] = useState<Word[] | null>(null);
   const [i, setI] = useState(0);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -40,8 +43,20 @@ export default function WriteSentence() {
   const [saved, setSaved] = useState(false);
   const input = useRef<TextInput>(null);
   const scroll = useRef<ScrollView>(null);
-  const w = round[i];
-  const done = i >= round.length;
+  const w = round?.[i];
+  const done = !!round && i >= round.length;
+
+  /** A new round from the server (it knows what I wrote before); the words I have now, in its order. */
+  const newRound = () => {
+    setRound(null); setI(0); setScores([]); setText(''); setRes(null); setErr('');
+    api.sentenceRound(ROUND, lastRound).then((r) => {
+      const byId = new Map(data.words.map((x) => [x.id, x]));
+      const list = r.ids.map((id) => byId.get(id)).filter((x): x is Word => !!x);
+      return list.length ? list : pickRound(data.words);
+    }).catch(() => pickRound(data.words)).then((list) => { lastRound = list.map((x) => x.id); setRound(list); });
+  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (data.words.length) newRound(); }, []);
 
   useEffect(() => { api.sentenceQuota().then(setQuota).catch(() => setQuota(null)); }, []);
   const left = quota ? Math.max(0, quota.limit - quota.used) : null;
@@ -64,6 +79,7 @@ export default function WriteSentence() {
   const next = () => { setI(i + 1); setText(''); setRes(null); setErr(''); };
   const retry = () => { setRes(null); setErr(''); setTimeout(() => input.current?.focus(), 50); };
   const saveExample = async (sentence: string) => {
+    if (!w) return;
     try { await actions.setWordExample(w.id, sentence); setSaved(true); } catch (e) { actions.showToast(errMsg(e), 'bad'); }
   };
 
@@ -89,9 +105,11 @@ export default function WriteSentence() {
             <T tone="muted" center>{scores.length ? 'You checked ' + scores.length + ' sentence' + (scores.length === 1 ? '' : 's') + ' · average ' + avg + '/10' : 'You skipped every word this time.'}</T>
             <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
               <Button title="Practice" variant="secondary" onPress={() => router.back()} />
-              <Button title="New round" onPress={() => { setRound(pickRound(data.words)); setI(0); setScores([]); }} />
+              <Button title="New round" onPress={newRound} />
             </View>
           </Card>
+        ) : !round || !w ? (
+          <Card style={{ alignItems: "center", paddingVertical: 40 }}><T tone="muted">Picking your words…</T></Card>
         ) : (
           <>
             <T size={13} tone="muted">Word {i + 1} of {round.length}</T>
