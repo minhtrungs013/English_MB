@@ -102,6 +102,7 @@ function AutoFillSheet({ c, visible, onClose, onDone }: { c: CourseDetail; visib
   const [levels, setLevels] = useState<CefrLevel[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
   const [mode, setMode] = useState<'empty' | 'replace'>('empty');
+  const [skipMine, setSkipMine] = useState(true);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const total = c.totalDays * c.wordsPerDay;
@@ -111,7 +112,7 @@ function AutoFillSheet({ c, visible, onClose, onDone }: { c: CourseDetail; visib
     setBusy(true);
     setErr('');
     try {
-      const res = await api.autoFillCourse(c.id, { mode, ...(levels.length ? { levels } : {}), ...(topics.length ? { topics } : {}) });
+      const res = await api.autoFillCourse(c.id, { mode, skipMine, ...(levels.length ? { levels } : {}), ...(topics.length ? { topics } : {}) });
       onDone(res.course);
       onClose();
       actions.showToast('Added ' + res.added + (res.added === 1 ? ' word' : ' words') + (res.missing > 0 ? ' · ' + res.missing + ' places left empty (not enough matching words).' : '.'));
@@ -140,6 +141,12 @@ function AutoFillSheet({ c, visible, onClose, onDone }: { c: CourseDetail; visib
           <Chip soft label="Replace all words" on={mode === 'replace'} onPress={() => setMode('replace')} />
         </View>
       </Field>
+      <Field label="Words in My Vocabulary">
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+          <Chip soft label="Skip them" on={skipMine} onPress={() => setSkipMine(true)} />
+          <Chip soft label="They can be used" on={!skipMine} onPress={() => setSkipMine(false)} />
+        </View>
+      </Field>
       <View accessibilityLiveRegion="polite"><T weight="bold">Will add up to {upTo} {upTo === 1 ? 'word' : 'words'}.</T></View>
       {err ? <View accessibilityLiveRegion="polite"><T tone="danger">{err}</T></View> : null}
       <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -152,7 +159,7 @@ function AutoFillSheet({ c, visible, onClose, onDone }: { c: CourseDetail; visib
 
 export default function CourseEdit() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { actions } = useStore();
+  const { data, actions } = useStore();
   const t = useTheme();
   const [c, setC] = useState<CourseDetail | null>(null);
   const [err, setErr] = useState('');
@@ -205,6 +212,7 @@ export default function CourseEdit() {
   const words = day.words ?? [];
   const full = words.length >= c.wordsPerDay;
   const inDay = new Set(words.map((w) => w.word.toLowerCase()));
+  const mine = new Set(data.words.map((w) => w.word.toLowerCase()));
   const term = q.trim().toLowerCase();
   const matches = (lib?.items ?? []).filter((w) => !inDay.has(w.word.toLowerCase()));
   const exact = (lib?.items ?? []).some((w) => w.word.toLowerCase() === term);
@@ -222,9 +230,16 @@ export default function CourseEdit() {
     actions.showToast(msg);
     return true;
   };
-  const add = async (w: CourseWord) => {
+  const add = async (w: CourseWord, sure = false) => {
     if (full) { actions.showToast('Day ' + day.day + ' already has ' + c.wordsPerDay + ' words.', 'bad'); return; }
     if (inDay.has(w.word.toLowerCase())) { actions.showToast('“' + w.word + '” is already in day ' + day.day + '.', 'bad'); return; }
+    if (!sure && mine.has(w.word.toLowerCase())) {
+      Alert.alert('“' + w.word + '” is already in My Vocabulary', 'Do you want to learn it again in this course?', [
+        { text: 'No', style: 'cancel' },
+        { text: 'Yes, add it', onPress: () => { void add(w, true); } }
+      ]);
+      return;
+    }
     if (await saveDay([...words, w], 'Added “' + w.word + '” to day ' + day.day + ' · saved.')) { setQ(''); setAi(null); }
   };
   const remove = (i: number) => {
@@ -354,6 +369,7 @@ export default function CourseEdit() {
                         <T weight="extrabold">{w.word}</T>
                         <T size={13} tone="muted" numberOfLines={1}>{w.vi || w.meaning}</T>
                       </View>
+                      {mine.has(w.word.toLowerCase()) ? <Badge label="In my words" bg={t.infoSoft} fg={t.info} /> : null}
                       <LevelBadge level={w.level} />
                       <Icon name="plus" size={18} color={t.primaryInk} />
                     </Pressable>

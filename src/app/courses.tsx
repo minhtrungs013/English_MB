@@ -33,7 +33,8 @@ function CreateSheet({ visible, onClose }: { visible: boolean; onClose: () => vo
       let msg = 'Course “' + c.title + '” created. Add words to its days.';
       if (autoFill) {
         try {
-          const r = await api.autoFillCourse(c.id, { mode: 'empty' });
+          // Words already in My Vocabulary are left out.
+          const r = await api.autoFillCourse(c.id, { mode: 'empty', skipMine: true });
           msg = 'Course “' + c.title + '” created · added ' + r.added + (r.added === 1 ? ' word' : ' words') + (r.missing > 0 ? ' (' + r.missing + ' places left empty).' : '.');
         } catch (fe) {
           msg = 'Course created, but auto-fill failed: ' + errMsg(fe);

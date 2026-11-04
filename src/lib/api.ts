@@ -148,7 +148,7 @@ export interface CourseInput { title: string; description?: string; wordsPerDay?
 export const CEFR_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as const;
 export type CefrLevel = (typeof CEFR_LEVELS)[number];
 /** `empty` keeps existing words and fills free places; `replace` re-chooses all (409 once anyone joined). */
-export interface AutoFillInput { levels?: CefrLevel[]; topics?: Topic[]; mode?: 'empty' | 'replace' }
+export interface AutoFillInput { levels?: CefrLevel[]; topics?: Topic[]; mode?: 'empty' | 'replace'; /** Leave out the words already in My Vocabulary. */ skipMine?: boolean }
 export interface AutoFillResult { added: number; missing: number; course: CourseDetail }
 export interface AiWordResult { source: 'library' | 'ai' | 'online'; word: CourseWord; quota: Quota }
 export interface SaveWordsResult { added: Word[]; skipped: string[]; tag: string }
