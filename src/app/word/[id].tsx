@@ -5,6 +5,7 @@ import {
   BackBar, Badge, Button, Card, Chip, EmptyState, IconButton, LevelBadge, PosBadge, SectionTitle, StatusBadge, T, TOPIC_LABEL
 } from '../../components/ui';
 import { WordFamily } from '../../components/family';
+import { PhrasesWithWord } from '../../components/phrases';
 import type { Topic } from '../../lib/api';
 import { fmtAgo, fmtDate, fmtNext, type Word } from '../../lib/data';
 import { speak } from '../../lib/speech';
@@ -92,6 +93,7 @@ export default function WordDetail() {
         <Card style={{ gap: 10 }}><UsagePanel word={w.word} /></Card>
 
         <WordFamily word={w.word} family={w.family} />
+        <PhrasesWithWord word={w.word} />
 
         {(w.syn.length > 0 || w.ant.length > 0) && (
           <Card style={{ gap: 14 }}>

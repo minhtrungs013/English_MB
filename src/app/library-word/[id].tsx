@@ -2,6 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, View } from 'react-native';
 import { WordFamily } from '../../components/family';
+import { PhrasesWithWord } from '../../components/phrases';
 import { SaveFromLibrary } from '../../components/library';
 import { BackBar, Badge, Button, Card, EmptyState, IconButton, LevelBadge, PosBadge, SectionTitle, T, TopicBadge } from '../../components/ui';
 import { api, type LibraryWord } from '../../lib/api';
@@ -68,6 +69,7 @@ export default function LibraryWordScreen() {
         <Card style={{ gap: 10 }}><UsagePanel word={w.word} /></Card>
 
         <WordFamily word={w.word} family={w.family} />
+        <PhrasesWithWord word={w.word} />
 
         {(w.syn.length > 0 || w.ant.length > 0) && (
           <Card style={{ gap: 14 }}>
