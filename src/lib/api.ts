@@ -515,7 +515,41 @@ export interface SentenceResult {
   quota: { used: number; limit: number };
 }
 
+/* ---------- phrases ---------- */
+export type PhraseKind = 'slot' | 'fixed';
+export interface PhraseBrief {
+  key: string; phrase: string; kind: PhraseKind; vi: string; level: CefrLevel; topic: Topic; register: string; function: string; pattern: string;
+  /** In my vocabulary; errors: mistakes still to fix in Practice. */
+  saved?: boolean; errors?: number; practised?: boolean;
+  /** Phrases with a word: the phrase with that word in it. */
+  example?: string;
+}
+export interface PhraseFiller { en: string; word: string; vi: string; mine: boolean; wordId: string; libraryId: string }
+export interface Phrase extends PhraseBrief {
+  pos: string; meaning: string; slot: { type: string; hint: string } | null;
+  forms: { use: string; en: string }[]; templates: { type: string; vi: string; en: string; alt: string[] }[]; fillers: PhraseFiller[];
+  examples: { en: string; vi: string }[]; notes: string[]; mistakes: { wrong: string; right: string; why: string }[];
+  situations: string[]; dialogue: { s: string; en: string; vi: string }[]; replies: { good: string[]; bad: string[] }; variants: string[];
+  /** My word id when it's in my vocabulary ('' otherwise). */
+  savedId: string;
+}
+export interface PhraseDrill {
+  id: string; key: string; phrase: string; kind: PhraseKind; pattern: string;
+  type: 'translate' | 'fill' | 'transform' | 'situation' | 'reply' | 'meaning';
+  prompt: string; sub: string; choices: string[]; answers: string[];
+  check: { phrase: string; need: string[]; question: boolean } | null;
+  filler: PhraseFiller | null; explain: string;
+}
+const qs = (o: Record<string, string | number | undefined>) => Object.entries(o).filter(([, v]) => v !== undefined && v !== '').map(([k, v]) => k + '=' + encodeURIComponent(String(v))).join('&');
+
 export const api = {
+  phrases: (p: { q?: string; kind?: PhraseKind } = {}) => req<{ items: PhraseBrief[] }>('GET', '/phrases?' + qs(p)),
+  phrase: (key: string) => req<Phrase>('GET', '/phrases/' + encodeURIComponent(key)),
+  phrasesForWord: (word: string) => req<{ items: PhraseBrief[] }>('GET', '/phrases/for-word?' + qs({ word })),
+  /** Saves a phrase to My Vocabulary (tag "phrase"). */
+  savePhrase: (key: string) => req<{ word: Word; tag: string }>('POST', '/phrases/' + encodeURIComponent(key) + '/save'),
+  phraseSession: (n: number, key?: string) => req<{ items: PhraseDrill[] }>('GET', '/practice/phrases?' + qs({ n, key })),
+  phraseResults: (items: { key: string; ok: boolean }[]) => req<void>('POST', '/practice/phrases/results', { items }),
   /** Sentences for practising my words; fresh ones first, never ones from my courses' homework. */
   practiceSentences: (mode: 'fill' | 'tense' | 'dictation' | 'flash', n = 10, words?: string[]) =>
     req<{ items: PracticeSentence[] }>('GET', '/practice/sentences?mode=' + mode + '&n=' + n + (words?.length ? '&words=' + words.join(',') : '')),

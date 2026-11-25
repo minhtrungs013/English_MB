@@ -398,6 +398,8 @@ function useStoreState() {
       refreshUnread, setUnread, markNotesRead, markAllNotesRead, deleteNote,
       reload: load, login, register, verifyRegister, resetPassword, logout, showToast, call,
       setAutofill: (q: Data['autofill']) => patch({ autofill: q }),
+      /** A word the server just saved (e.g. a phrase from Phrases): into my list, with its tag. */
+      addSavedWord: (w: Word, tag?: string) => patch((d) => ({ words: [w, ...d.words.filter((x) => x.id !== w.id)], tags: tag && !d.tags.includes(tag) ? [...d.tags, tag] : d.tags })),
       saveWord, setWordExample, deleteWord, createTag, deleteTag, saveCategory, deleteCategory, rate, dueIds,
       saveFromLibrary, addChatWord, addWordMeaning, shareWord, unshare, learnCourseDay, saveCourseWords, setSettings, setStyle, setSeasonal
     },
