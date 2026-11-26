@@ -28,6 +28,7 @@ const GROUPS: { title: string; rows: [string, string, string, IconName, Tone][] 
       ['tense', 'Verb tenses', 'Put the verb in the right tense.', 'clock', 'amber'],
       ['dictation', 'Dictation', 'Listen and type — nghe – chép.', 'headphones', 'amber'],
       ['phrases', 'Phrases', 'Use phrases with your words and new ones.', 'chat', 'blue'],
+      ['roleplay', 'Role-play with AI', 'A short chat at work using your phrases.', 'users', 'indigo'],
       ['write', 'Write a sentence', 'Your own sentence, scored by AI.', 'sparkle', 'green'],
       ['mistakes', 'My mistakes', 'What you get wrong in your sentences.', 'alert', 'red']
     ]
@@ -107,6 +108,7 @@ export default function Practice() {
     if (mode === 'mistakes') { router.push('/mistakes'); return; }
     // Phrases work without saved words (new words are put into them too).
     if (mode === 'phrases') { router.push('/phrases'); return; }
+    if (mode === 'roleplay') { router.push('/roleplay'); return; }
     if (!data.words.length) { actions.showToast('Save some words first to practice.', 'bad'); return; }
     if (mode === 'write') router.push('/write-sentence');
     else if (mode === 'flash') router.push({ pathname: '/review', params: { mode: 'flash' } });

@@ -140,7 +140,7 @@ export default function Mistakes() {
               <Card key={r.id} style={{ gap: 6 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <T weight="extrabold">{r.word}</T>
-                  <T size={12} tone="muted" style={{ flex: 1 }}>{fmtDay(r.at)}{r.source === 'homework' ? ' · homework' : ''}</T>
+                  <T size={12} tone="muted" style={{ flex: 1 }}>{fmtDay(r.at)}{r.source === 'homework' ? ' · homework' : r.source === 'phrase' ? ' · phrases' : r.source === 'roleplay' ? ' · role-play' : ''}</T>
                   <T size={13} weight="extrabold" style={{ color: r.score >= 9 ? t.success : r.score >= 6 ? t.warning : t.danger }}>{r.score}/10</T>
                 </View>
                 <T size={14} tone="muted" style={{ textDecorationLine: 'line-through' }}>{r.sentence}</T>

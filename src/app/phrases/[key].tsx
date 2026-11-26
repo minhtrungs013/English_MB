@@ -18,6 +18,7 @@ export default function PhraseScreen() {
   const [p, setP] = useState<Phrase | null>(null);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
+  const [finding, setFinding] = useState(false);
   useEffect(() => {
     let live = true;
     api.phrase(String(key)).then((r) => { if (live) setP(r); }).catch((e) => { if (live) setErr(errMsg(e)); });
@@ -36,6 +37,15 @@ export default function PhraseScreen() {
       setP({ ...p, savedId: r.word.id });
       actions.showToast('Saved “' + p.phrase + '” to your words.');
     } catch (e) { actions.showToast(errMsg(e), 'bad'); } finally { setBusy(false); }
+  };
+  /** AI looks for my words that fit this phrase (only the ones it hasn't looked at). */
+  const findMine = async () => {
+    setFinding(true);
+    try {
+      const r = await api.phraseMyWords(p.key);
+      setP(await api.phrase(p.key));
+      actions.showToast(r.added ? 'Found ' + r.added + (r.added === 1 ? ' word' : ' words') + ' of yours.' : 'None of your ' + r.checked + ' new words fit “' + p.phrase + '”.');
+    } catch (e) { actions.showToast(errMsg(e), 'bad'); } finally { setFinding(false); }
   };
   const saveWord = async (libraryId: string, word: string) => {
     const w = await actions.saveFromLibrary({ id: libraryId, word });
@@ -64,6 +74,7 @@ export default function PhraseScreen() {
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
             {savedId ? <Badge label="✓ In my words" bg={t.successSoft} fg={t.success} />
               : <Button title="Save" icon="plus" variant="secondary" loading={busy} onPress={save} />}
+            <Button title="Role-play" icon="users" variant="secondary" onPress={() => router.push({ pathname: '/roleplay', params: { keys: p.key } })} />
             <Button title="Practise" icon="zap" onPress={() => router.push({ pathname: '/phrase-practice', params: { key: p.key } })} style={{ flex: 1 }} />
           </View>
         </Card>
@@ -84,11 +95,12 @@ export default function PhraseScreen() {
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
               {p.fillers.map((f) => (
                 <View key={f.en} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1, borderColor: f.mine ? t.success : t.border, backgroundColor: f.mine ? t.successSoft : t.surface }}>
-                  <T size={13.5} weight="bold" style={{ color: f.mine ? t.success : t.text }}>{f.en}{f.mine ? ' ✓' : ''}</T>
+                  <T size={13.5} weight="bold" style={{ color: f.mine ? t.success : t.text }}>{f.ai ? '✨ ' : ''}{f.en}{f.mine ? ' ✓' : ''}</T>
                   {!f.mine && f.libraryId ? <Pressable onPress={() => void saveWord(f.libraryId, f.word)} accessibilityRole="button" accessibilityLabel={'Save ' + f.word} hitSlop={8}><T size={13} weight="bold" style={{ color: t.primaryInk }}>+ Save</T></Pressable> : null}
                 </View>
               ))}
             </View>
+            {p.unchecked > 0 ? <Button title={finding ? 'Looking at your words…' : 'Find my words that fit (' + p.unchecked + ')'} icon="sparkle" variant="secondary" size="sm" loading={finding} onPress={findMine} /> : null}
           </Card>
         ) : null}
 

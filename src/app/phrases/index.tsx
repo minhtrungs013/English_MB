@@ -34,7 +34,10 @@ export default function Phrases() {
       <BackBar title="Phrases" />
       <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 4, gap: 12, paddingBottom: insets.bottom + 24 }} keyboardShouldPersistTaps="handled">
         <T tone="muted">Learn phrases like “run out of …” and “How’s it going?”, then use them with your own words.</T>
-        <Button title="Practise phrases" icon="zap" onPress={() => router.push('/phrase-practice')} block />
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <Button title="Role-play" icon="users" variant="secondary" onPress={() => router.push('/roleplay')} />
+          <Button title="Practise phrases" icon="zap" onPress={() => router.push('/phrase-practice')} style={{ flex: 1 }} />
+        </View>
         <Input value={q} onChangeText={setQ} placeholder="Search a phrase or a Vietnamese meaning" leftIcon="search" clearable accessibilityLabel="Search phrases" />
         <ChipRow>{KINDS.map((k) => <Chip key={k.id} label={k.label} on={kind === k.id} onPress={() => setKind(k.id)} />)}</ChipRow>
         {err ? <EmptyState icon="alert" tone="red" title="Can’t load the phrases" text={err} /> : !items ? <T tone="muted">Loading…</T> : !items.length ? (

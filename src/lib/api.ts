@@ -525,7 +525,7 @@ export interface PhraseBrief {
   /** Phrases with a word: the phrase with that word in it. */
   example?: string;
 }
-export interface PhraseFiller { en: string; word: string; vi: string; mine: boolean; wordId: string; libraryId: string }
+export interface PhraseFiller { en: string; word: string; vi: string; mine: boolean; wordId: string; libraryId: string; /** Found among my words by AI. */ ai?: boolean }
 export interface Phrase extends PhraseBrief {
   pos: string; meaning: string; slot: { type: string; hint: string } | null;
   forms: { use: string; en: string }[]; templates: { type: string; vi: string; en: string; alt: string[] }[]; fillers: PhraseFiller[];
@@ -533,10 +533,12 @@ export interface Phrase extends PhraseBrief {
   situations: string[]; dialogue: { s: string; en: string; vi: string }[]; replies: { good: string[]; bad: string[] }; variants: string[];
   /** My word id when it's in my vocabulary ('' otherwise). */
   savedId: string;
+  /** My words AI hasn't looked at yet for this phrase. */
+  unchecked: number;
 }
 export interface PhraseDrill {
   id: string; key: string; phrase: string; kind: PhraseKind; pattern: string;
-  type: 'translate' | 'fill' | 'transform' | 'situation' | 'reply' | 'meaning';
+  type: 'translate' | 'fill' | 'transform' | 'situation' | 'reply' | 'meaning' | 'own';
   prompt: string; sub: string; choices: string[]; answers: string[];
   check: { phrase: string; need: string[]; question: boolean; tense: PhraseTense | ''; base: string; past: string[] } | null;
   filler: PhraseFiller | null; explain: string;
@@ -545,6 +547,18 @@ export interface PhraseDrill {
 }
 const qs = (o: Record<string, string | number | undefined>) => Object.entries(o).filter(([, v]) => v !== undefined && v !== '').map(([k, v]) => k + '=' + encodeURIComponent(String(v))).join('&');
 
+export interface PhraseOwnResult {
+  score: number; usesPhrase: boolean; tenseOk: boolean; mistakes: { type: string; wrong: string; fix: string; explainVi: string }[];
+  corrected: string; better: string; betterVi: string; feedbackVi: string; quota: Quota;
+}
+export interface RolePlayLine { from: 'ai' | 'me'; text: string; used: string[]; noteVi: string }
+export interface RolePlaySession {
+  id: string; scenario: { title: string; titleVi: string; aiRole: string; learnerRole: string; learnerRoleVi: string; settingVi: string };
+  lines: RolePlayLine[]; used: string[]; done: boolean; turnsLeft: number;
+  feedback: { summaryVi: string; items: { text: string; ok: boolean; corrected: string; noteVi: string }[] } | null;
+  phrases: { key: string; phrase: string; vi: string; pattern: string }[];
+  quota?: Quota;
+}
 export const api = {
   phrases: (p: { q?: string; kind?: PhraseKind } = {}) => req<{ items: PhraseBrief[] }>('GET', '/phrases?' + qs(p)),
   phrase: (key: string) => req<Phrase>('GET', '/phrases/' + encodeURIComponent(key)),
@@ -552,6 +566,13 @@ export const api = {
   /** Saves a phrase to My Vocabulary (tag "phrase"). */
   savePhrase: (key: string) => req<{ word: Word; tag: string }>('POST', '/phrases/' + encodeURIComponent(key) + '/save'),
   phraseSession: (n: number, key?: string) => req<{ items: PhraseDrill[] }>('GET', '/practice/phrases?' + qs({ n, key })),
+  /** My own sentence with a phrase, graded by AI (one of today's Phrase AI uses). */
+  phraseOwn: (key: string, sentence: string, tense: string) => req<PhraseOwnResult>('POST', '/practice/phrases/own', { key, sentence, tense }),
+  /** AI finds my words that fit a slot phrase (one Phrase AI use; only words it hasn't looked at). */
+  phraseMyWords: (key: string) => req<{ fillers: { en: string; word: string; vi: string }[]; added: number; checked: number; quota: Quota }>('POST', '/practice/phrases/' + encodeURIComponent(key) + '/my-words'),
+  roleplayStart: (keys: string[]) => req<RolePlaySession>('POST', '/practice/roleplay', keys.length ? { keys } : {}),
+  roleplaySay: (id: string, text: string) => req<RolePlaySession>('POST', '/practice/roleplay/' + id + '/say', { text }),
+  roleplayFinish: (id: string) => req<RolePlaySession>('POST', '/practice/roleplay/' + id + '/finish'),
   phraseResults: (items: { key: string; ok: boolean }[]) => req<void>('POST', '/practice/phrases/results', { items }),
   /** Sentences for practising my words; fresh ones first, never ones from my courses' homework. */
   practiceSentences: (mode: 'fill' | 'tense' | 'dictation' | 'flash', n = 10, words?: string[]) =>

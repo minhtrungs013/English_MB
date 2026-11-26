@@ -4,7 +4,7 @@ import { KeyboardAvoidingView, Pressable, ScrollView, TextInput, View } from 're
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PatternChips } from '../components/phrases';
 import { BackBar, Badge, Button, Card, EmptyState, Icon, IconButton, IconTile, T } from '../components/ui';
-import { api, type PhraseDrill } from '../lib/api';
+import { api, type PhraseDrill, type PhraseOwnResult } from '../lib/api';
 import { DRILL_TITLE, TENSE_HINT, firstLetters, gradeDrill, hidesPhrase, type PhraseTense } from '../lib/phrases';
 import { recordAnswer } from '../lib/practice';
 import { speak } from '../lib/speech';
@@ -32,6 +32,10 @@ export default function PhrasePractice() {
   const [hint, setHint] = useState(0);
   /** Set when the answer was right except for its tense. */
   const [badTense, setBadTense] = useState<PhraseTense | null>(null);
+  /** "Your own sentence": AI grades it (one of today's Phrase AI uses); 7 or more counts as right. */
+  const [own, setOwn] = useState<PhraseOwnResult | null>(null);
+  const [ownBusy, setOwnBusy] = useState(false);
+  const [ownErr, setOwnErr] = useState('');
   const [done, setDone] = useState<{ d: PhraseDrill; verdict: Verdict }[]>([]);
   const [run, setRun] = useState(0);
   const field = useRef<TextInput>(null);
@@ -62,7 +66,20 @@ export default function PhrasePractice() {
     if (ok) speak(d.choices.length ? (d.type === 'meaning' ? d.phrase : answer) : d.answers[0]);
     setTimeout(() => scroll.current?.scrollToEnd({ animated: true }), 100);
   };
-  const next = () => { setI(i + 1); setInput(''); setVerdict(null); setGiven(''); setHint(0); setBadTense(null); scroll.current?.scrollTo({ y: 0, animated: false }); setTimeout(() => field.current?.focus(), 150); };
+  const next = () => { setI(i + 1); setInput(''); setVerdict(null); setGiven(''); setHint(0); setBadTense(null); setOwn(null); setOwnErr(''); scroll.current?.scrollTo({ y: 0, animated: false }); setTimeout(() => field.current?.focus(), 150); };
+  const checkOwn = async () => {
+    if (!d || verdict || ownBusy || !input.trim()) return;
+    setOwnBusy(true); setOwnErr('');
+    try {
+      const r = await api.phraseOwn(d.key, input.trim(), d.tense);
+      setOwn(r);
+      const v: Verdict = r.score >= 9 ? 'right' : r.score >= 7 ? 'close' : 'wrong';
+      setVerdict(v); setGiven(input);
+      setDone((x) => [...x, { d, verdict: v }]);
+      void api.phraseResults([{ key: d.key, ok: v !== 'wrong' }]).catch(() => undefined);
+      setTimeout(() => scroll.current?.scrollToEnd({ animated: true }), 100);
+    } catch (e) { setOwnErr(errMsg(e)); } finally { setOwnBusy(false); }
+  };
   const saveNew = async (libraryId: string, word: string) => {
     const w = await actions.saveFromLibrary({ id: libraryId, word });
     if (w) setItems((list) => list && list.map((x) => (x.filler && x.filler.word === word ? { ...x, filler: { ...x.filler, mine: true, wordId: w.id } } : x)));
@@ -168,9 +185,17 @@ export default function PhrasePractice() {
         ) : (
           <View style={{ gap: 10 }}>
             <TextInput ref={field} value={input} onChangeText={setInput} editable={!verdict} multiline autoCapitalize="sentences" autoCorrect={false}
-              placeholder={q.type === 'fill' ? 'Type the missing words…' : 'Type the English sentence…'} placeholderTextColor={t.faint} accessibilityLabel="Your answer"
+              placeholder={q.type === 'fill' ? 'Type the missing words…' : q.type === 'own' ? 'A sentence about your work or your day…' : 'Type the English sentence…'} maxLength={300} placeholderTextColor={t.faint} accessibilityLabel="Your answer"
               style={{ minHeight: 64, borderWidth: 1.5, borderColor: verdict ? (ok ? t.success : t.danger) : t.border, borderRadius: 12, padding: 12, fontSize: 16, color: t.text, backgroundColor: t.surface, textAlignVertical: 'top' }} />
-            {!verdict ? (
+            {!verdict && q.type === 'own' ? (
+              <View style={{ gap: 8 }}>
+                {ownErr ? <T size={14} tone="danger">{ownErr}</T> : null}
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <Button title="Skip" variant="secondary" onPress={next} disabled={ownBusy} />
+                  <Button title={ownBusy ? 'Checking…' : 'Check with AI'} icon="sparkle" loading={ownBusy} onPress={() => void checkOwn()} disabled={!input.trim()} style={{ flex: 1 }} />
+                </View>
+              </View>
+            ) : !verdict ? (
               <View style={{ flexDirection: 'row', gap: 10 }}>
                 {hidesPhrase(q.type) && hint < 2 ? <Button title={hint ? 'More help' : 'Hint'} icon="sparkle" variant="secondary" onPress={() => setHint(hint + 1)} /> : null}
                 <Button title="Answer" variant="secondary" onPress={() => check('')} />
@@ -185,12 +210,23 @@ export default function PhrasePractice() {
         <View accessibilityLiveRegion="polite" style={{ borderRadius: 14, padding: 14, gap: 6, backgroundColor: ok ? t.successSoft : t.dangerSoft }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Icon name={ok ? 'checkc' : 'alert'} size={20} color={ok ? t.success : t.danger} />
-            <T size={16} weight="extrabold" style={{ color: ok ? t.success : t.danger, flex: 1 }}>{verdict === 'right' ? 'Correct!' : verdict === 'close' ? 'Correct — another way to say it:' : given ? 'Not quite. The answer:' : 'The answer:'}</T>
+            <T size={16} weight="extrabold" style={{ color: ok ? t.success : t.danger, flex: 1 }}>{own ? (own.score >= 9 ? 'Great!' : ok ? 'Good' : 'Try again next time') : verdict === 'right' ? 'Correct!' : verdict === 'close' ? 'Correct — another way to say it:' : given ? 'Not quite. The answer:' : 'The answer:'}</T>
           </View>
-          {!q.choices.length ? <View style={{ flexDirection: 'row', alignItems: 'center' }}><T size={17} weight="bold" style={{ flex: 1 }}>{full}</T><IconButton name="volume" label="Hear the answer" onPress={() => speak(full)} /></View> : null}
+          {own ? (
+            <View style={{ gap: 6 }}>
+              <T size={20} weight="extrabold">{own.score}/10</T>
+              {own.feedbackVi ? <T size={14}>{own.feedbackVi}</T> : null}
+              {own.mistakes.map((m, k) => <T key={k} size={14}><T size={14} tone="danger" style={{ textDecorationLine: 'line-through' }}>{m.wrong}</T> → <T size={14} weight="bold">{m.fix}</T>{m.explainVi ? ' · ' + m.explainVi : ''}</T>)}
+              {own.corrected && own.corrected !== given.trim() ? <T size={14}>Corrected: <T size={14} weight="bold">{own.corrected}</T></T> : null}
+              {own.better ? <View style={{ flexDirection: 'row', alignItems: 'center' }}><T size={15} weight="bold" style={{ flex: 1 }}>{own.better}</T><IconButton name="volume" label="Hear" onPress={() => speak(own.better)} /></View> : null}
+              {own.betterVi ? <T size={13} tone="muted">{own.betterVi}</T> : null}
+              <T size={12} tone="muted">{Math.max(0, own.quota.limit - own.quota.used)} AI checks left today</T>
+            </View>
+          ) : null}
+          {!q.choices.length && !own ? <View style={{ flexDirection: 'row', alignItems: 'center' }}><T size={17} weight="bold" style={{ flex: 1 }}>{full}</T><IconButton name="volume" label="Hear the answer" onPress={() => speak(full)} /></View> : null}
           {badTense ? <T size={14}><T size={14} weight="bold">Sai thì:</T> câu này dùng {TENSE_HINT[badTense].vi} ({TENSE_HINT[badTense].form}).</T> : null}
           {!ok && !badTense && q.explain ? <T size={14}>{q.explain}</T> : null}
-          {!ok && !q.id.endsWith(':again') ? <T size={13} tone="muted">You’ll get this one again at the end.</T> : null}
+          {!ok && !own && !q.id.endsWith(':again') ? <T size={13} tone="muted">You’ll get this one again at the end.</T> : null}
           <Button title="Continue" icon="right" onPress={next} block style={{ marginTop: 6 }} />
         </View>
       ) : null}
