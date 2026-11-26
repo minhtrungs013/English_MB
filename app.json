@@ -43,6 +43,16 @@
         {
           "color": "#5847D6"
         }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Allow $(PRODUCT_NAME) to use the microphone so you can practise speaking.",
+          "speechRecognitionPermission": "Allow $(PRODUCT_NAME) to turn your speech into text when you practise speaking.",
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox"
+          ]
+        }
       ]
     ],
     "experiments": {

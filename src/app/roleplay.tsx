@@ -6,6 +6,7 @@ import { BackBar, Badge, Button, Card, Icon, IconButton, IconTile, T } from '../
 import { api, type PhraseBrief, type RolePlaySession } from '../lib/api';
 import { speak } from '../lib/speech';
 import { errMsg, useTheme } from '../state/store';
+import { MicButton } from '../components/mic';
 
 /**
  * Role-play with AI: a short chat at work where I use up to 3 phrases (given as keys, or some of mine).
@@ -115,9 +116,12 @@ export default function RolePlay() {
               </Card>
             ) : (
               <Card style={{ gap: 8 }}>
-                <TextInput value={text} onChangeText={setText} multiline maxLength={300} placeholder="Your answer in English…" placeholderTextColor={t.faint}
-                  accessibilityLabel="Your answer" editable={!busy || busy === '…'}
-                  style={{ minHeight: 56, borderWidth: 1, borderColor: t.border, borderRadius: 12, padding: 12, fontSize: 16, color: t.text, backgroundColor: t.surface, textAlignVertical: 'top' }} />
+                <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
+                  <TextInput value={text} onChangeText={setText} multiline maxLength={300} placeholder="Your answer in English…" placeholderTextColor={t.faint}
+                    accessibilityLabel="Your answer" editable={!busy || busy === '…'}
+                    style={{ flex: 1, minHeight: 56, borderWidth: 1, borderColor: t.border, borderRadius: 12, padding: 12, fontSize: 16, color: t.text, backgroundColor: t.surface, textAlignVertical: 'top' }} />
+                  <MicButton value={text} onChange={setText} disabled={!!busy} onError={setErr} />
+                </View>
                 {err ? <T size={14} tone="danger">{err}</T> : null}
                 <View style={{ flexDirection: 'row', gap: 10 }}>
                   <Button title={busy && busy !== '…' ? busy : 'Finish'} variant="secondary" loading={!!busy && busy !== '…'} onPress={finish} disabled={!!busy} />

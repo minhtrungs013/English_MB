@@ -9,6 +9,7 @@ import { DRILL_TITLE, TENSE_HINT, firstLetters, gradeDrill, hidesPhrase, type Ph
 import { recordAnswer } from '../lib/practice';
 import { speak } from '../lib/speech';
 import { errMsg, useStore, useTheme } from '../state/store';
+import { MicButton } from '../components/mic';
 
 const SIZE = 10;
 type Verdict = 'right' | 'close' | 'wrong';
@@ -184,9 +185,12 @@ export default function PhrasePractice() {
           </View>
         ) : (
           <View style={{ gap: 10 }}>
-            <TextInput ref={field} value={input} onChangeText={setInput} editable={!verdict} multiline autoCapitalize="sentences" autoCorrect={false}
-              placeholder={q.type === 'fill' ? 'Type the missing words…' : q.type === 'own' ? 'A sentence about your work or your day…' : 'Type the English sentence…'} maxLength={300} placeholderTextColor={t.faint} accessibilityLabel="Your answer"
-              style={{ minHeight: 64, borderWidth: 1.5, borderColor: verdict ? (ok ? t.success : t.danger) : t.border, borderRadius: 12, padding: 12, fontSize: 16, color: t.text, backgroundColor: t.surface, textAlignVertical: 'top' }} />
+            <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
+              <TextInput ref={field} value={input} onChangeText={setInput} editable={!verdict} multiline autoCapitalize="sentences" autoCorrect={false}
+                placeholder={q.type === 'fill' ? 'Type the missing words…' : q.type === 'own' ? 'A sentence about your work or your day…' : 'Type the English sentence…'} maxLength={300} placeholderTextColor={t.faint} accessibilityLabel="Your answer"
+                style={{ flex: 1, minHeight: 64, borderWidth: 1.5, borderColor: verdict ? (ok ? t.success : t.danger) : t.border, borderRadius: 12, padding: 12, fontSize: 16, color: t.text, backgroundColor: t.surface, textAlignVertical: 'top' }} />
+              {q.type !== 'fill' ? <MicButton value={input} onChange={setInput} disabled={!!verdict || ownBusy} onError={(m) => actions.showToast(m, 'bad')} /> : null}
+            </View>
             {!verdict && q.type === 'own' ? (
               <View style={{ gap: 8 }}>
                 {ownErr ? <T size={14} tone="danger">{ownErr}</T> : null}

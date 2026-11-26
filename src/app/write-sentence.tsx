@@ -8,6 +8,7 @@ import type { Word } from '../lib/data';
 import { speak } from '../lib/speech';
 import { errMsg, useStore, useTheme } from '../state/store';
 import { UsageToggle } from '../components/usage';
+import { MicButton } from '../components/mic';
 
 /** Words per round. */
 const ROUND = 10;
@@ -125,10 +126,13 @@ export default function WriteSentence() {
             {!res ? (
               <Card style={{ gap: 10 }}>
                 <T size={14} weight="bold">Your sentence with “{w.word}”</T>
-                <TextInput ref={input} value={text} onChangeText={setText} editable={!busy} multiline maxLength={200} autoCapitalize="sentences"
-                  placeholder={'A sentence about your work with “' + w.word + '”'} placeholderTextColor={t.faint}
-                  accessibilityLabel={'Your sentence with ' + w.word}
-                  style={{ minHeight: 100, borderWidth: 1, borderColor: t.border, borderRadius: 12, padding: 12, fontSize: 16, color: t.text, backgroundColor: t.surface, textAlignVertical: 'top' }} />
+                <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
+                  <TextInput ref={input} value={text} onChangeText={setText} editable={!busy} multiline maxLength={200} autoCapitalize="sentences"
+                    placeholder={'A sentence about your work with “' + w.word + '”'} placeholderTextColor={t.faint}
+                    accessibilityLabel={'Your sentence with ' + w.word}
+                    style={{ flex: 1, minHeight: 100, borderWidth: 1, borderColor: t.border, borderRadius: 12, padding: 12, fontSize: 16, color: t.text, backgroundColor: t.surface, textAlignVertical: 'top' }} />
+                  <MicButton value={text} onChange={setText} disabled={busy} onError={setErr} />
+                </View>
                 <T size={12} tone="muted" style={{ alignSelf: 'flex-end' }}>{text.length}/200</T>
                 {err ? (
                   <View accessibilityRole="alert" style={{ flexDirection: 'row', gap: 8, padding: 12, borderRadius: 10, backgroundColor: t.dangerSoft }}>
