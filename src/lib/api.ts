@@ -517,6 +517,7 @@ export interface SentenceResult {
 
 /* ---------- phrases ---------- */
 export type PhraseKind = 'slot' | 'fixed';
+export type PhraseTense = 'perfect' | 'past' | 'continuous' | 'modal' | 'present';
 export interface PhraseBrief {
   key: string; phrase: string; kind: PhraseKind; vi: string; level: CefrLevel; topic: Topic; register: string; function: string; pattern: string;
   /** In my vocabulary; errors: mistakes still to fix in Practice. */
@@ -537,8 +538,10 @@ export interface PhraseDrill {
   id: string; key: string; phrase: string; kind: PhraseKind; pattern: string;
   type: 'translate' | 'fill' | 'transform' | 'situation' | 'reply' | 'meaning';
   prompt: string; sub: string; choices: string[]; answers: string[];
-  check: { phrase: string; need: string[]; question: boolean } | null;
+  check: { phrase: string; need: string[]; question: boolean; tense: PhraseTense | ''; base: string; past: string[] } | null;
   filler: PhraseFiller | null; explain: string;
+  /** The tense the answer is in (a hint; another tense is wrong). */
+  tense: PhraseTense | '';
 }
 const qs = (o: Record<string, string | number | undefined>) => Object.entries(o).filter(([, v]) => v !== undefined && v !== '').map(([k, v]) => k + '=' + encodeURIComponent(String(v))).join('&');
 

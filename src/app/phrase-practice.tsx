@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PatternChips } from '../components/phrases';
 import { BackBar, Badge, Button, Card, EmptyState, Icon, IconButton, IconTile, T } from '../components/ui';
 import { api, type PhraseDrill } from '../lib/api';
-import { DRILL_TITLE, gradeDrill } from '../lib/phrases';
+import { DRILL_TITLE, TENSE_HINT, firstLetters, gradeDrill, hidesPhrase, type PhraseTense } from '../lib/phrases';
 import { recordAnswer } from '../lib/practice';
 import { speak } from '../lib/speech';
 import { errMsg, useStore, useTheme } from '../state/store';
@@ -28,6 +28,10 @@ export default function PhrasePractice() {
   const [input, setInput] = useState('');
   const [verdict, setVerdict] = useState<Verdict | null>(null);
   const [given, setGiven] = useState('');
+  /** Hints asked for on this question: 1 = first letters, 2 = the phrase and its pattern. */
+  const [hint, setHint] = useState(0);
+  /** Set when the answer was right except for its tense. */
+  const [badTense, setBadTense] = useState<PhraseTense | null>(null);
   const [done, setDone] = useState<{ d: PhraseDrill; verdict: Verdict }[]>([]);
   const [run, setRun] = useState(0);
   const field = useRef<TextInput>(null);
@@ -43,7 +47,9 @@ export default function PhrasePractice() {
   const d = items?.[i];
   const check = (answer: string) => {
     if (!d || verdict) return;
-    const v = gradeDrill(d, answer);
+    const g = gradeDrill(d, answer);
+    const v = g.verdict;
+    setBadTense(g.tense ?? null);
     setVerdict(v); setGiven(answer);
     const ok = v !== 'wrong';
     const retry = d.id.endsWith(':again');
@@ -56,7 +62,7 @@ export default function PhrasePractice() {
     if (ok) speak(d.choices.length ? (d.type === 'meaning' ? d.phrase : answer) : d.answers[0]);
     setTimeout(() => scroll.current?.scrollToEnd({ animated: true }), 100);
   };
-  const next = () => { setI(i + 1); setInput(''); setVerdict(null); setGiven(''); scroll.current?.scrollTo({ y: 0, animated: false }); setTimeout(() => field.current?.focus(), 150); };
+  const next = () => { setI(i + 1); setInput(''); setVerdict(null); setGiven(''); setHint(0); setBadTense(null); scroll.current?.scrollTo({ y: 0, animated: false }); setTimeout(() => field.current?.focus(), 150); };
   const saveNew = async (libraryId: string, word: string) => {
     const w = await actions.saveFromLibrary({ id: libraryId, word });
     if (w) setItems((list) => list && list.map((x) => (x.filler && x.filler.word === word ? { ...x, filler: { ...x.filler, mine: true, wordId: w.id } } : x)));
@@ -122,7 +128,9 @@ export default function PhrasePractice() {
       <T size={13} tone="muted">{i + 1} / {items.length}{q.id.endsWith(':again') ? ' · again' : ''}</T>
       <Card style={{ gap: 10 }}>
         <T size={12.5} weight="extrabold" tone="muted">{DRILL_TITLE[q.type].toUpperCase()}</T>
-        {q.type !== 'situation' ? (q.pattern ? <PatternChips pattern={q.pattern} /> : <T weight="extrabold">{q.phrase}</T>) : null}
+        {/* Hidden while it would give the answer away; hints show it bit by bit (or the answer, once checked). */}
+        {!hidesPhrase(q.type) || hint >= 2 || (verdict && q.type !== 'situation') ? (q.pattern ? <PatternChips pattern={q.pattern} /> : <T weight="extrabold">{q.phrase}</T>) : null}
+        {hidesPhrase(q.type) && q.type !== 'situation' && hint === 1 && !verdict ? <T size={16} weight="extrabold" style={{ color: t.primaryInk, letterSpacing: 1 }}>{firstLetters(q.type === 'fill' ? q.answers[0] : q.phrase)}</T> : null}
         {q.filler ? (
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, padding: 10, borderRadius: 10, backgroundColor: q.filler.mine ? t.successSoft : t.surface2 }}>
             <Badge label={q.filler.mine ? 'Your word' : 'New word'} bg={t.surface} fg={q.filler.mine ? t.success : t.text} />
@@ -135,6 +143,12 @@ export default function PhrasePractice() {
           {q.type === 'reply' || q.type === 'transform' || q.type === 'fill' ? <IconButton name="volume" label="Hear" onPress={() => speak(q.type === 'fill' ? full : q.prompt)} /> : null}
         </View>
         {q.sub ? <T size={14} tone="muted">{q.sub}</T> : null}
+        {q.tense ? (
+          <View style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, backgroundColor: t.infoSoft }}>
+            <Icon name="clock" size={14} color={t.info} />
+            <T size={13} style={{ color: t.info }}>Thì: <T size={13} weight="bold" style={{ color: t.info }}>{TENSE_HINT[q.tense].vi}</T> · {TENSE_HINT[q.tense].form}</T>
+          </View>
+        ) : null}
 
         {q.choices.length ? (
           <View style={{ gap: 8 }}>
@@ -158,7 +172,8 @@ export default function PhrasePractice() {
               style={{ minHeight: 64, borderWidth: 1.5, borderColor: verdict ? (ok ? t.success : t.danger) : t.border, borderRadius: 12, padding: 12, fontSize: 16, color: t.text, backgroundColor: t.surface, textAlignVertical: 'top' }} />
             {!verdict ? (
               <View style={{ flexDirection: 'row', gap: 10 }}>
-                <Button title="Show answer" variant="secondary" onPress={() => check('')} />
+                {hidesPhrase(q.type) && hint < 2 ? <Button title={hint ? 'More help' : 'Hint'} icon="sparkle" variant="secondary" onPress={() => setHint(hint + 1)} /> : null}
+                <Button title="Answer" variant="secondary" onPress={() => check('')} />
                 <Button title="Check" icon="check" onPress={() => check(input)} disabled={!input.trim()} style={{ flex: 1 }} />
               </View>
             ) : null}
@@ -173,7 +188,8 @@ export default function PhrasePractice() {
             <T size={16} weight="extrabold" style={{ color: ok ? t.success : t.danger, flex: 1 }}>{verdict === 'right' ? 'Correct!' : verdict === 'close' ? 'Correct — another way to say it:' : given ? 'Not quite. The answer:' : 'The answer:'}</T>
           </View>
           {!q.choices.length ? <View style={{ flexDirection: 'row', alignItems: 'center' }}><T size={17} weight="bold" style={{ flex: 1 }}>{full}</T><IconButton name="volume" label="Hear the answer" onPress={() => speak(full)} /></View> : null}
-          {!ok && q.explain ? <T size={14}>{q.explain}</T> : null}
+          {badTense ? <T size={14}><T size={14} weight="bold">Sai thì:</T> câu này dùng {TENSE_HINT[badTense].vi} ({TENSE_HINT[badTense].form}).</T> : null}
+          {!ok && !badTense && q.explain ? <T size={14}>{q.explain}</T> : null}
           {!ok && !q.id.endsWith(':again') ? <T size={13} tone="muted">You’ll get this one again at the end.</T> : null}
           <Button title="Continue" icon="right" onPress={next} block style={{ marginTop: 6 }} />
         </View>
