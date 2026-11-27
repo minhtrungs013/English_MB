@@ -204,6 +204,8 @@ export interface BankItem {
   tense: Tense | ''; tenseLabel: string;
   prompt: string; choices: string[]; answer: string; accept: string[]; explain: string;
   source: 'ai' | 'template' | 'manual' | 'bank'; status: BankStatus;
+  /** The word's meaning changed after it was written: back to pending until approved or edited again. */
+  stale?: boolean;
   /** Dialogues only. */
   data?: Dialogue;
 }

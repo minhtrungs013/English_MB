@@ -43,6 +43,8 @@ function DialogueCard({ q, busy, onStatus, onPreview, onDelete }: {
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
         <Badge label={STATUS_LABEL[q.status] ?? q.status} bg={sBg} fg={sFg} />
         <Badge label={SOURCE_LABEL[q.source] ?? q.source} bg={t.surface2} fg={t.muted} />
+        {/* The word's meaning changed after this was written: back to pending until approved or edited again. */}
+        {q.stale ? <Badge label="Meaning changed" bg={t.warningSoft} fg={t.warning} /> : null}
       </View>
       <T weight="extrabold" size={15.5}>{d?.title || q.prompt}</T>
       {d?.speakers.length ? (
@@ -102,6 +104,8 @@ function BankCard({ q, busy, onStatus, onEdit, onDelete }: {
         <Badge label={KIND_LABEL[q.kind] ?? q.kind} bg={t.primarySoft} fg={t.primaryInk} />
         {q.word ? <Badge label={q.word} bg={t.surface2} fg={t.text} /> : null}
         <Badge label={SOURCE_LABEL[q.source] ?? q.source} bg={t.surface2} fg={t.muted} />
+        {/* The word's meaning changed after this was written: back to pending until approved or edited again. */}
+        {q.stale ? <Badge label="Meaning changed" bg={t.warningSoft} fg={t.warning} /> : null}
       </View>
       <T weight={recap ? 'regular' : 'bold'} size={recap ? 14.5 : 15.5}>{q.prompt}</T>
       {isChoiceKind(q.kind) ? (
