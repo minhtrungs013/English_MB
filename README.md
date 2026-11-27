@@ -5,7 +5,7 @@ web app (`D:\English`), so accounts, words, the library and settings are shared 
 
 ## Server
 
-The app uses the API deployed on Render: `https://english-be-ys8a.onrender.com/api`
+The app uses the API deployed on Render: `https://english-be-xeqr.onrender.com/api`
 (set in `.env` for development and in `eas.json` for builds). The free Render plan sleeps after
 15 minutes without traffic, so the first request after that can take up to a minute.
 

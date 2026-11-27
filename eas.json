@@ -14,13 +14,13 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://english-be-ys8a.onrender.com/api"
+        "EXPO_PUBLIC_API_URL": "https://english-be-xeqr.onrender.com/api"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://english-be-ys8a.onrender.com/api"
+        "EXPO_PUBLIC_API_URL": "https://english-be-xeqr.onrender.com/api"
       }
     }
   }
