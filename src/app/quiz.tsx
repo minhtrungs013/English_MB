@@ -187,6 +187,8 @@ export default function Quiz() {
     const spelling = !ok && !skip && (qm === 'trans' || qm === 'listen' || qm === 'fill') && oneOff(input, q.answer);
     setChecked(true); setCorrect(ok); setNote(spelling ? 'Almost — check the spelling.' : '');
     answered(q, ok, spelling);
+    // Translation: the English word is read out once the answer is checked (right, wrong or skipped).
+    if (qm === 'trans') speak(q.answer);
   };
   const next = () => {
     if (!q || !qs) return;
